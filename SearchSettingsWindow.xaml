@@ -1,0 +1,286 @@
+﻿<ui:FluentWindow x:Class="Zentrix.SearchSettingsWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 Title="Zoekopdracht"
+                 Height="820" Width="720"
+                 MinHeight="520" MinWidth="560"
+                 WindowBackdropType="None"
+                 Background="{StaticResource AppBackgroundBrush}"
+                 Foreground="{StaticResource TextPrimaryBrush}"
+                 FontFamily="{StaticResource AppFontFamily}"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowStartupLocation="CenterOwner">
+
+    <ui:FluentWindow.Resources>
+
+        <!-- Kop boven een blok instellingen. -->
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+        </Style>
+
+        <!-- Label boven een invoerveld. -->
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+
+        <!-- Een blok met een eigen vlak, zodat de onderdelen uit elkaar vallen. -->
+        <Style x:Key="Section" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource SurfaceBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="Margin" Value="0,0,0,14" />
+        </Style>
+
+        <!-- Hier stonden Veld, PrimaireKnop en StilleKnop; zie NotifySettingsWindow.xaml voor
+             waarom die weg zijn. De kleine getalvelden zijn een gewone TextBox zonder eigen
+             stijl, zodat de stijl van WPF-UI geldt: in een ui:TextBox past het wisknopje niet
+             in 46 beeldpunten. -->
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- WPF-UI zet de Background van een FluentWindow bij het laden zelf
+             terug op de effen themakleur; ons verloop verdwijnt dan zonder
+             foutmelding. Daarom staat het als eigen vlak achter de inhoud. -->
+        <Border Grid.RowSpan="3" Background="{StaticResource AppBackgroundBrush}" />
+
+        <ui:TitleBar Grid.Row="0" Title="Zoekopdracht" ShowMaximize="True" />
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="20,10,20,0">
+            <StackPanel>
+
+                <!-- ==================== wat ==================== -->
+                <Border Style="{StaticResource Section}">
+                    <StackPanel>
+                        <TextBlock Text="Zoekwoord" Style="{StaticResource SectionTitle}" />
+
+                        <!-- Eén veld, en kort: hier hoort een zoekwoord in, geen zin.
+                             Een vak over de volle breedte nodigt uit tot het tweede. -->
+                        <ui:TextBox x:Name="QueryBox"
+                                 Width="260" HorizontalAlignment="Left" FontSize="15" />
+
+                        <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{StaticResource TextSubtleBrush}"
+                                   Text="Dit woord gaat naar elke aangevinkte site. Hoe je het verder afbakent — prijs, plaats, veilinghuis — staat hieronder per site." />
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================== waar ==================== -->
+                <Border Style="{StaticResource Section}">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,10">
+                            <TextBlock Text="Sites en hun filters" Style="{StaticResource SectionTitle}"
+                                       Margin="0" VerticalAlignment="Center" />
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <ui:Button Content="Alles aan" Click="AllOn_Click" Appearance="Transparent"
+                                           Padding="10,4" FontSize="12" Margin="0,0,6,0" />
+                                <ui:Button Content="Alles uit" Click="AllOff_Click" Appearance="Transparent"
+                                           Padding="10,4" FontSize="12" />
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Hoort bij de resultaten en niet bij het zoekwoord, dus
+                             staat het hier en niet in het blok hierboven. -->
+                        <CheckBox x:Name="PhotosOnlyBox" Content="Alleen resultaten met een foto"
+                                  Margin="0,0,0,12" />
+
+                        <ItemsControl x:Name="SitesList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Expander Margin="0,0,0,6" IsExpanded="False">
+                                        <Expander.Header>
+                                            <Grid VerticalAlignment="Center">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- Het vinkje in de kop, zodat een site aan- of
+                                                     uitzetten kan zonder hem open te klappen. -->
+                                                <CheckBox Grid.Column="0" VerticalAlignment="Center"
+                                                          Margin="0,0,10,0"
+                                                          IsChecked="{Binding Enabled, Mode=TwoWay}" />
+
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Site}" FontWeight="SemiBold"
+                                                               FontSize="14" />
+                                                    <TextBlock FontSize="11"
+                                                               Foreground="{StaticResource TextSubtleBrush}">
+                                                        <Run Text="{Binding Manier, Mode=OneWay}" />
+                                                        <Run Text=" · " />
+                                                        <Run Text="{Binding Samenvatting, Mode=OneWay}" />
+                                                    </TextBlock>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Expander.Header>
+
+                                        <StackPanel Margin="28,10,0,10">
+                                            <!-- prijs en aantal -->
+                                            <StackPanel Orientation="Horizontal">
+                                                <StackPanel Width="110" Margin="0,0,12,0">
+                                                    <TextBlock Text="Prijs van (€)" Style="{StaticResource FieldLabel}" />
+                                                    <TextBox
+                                                             Text="{Binding PriceMin, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+
+                                                <StackPanel Width="110" Margin="0,0,12,0">
+                                                    <TextBlock Text="tot (€)" Style="{StaticResource FieldLabel}" />
+                                                    <TextBox
+                                                             Text="{Binding PriceMax, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+
+                                                <StackPanel Width="110">
+                                                    <TextBlock Text="Max. resultaten" Style="{StaticResource FieldLabel}" />
+                                                    <TextBox
+                                                             Text="{Binding MaxResults, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+                                            </StackPanel>
+
+                                            <!-- postcode en straal, enkel bij sites die ze kennen -->
+                                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0"
+                                                        Visibility="{Binding ToonPostcode,
+                                                                    Converter={StaticResource BoolToVisibility}}">
+                                                <StackPanel Width="110" Margin="0,0,12,0">
+                                                    <TextBlock Text="Postcode" Style="{StaticResource FieldLabel}" />
+                                                    <TextBox
+                                                             Text="{Binding Postcode, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+
+                                                <StackPanel Width="140"
+                                                            Visibility="{Binding ToonStraal,
+                                                                        Converter={StaticResource BoolToVisibility}}">
+                                                    <TextBlock Text="Straal" Style="{StaticResource FieldLabel}" />
+                                                    <ComboBox SelectedValuePath="Tag"
+                                                              SelectedValue="{Binding Radius, Mode=TwoWay}">
+                                                        <ComboBoxItem Content="Overal" Tag="0" />
+                                                        <ComboBoxItem Content="Binnen 5 km" Tag="5" />
+                                                        <ComboBoxItem Content="Binnen 10 km" Tag="10" />
+                                                        <ComboBoxItem Content="Binnen 25 km" Tag="25" />
+                                                        <ComboBoxItem Content="Binnen 50 km" Tag="50" />
+                                                        <ComboBoxItem Content="Binnen 100 km" Tag="100" />
+                                                    </ComboBox>
+                                                </StackPanel>
+                                            </StackPanel>
+
+                                            <!-- De filters die enkel op deze site bestaan, uit het
+                                                 sitebestand: brandstof bij AutoScout24, provincies en
+                                                 veilinghuizen bij AlleVeilingen. In code opgebouwd
+                                                 (CustomFilters_Loaded), met dezelfde bouwstenen als
+                                                 de popups in het zoekscherm. -->
+                                            <StackPanel Margin="0,12,0,0" Loaded="CustomFilters_Loaded" />
+                                        </StackPanel>
+                                    </Expander>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================== wanneer ==================== -->
+                <Border Style="{StaticResource Section}">
+                    <StackPanel>
+                        <TextBlock Text="Wanneer draait deze zoekopdracht" Style="{StaticResource SectionTitle}" />
+
+                        <RadioButton x:Name="ModeOff" GroupName="Schema" Margin="0,0,0,8"
+                                     Content="Alleen wanneer ik er zelf op klik" />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <RadioButton x:Name="ModeInterval" GroupName="Schema" VerticalAlignment="Center"
+                                         Content="Om de" Margin="0,0,8,0" />
+                            <TextBox x:Name="IntervalBox" Width="60"
+                                     VerticalAlignment="Center" Text="60" />
+                            <TextBlock Text="minuten" VerticalAlignment="Center" Margin="8,0,0,0" />
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <RadioButton x:Name="ModeDaily" GroupName="Schema" VerticalAlignment="Center"
+                                         Content="Elke dag om" Margin="0,0,8,0" />
+                            <TextBox x:Name="DailyHourBox" Width="46"
+                                     VerticalAlignment="Center" Text="8" />
+                            <TextBlock Text=":" VerticalAlignment="Center" Margin="4,0" />
+                            <TextBox x:Name="DailyMinuteBox" Width="46"
+                                     VerticalAlignment="Center" Text="00" />
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <CheckBox x:Name="WindowBox" Content="Alleen tussen" VerticalAlignment="Center"
+                                      Margin="0,0,8,0" />
+                            <TextBox x:Name="FromHourBox" Width="46"
+                                     VerticalAlignment="Center" Text="8" />
+                            <TextBlock Text="en" VerticalAlignment="Center" Margin="8,0" />
+                            <TextBox x:Name="ToHourBox" Width="46"
+                                     VerticalAlignment="Center" Text="22" />
+                            <TextBlock Text="uur" VerticalAlignment="Center" Margin="8,0,0,0" />
+                        </StackPanel>
+
+                        <CheckBox x:Name="StartupBox" Margin="0,12,0,0"
+                                  Content="Ook uitvoeren zodra de app opstart" />
+
+                        <CheckBox x:Name="NotifyBox" Margin="0,10,0,0"
+                                  Content="Een melding sturen zodra er iets nieuws is" />
+
+                        <!-- Melden aangevinkt, maar nergens een kanaal dat kan versturen:
+                             dan kwam er gewoon nooit iets, zonder dat iemand het zei. -->
+                        <TextBlock x:Name="NotifyWarning" Margin="24,6,0,0" TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{StaticResource WarningBrush}" Visibility="Collapsed"
+                                   Text="Er staat nog geen meldingskanaal aan, dus deze melding komt nergens aan. Stel dat in via het tandwiel > Meldingen en achtergrond." />
+
+                        <TextBlock Margin="0,12,0,0" TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{StaticResource TextSubtleBrush}"
+                                   Text="Waar die melding heen gaat, stel je één keer in achter het tandwiel bovenaan, bij 'Meldingen en achtergrond'. Mislukt een site twee beurten op rij, dan krijg je daar ook een melding over." />
+
+                        <Border Background="{StaticResource AccentSoftBrush}" CornerRadius="8"
+                                Padding="12,10" Margin="0,14,0,0">
+                            <TextBlock x:Name="ScheduleHint" TextWrapping="Wrap" FontSize="12"
+                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ==================== knoppen ==================== -->
+        <Border Grid.Row="2" Background="{StaticResource ScrimBrush}"
+                BorderBrush="{StaticResource SurfaceBorderBrush}" BorderThickness="0,1,0,0"
+                Padding="20,12">
+            <Grid>
+                <!-- Kolommen: links en rechts stonden twee panelen in dezelfde cel, en in een
+                     smal venster liep de tekst naast "Nu uitvoeren" onder "Annuleren". -->
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <DockPanel Grid.Column="0" LastChildFill="True" Margin="0,0,12,0">
+                    <ui:Button DockPanel.Dock="Left" x:Name="RunNowButton" Content="Nu uitvoeren" Click="RunNow_Click"
+                               Appearance="Secondary" Padding="16,8" />
+                    <TextBlock x:Name="RunResult" VerticalAlignment="Center" Margin="12,0,0,0"
+                               FontSize="12" Foreground="{StaticResource TextSubtleBrush}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                </DockPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <!-- Esc annuleert, Enter bewaart: zoals in elk dialoogvenster. -->
+                    <ui:Button Content="Annuleren" Click="Cancel_Click" Appearance="Secondary"
+                               Padding="16,8" Margin="0,0,8,0" IsCancel="True" />
+                    <ui:Button Content="Bewaren" Click="Save_Click" Appearance="Primary" Padding="16,8"
+                               IsDefault="True" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

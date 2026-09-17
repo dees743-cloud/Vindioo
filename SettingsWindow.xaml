@@ -1,0 +1,384 @@
+﻿<ui:FluentWindow x:Class="Zentrix.SettingsWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:sys="clr-namespace:System;assembly=mscorlib"
+                 xmlns:models="clr-namespace:Zentrix.Models"
+                 Title="Sites beheren"
+                 Height="820" Width="1040"
+                 MinHeight="500" MinWidth="720"
+                 WindowBackdropType="None"
+                 Background="{StaticResource AppBackgroundBrush}"
+                 Foreground="{StaticResource TextPrimaryBrush}"
+                 FontFamily="{StaticResource AppFontFamily}"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowStartupLocation="CenterOwner">
+
+    <ui:FluentWindow.Resources>
+        <!-- De waarden van de SiteKind-enum, om in een keuzelijst te tonen. -->
+        <ObjectDataProvider x:Key="SiteKinds" MethodName="GetValues" ObjectType="{x:Type sys:Enum}">
+            <ObjectDataProvider.MethodParameters>
+                <x:Type TypeName="models:SiteKind" />
+            </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
+
+        <ObjectDataProvider x:Key="SiteUrlStyles" MethodName="GetValues" ObjectType="{x:Type sys:Enum}">
+            <ObjectDataProvider.MethodParameters>
+                <x:Type TypeName="models:SiteUrlStyle" />
+            </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
+
+        <!-- Uiterlijk van één tab: een omrande knop met afgeronde bovenhoeken.
+             De geopende tab krijgt een accentkleur zodat je ziet welke actief is. -->
+        <Style x:Key="SiteTabItemStyle" TargetType="TabItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Bd"
+                                CornerRadius="8,8,0,0"
+                                Background="{StaticResource SurfaceBrush}"
+                                BorderBrush="{StaticResource SurfaceBorderBrush}"
+                                BorderThickness="1,1,1,0"
+                                Padding="16,9" Margin="0,0,6,0">
+                            <ContentPresenter ContentSource="Header"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <!-- Niet-actieve tabs zijn wat gedempt. -->
+                            <Trigger Property="IsSelected" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.7" />
+                            </Trigger>
+                            <!-- Actieve tab: accentkleur en -rand. -->
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentOnDarkBrush}" />
+                            </Trigger>
+                            <!-- Muis boven een niet-actieve tab: lichtjes oplichten. -->
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsSelected" Value="False" />
+                                    <Condition Property="IsMouseOver" Value="True" />
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Bd" Property="Opacity" Value="1" />
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Kop van een tab: sitenaam, met een klein merkje voor ingebouwde bronnen. -->
+        <DataTemplate x:Key="TabHeaderTemplate">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding Def.Name}" VerticalAlignment="Center" />
+                <TextBlock Text="ingebouwd" FontSize="10" Opacity="0.5" Margin="6,0,0,0"
+                           VerticalAlignment="Center"
+                           Visibility="{Binding IsBuiltin, Converter={StaticResource BoolToVisibility}}" />
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- Inhoud van een tab: informatie (ingebouwd) of bewerkbare velden. -->
+        <DataTemplate x:Key="TabContentTemplate">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="4,12,12,12">
+                <StackPanel>
+
+                    <!-- Kop met naam en badges -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                        <TextBlock Text="{Binding Def.Name}" FontSize="20"
+                                   FontWeight="SemiBold" VerticalAlignment="Center" />
+
+                        <Border CornerRadius="10" Padding="8,2" Margin="12,0,0,0"
+                                Background="{StaticResource SurfaceHoverBrush}" VerticalAlignment="Center"
+                                Visibility="{Binding UsesSelectors, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="{Binding KindLabel}" FontSize="11" />
+                        </Border>
+                        <Border CornerRadius="10" Padding="8,2" Margin="12,0,0,0"
+                                Background="{StaticResource SurfaceHoverBrush}" VerticalAlignment="Center"
+                                Visibility="{Binding UsesOwnEngine, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Linkmotor" FontSize="11" />
+                        </Border>
+                        <Border CornerRadius="10" Padding="8,2" Margin="6,0,0,0"
+                                Background="{StaticResource AccentSoftBrush}" VerticalAlignment="Center"
+                                Visibility="{Binding IsBuiltin, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Ingebouwd" FontSize="11" />
+                        </Border>
+                        <Border CornerRadius="10" Padding="8,2" Margin="6,0,0,0"
+                                Background="{StaticResource AccentSoftBrush}" VerticalAlignment="Center"
+                                Visibility="{Binding Def.NeedsBrowser, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Browser" FontSize="11" />
+                        </Border>
+                        <Border CornerRadius="10" Padding="8,2" Margin="6,0,0,0"
+                                Background="{StaticResource AccentSoftBrush}" VerticalAlignment="Center"
+                                Visibility="{Binding Def.UseBridge, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Brug" FontSize="11" />
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Informatie voor ingebouwde bronnen -->
+                    <StackPanel Visibility="{Binding IsBuiltin, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="{Binding Info}" TextWrapping="Wrap" Opacity="0.7" />
+                        <TextBlock Text="Ingebouwde bron: de instellingen zitten in de code en zijn hier (nog) niet aanpasbaar."
+                                   TextWrapping="Wrap" Opacity="0.5" FontSize="12" Margin="0,6,0,0" />
+                    </StackPanel>
+
+                    <!-- Bewerkbare velden voor generieke sites -->
+                    <StackPanel Visibility="{Binding IsEditable, Converter={StaticResource BoolToVisibility}}">
+
+                        <WrapPanel>
+                            <StackPanel Width="240" Margin="0,0,16,10">
+                                <TextBlock Text="Naam" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.Name, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                            <StackPanel Width="160" Margin="0,0,16,10">
+                                <TextBlock Text="Korte naam (tab)" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.ShortName, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="De naam op het tabblad. Leeg laten betekent: de volledige naam hiernaast." />
+                            </StackPanel>
+                            <StackPanel Width="160" Margin="0,0,16,10">
+                                <TextBlock Text="Sleutel (bestandsnaam)" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.Id}" IsReadOnly="True" Opacity="0.7" />
+                            </StackPanel>
+                            <StackPanel Width="140" Margin="0,0,16,10"
+                                        Visibility="{Binding UsesSelectors, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="Soort" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ComboBox ItemsSource="{Binding Source={StaticResource SiteKinds}}"
+                                          SelectedItem="{Binding Def.Kind, Mode=TwoWay}" />
+                            </StackPanel>
+                            <StackPanel Width="180" Margin="0,0,16,10">
+                                <TextBlock Text="URL-stijl" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ComboBox ItemsSource="{Binding Source={StaticResource SiteUrlStyles}}"
+                                          SelectedItem="{Binding Def.UrlStyle, Mode=TwoWay}"
+                                          ToolTip="Standard: gewone parameters in de URL. Base64Json: de hele zoekopdracht als JSON in één base64-parameter; die JSON staat in de zoek-URL na het isgelijkteken." />
+                            </StackPanel>
+                            <StackPanel Width="240" Margin="0,0,16,10">
+                                <TextBlock Text="Basis-URL" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.BaseUrl, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                        </WrapPanel>
+
+                        <StackPanel Margin="0,0,0,10">
+                            <TextBlock Text="Zoek-URL (met {query} als plaatshouder)" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                            <ui:TextBox Text="{Binding Def.SearchUrlTemplate, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+
+                        <!-- Site met eigen code: de selectors hieronder doen daar niets. -->
+                        <TextBlock Visibility="{Binding UsesOwnEngine, Converter={StaticResource BoolToVisibility}}"
+                                   Text="Deze site gebruikt de linkmotor: in plaats van een selector per veld volgt die de links naar zoekertjes en leest hij prijs, titel en plaats uit de tekst van zo'n link. Welke links dat zijn en hoe de tekst gelezen wordt, staat in het sitebestand (Resultaat en het blok LinkText). De velden voor titel, prijs en plaats zijn daarom verborgen. Wat je hier wél instelt: de zoek-URL, de zoekfilters en de schakelaars."
+                                   TextWrapping="Wrap" Opacity="0.55" FontSize="12" Margin="0,0,0,12" />
+
+                        <WrapPanel Visibility="{Binding UsesSelectors, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Width="300" Margin="0,0,16,10">
+                                <TextBlock Text="Resultaat (selector/pad naar één zoekertje)" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.ItemSelector, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                            <StackPanel Width="240" Margin="0,0,16,10">
+                                <TextBlock Text="Titel" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.TitleSelector, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                            <StackPanel Width="240" Margin="0,0,16,10">
+                                <TextBlock Text="Beschrijving" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.DescriptionSelector, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                            <StackPanel Width="240" Margin="0,0,16,10">
+                                <TextBlock Text="Prijs" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.PriceSelector, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                            <StackPanel Width="240" Margin="0,0,16,10">
+                                <TextBlock Text="Plaats" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.LocationSelector, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                            <StackPanel Width="240" Margin="0,0,16,10">
+                                <TextBlock Text="Datum" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.DateSelector, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                            <StackPanel Width="240" Margin="0,0,16,10">
+                                <TextBlock Text="Link" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.UrlSelector, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                            <StackPanel Width="240" Margin="0,0,16,10">
+                                <TextBlock Text="Foto (miniatuur)" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.ImageSelector, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                            <StackPanel Width="240" Margin="0,0,16,10">
+                                <TextBlock Text="Grote foto (optioneel)" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.LargeImageSelector, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                        </WrapPanel>
+
+                        <WrapPanel Margin="0,0,0,4">
+                            <CheckBox Content="Prijs in centen" IsChecked="{Binding Def.PriceInCents}"
+                                      Margin="0,0,20,8" VerticalAlignment="Center"
+                                      Visibility="{Binding UsesSelectors, Converter={StaticResource BoolToVisibility}}" />
+                            <CheckBox Content="Browser gebruiken" IsChecked="{Binding Def.NeedsBrowser}"
+                                      Margin="0,0,20,8" VerticalAlignment="Center" />
+                            <CheckBox Content="Via de brug" IsChecked="{Binding Def.UseBridge}"
+                                      Margin="0,0,20,8" VerticalAlignment="Center" />
+                            <CheckBox Content="Mag zonder zoekterm" IsChecked="{Binding Def.AllowsEmptyQuery}"
+                                      Margin="0,0,20,8" VerticalAlignment="Center"
+                                      ToolTip="Deze site mag doorzocht worden met een lege zoekbalk, enkel op filters. Zinvol bij AutoScout24, waar het zoekwoord het merk is." />
+                            <CheckBox Content="Telt mee voor prijsindicatie" IsChecked="{Binding Def.PriceReference}"
+                                      Margin="0,0,20,8" VerticalAlignment="Center"
+                                      ToolTip="Rechtsklik op een foto geeft een prijsindicatie uit de vraagprijzen op de sites met dit vinkje. Zet het aan bij sites met gewone verkopers, niet bij veilingen." />
+                            <CheckBox Content="Veilingsite (prijs is een bod)" IsChecked="{Binding Def.IsAuction}"
+                                      Margin="0,0,20,8" VerticalAlignment="Center"
+                                      ToolTip="De prijs op deze site is een bod dat nog kan stijgen. De prijsindicatie zegt dan 'huidig bod' en telt die prijs niet mee." />
+                        </WrapPanel>
+
+                        <WrapPanel Visibility="{Binding UsesSelectors, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Width="240" Margin="0,0,16,10">
+                                <TextBlock Text="Verkoper (optioneel)" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.SellerSelector, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                            <StackPanel Width="300" Margin="0,0,16,10">
+                                <TextBlock Text="Veilinghuizen overslaan (gescheiden door komma's)" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding AuctionSellersText, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="Een veilinghuis dat op deze site adverteert, met het huidige bod als prijs. Zijn zoekertjes worden overgeslagen: dezelfde kavels staan op de veilingsite zelf. Werkt enkel als het veld Verkoper ingevuld is." />
+                            </StackPanel>
+                        </WrapPanel>
+
+                        <StackPanel Margin="0,0,0,10">
+                            <TextBlock Text="Zoekfilters — één per regel, als naam = stukje URL met {value}" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                            <ui:TextBox Text="{Binding FiltersText, UpdateSourceTrigger=PropertyChanged}"
+                                        AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60"
+                                        VerticalScrollBarVisibility="Auto"
+                                        PlaceholderText="priceMin = &amp;price[min]={value}" />
+                            <TextBlock Text="Bekende namen: priceMin, priceMax, priceRangeCents, priceRangeEuro, postcode (of location), radius, radiusMeters. Alleen ingevulde filters worden tijdens het zoeken aan de URL toegevoegd; een regel zonder {value} (bv. een vaste sortering) komt er altijd bij."
+                                       FontSize="11" Opacity="0.45" TextWrapping="Wrap" Margin="0,4,0,0" />
+                        </StackPanel>
+
+                        <WrapPanel>
+                            <StackPanel Width="300" Margin="0,0,16,10">
+                                <TextBlock Text="Volgende pagina (stukje URL met {page})" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.PageTemplate, UpdateSourceTrigger=PropertyChanged}"
+                                            PlaceholderText="&amp;page={page}" />
+                            </StackPanel>
+                            <StackPanel Width="140" Margin="0,0,16,10">
+                                <TextBlock Text="Eerste pagina is nummer" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.FirstPage, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                        </WrapPanel>
+
+                        <TextBlock Text="Laat 'volgende pagina' leeg als de site alles in één keer geeft. Anders haalt de app extra pagina's op tot vijfhonderd zoekertjes (hoogstens tien pagina's)."
+                                   FontSize="11" Opacity="0.45" TextWrapping="Wrap" Margin="0,0,0,10" />
+
+                        <StackPanel Margin="0,0,0,10">
+                            <TextBlock Text="Notitie" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                            <ui:TextBox Text="{Binding Def.Notes, UpdateSourceTrigger=PropertyChanged}"
+                                        AcceptsReturn="True" TextWrapping="Wrap" MinHeight="40"
+                                        VerticalScrollBarVisibility="Auto" />
+                        </StackPanel>
+
+                        <!-- Knoppen per site -->
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <ui:Button Content="Testen" Icon="{ui:SymbolIcon Play24}"
+                                       Appearance="Secondary" Margin="0,0,8,0" Padding="14,6"
+                                       Click="TestButton_Click" />
+                            <!-- Aanmelden hoort bij de site zelf. Het stond enkel in
+                                 "Site toevoegen", en dan maakte je een lege nieuwe site
+                                 aan om je bij een bestaande aan te melden. Enkel bij sites
+                                 die de browser van de app gebruiken; bij de brug is het
+                                 gewoon je eigen Chrome. -->
+                            <ui:Button Content="Aanmelden" Icon="{ui:SymbolIcon Person24}"
+                                       Appearance="Secondary" Margin="0,0,8,0" Padding="14,6"
+                                       Click="LoginButton_Click"
+                                       ToolTip="Opent de site in de browser van Zentrix. Meld je aan en sluit het venster; Zentrix onthoudt het."
+                                       Visibility="{Binding CanLogin, Converter={StaticResource BoolToVisibility}}" />
+                            <ui:Button Content="Opslaan" Icon="{ui:SymbolIcon Save24}"
+                                       Appearance="Primary" Margin="0,0,8,0" Padding="14,6"
+                                       Click="SaveButton_Click" />
+                            <ui:Button Content="Exporteren" Icon="{ui:SymbolIcon ArrowUpload24}"
+                                       Appearance="Secondary" Margin="0,0,8,0" Padding="14,6"
+                                       Click="ExportButton_Click" />
+                            <ui:Button Content="Verwijderen" Icon="{ui:SymbolIcon Delete24}"
+                                       Appearance="Secondary" Margin="0,0,16,0" Padding="14,6"
+                                       Click="DeleteButton_Click" />
+                        </StackPanel>
+
+                        <!-- Op een eigen regel: achter vijf knoppen bleef er vaak niets over, en
+                             een foutmelding was dan afgekapt of helemaal onzichtbaar. -->
+                        <TextBlock Text="{Binding Status}" Opacity="0.8" TextWrapping="Wrap" Margin="0,8,0,0" />
+
+                        <!-- Testresultaten -->
+                        <ItemsControl ItemsSource="{Binding Preview}" Margin="0,10,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" Margin="0,3">
+                                        <TextBlock Text="{Binding Price, Converter={StaticResource PriceText}}"
+                                                   Width="90" Opacity="0.8" FontSize="12" />
+                                        <TextBlock Text="{Binding Title}" FontSize="12"
+                                                   TextTrimming="CharacterEllipsis" MaxWidth="520" />
+                                        <TextBlock Text=" · " FontSize="12" Opacity="0.4" />
+                                        <TextBlock Text="{Binding Location}" FontSize="12" Opacity="0.5" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </DataTemplate>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- WPF-UI zet de Background van een FluentWindow bij het laden zelf
+             terug op de effen themakleur; ons verloop verdwijnt dan zonder
+             foutmelding. Daarom staat het als eigen vlak achter de inhoud. -->
+        <Border Grid.RowSpan="4" Background="{StaticResource AppBackgroundBrush}" />
+
+        <ui:TitleBar Grid.Row="0" Title="Sites beheren" />
+
+        <!-- Bovenbalk: testwoord en algemene knoppen -->
+        <WrapPanel Grid.Row="1" Margin="24,8,24,8">
+            <StackPanel Orientation="Horizontal" Margin="0,0,20,8" VerticalAlignment="Center">
+                <TextBlock Text="Testwoord" VerticalAlignment="Center" Opacity="0.7" Margin="0,0,8,0" />
+                <!-- Een gewoon woord en geen merknaam: een site die niets heeft voor een
+                     nichewoord, lijkt anders stuk terwijl er niets mis is. -->
+                <ui:TextBox x:Name="TestWordBox" Text="cd" Width="180" />
+            </StackPanel>
+
+            <ui:Button Content="Site toevoegen" Icon="{ui:SymbolIcon Add24}"
+                       Appearance="Primary" Margin="0,0,8,8" Padding="14,6"
+                       Click="AddSiteButton_Click" />
+            <ui:Button Content="Importeren uit bestand" Icon="{ui:SymbolIcon ArrowImport24}"
+                       Appearance="Secondary" Margin="0,0,8,8" Padding="14,6"
+                       Click="ImportButton_Click" />
+            <ui:Button Content="Logboek openen" Icon="{ui:SymbolIcon DocumentText24}"
+                       Appearance="Secondary" Margin="0,0,8,8" Padding="14,6"
+                       Click="OpenLogButton_Click" />
+            <ui:Button Content="Map openen" Icon="{ui:SymbolIcon FolderOpen24}"
+                       Appearance="Secondary" Margin="0,0,0,8" Padding="14,6"
+                       Click="OpenFolderButton_Click" />
+        </WrapPanel>
+
+        <!-- Eén tab per site -->
+        <TabControl Grid.Row="2" x:Name="SiteTabs" Margin="24,4,24,0"
+                    Padding="0"
+                    ItemContainerStyle="{StaticResource SiteTabItemStyle}"
+                    ItemTemplate="{StaticResource TabHeaderTemplate}"
+                    ContentTemplate="{StaticResource TabContentTemplate}" />
+
+        <!-- Een Grid: in een rechts uitgelijnde StackPanel verdween het begin van een lange
+             melding links buiten beeld. Sluiten is geen hoofdactie, dus Secondary. -->
+        <Grid Grid.Row="3" Margin="24,10,24,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="StatusText" Text="" Opacity="0.8" VerticalAlignment="Center" Margin="0,0,16,0"
+                       TextTrimming="CharacterEllipsis"
+                       ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+            <ui:Button Grid.Column="1" Content="Sluiten" Appearance="Secondary" Padding="16,6"
+                       Click="CloseButton_Click" IsCancel="True" />
+        </Grid>
+    </Grid>
+</ui:FluentWindow>

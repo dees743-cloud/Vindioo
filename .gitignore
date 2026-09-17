@@ -1,0 +1,14 @@
+# Bouwresultaten: worden bij elke build opnieuw gemaakt
+bin/
+obj/
+
+# Visual Studio: instellingen per gebruiker, niet om te delen
+.vs/
+*.user
+
+# Python
+__pycache__/
+*.pyc
+
+# Claude Code: de adviseurs bevatten persoonlijke paden
+.claude/

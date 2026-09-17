@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Zentrix Brug",
+  "version": "1.7",
+  "description": "Haalt zoekpagina's op in je eigen browser en geeft ze door aan de Zentrix-app op deze computer.",
+  "permissions": ["tabs", "scripting", "storage", "alarms"],
+  "host_permissions": ["<all_urls>", "http://127.0.0.1/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Zentrix Brug"
+  }
+}

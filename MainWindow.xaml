@@ -1,0 +1,1362 @@
+﻿<ui:FluentWindow x:Class="Zentrix.MainWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:controls="clr-namespace:Zentrix.Controls"
+                 xmlns:models="clr-namespace:Zentrix.Models"
+                 Title="Zentrix"
+                 Height="860" Width="1180"
+                 MinHeight="560" MinWidth="820"
+                 WindowBackdropType="None"
+                 Foreground="{StaticResource TextPrimaryBrush}"
+                 FontFamily="{StaticResource AppFontFamily}"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowStartupLocation="CenterScreen">
+
+    <ui:FluentWindow.Resources>
+
+        <!-- ============ knopvormen ============ -->
+
+        <!-- De knoppen met de zoekinstellingen, onder de sitetabs. Geen eigen
+             vlak: de achtergrond loopt gewoon door en de pictogrammen staan in
+             het wit, net als de balk onderaan. Bij het zweven licht er een
+             zacht vlakje op zodat je ziet waar je staat. -->
+        <Style x:Key="PillButton" TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Back" Background="Transparent"
+                                CornerRadius="13" Padding="16,8" MinWidth="52">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Back" Property="Background"
+                                        Value="{StaticResource SurfaceHoverBrush}" />
+                            </Trigger>
+                            <!-- 0,5 en niet 0,35: op het lichte deel van de achtergrondfoto
+                                 bleef er van een gedimde knop anders bijna niets over (een
+                                 contrast van 1,4:1). Dimmen in plaats van verbergen blijft. -->
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Back" Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Een klein knopje op een lichte kaart: donker pictogram, geen vlak
+             tenzij de muis erop staat. Voor de knoppen bij een zoekopdracht. -->
+        <Style x:Key="CardIconButton" TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource CardTextBrush}" />
+            <Setter Property="Margin" Value="2,0,0,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Back" Width="32" Height="32" CornerRadius="10"
+                                Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Back" Property="Background"
+                                        Value="{StaticResource AccentSoftBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Sterretje en dergelijke, boven op een foto. -->
+        <Style x:Key="OverlayButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Back" Width="30" Height="30" CornerRadius="15"
+                                Background="{StaticResource OverlayBrush}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Back" Property="Background" Value="{StaticResource OverlayHoverBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Het vergrootglas op een foto: ziet eruit als OverlayButton, maar je klikt er niet
+             op. De muis erop zetten toont de grote foto (ShowPreview van PhotoThumbnail), dus
+             geen handje als muisaanwijzer en geen tooltip, want die zou tegelijk opspringen. -->
+        <Style x:Key="OverlayIcon" TargetType="Border">
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="CornerRadius" Value="15" />
+            <Setter Property="Background" Value="{StaticResource OverlayBrush}" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource OverlayHoverBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Eén knop in de balk onderaan: pictogram met tekst eronder. -->
+        <Style x:Key="BottomTab" TargetType="RadioButton">
+            <Setter Property="GroupName" Value="Onderbalk" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid Background="Transparent">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="4" />
+                            </Grid.RowDefinitions>
+
+                            <ContentPresenter Grid.Row="0" Margin="0,10,0,6"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+
+                            <!-- Streepje onder de actieve knop -->
+                            <Border x:Name="Marker" Grid.Row="1" Height="4" Width="64"
+                                    CornerRadius="2" Background="Transparent" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <!-- De tekst in het lichte indigo: het gewone haalde op deze
+                                 achtergrond een contrast van 2:1, en dan was de actieve tab
+                                 slechter leesbaar dan de inactieve. Het streepje blijft in het
+                                 gewone accent, want dat is een vlak. -->
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource AccentOnDarkBrush}" />
+                                <Setter TargetName="Marker" Property="Background"
+                                        Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True" />
+                                    <Condition Property="IsChecked" Value="False" />
+                                </MultiTrigger.Conditions>
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Kop van een popup met filters. -->
+        <Style x:Key="PopupCard" TargetType="Border">
+            <!-- Ondoorzichtig: een popup moet leesbaar blijven, ook boven de foto. -->
+            <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource SurfaceBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="Margin" Value="10" />
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="20" ShadowDepth="3" Opacity="0.2" Color="#000000" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Pictogram in de balk onderaan: gevuld zodra zijn tab open staat,
+             zodat de actieve keuze meteen opvalt. -->
+        <Style x:Key="BottomTabIcon" TargetType="ui:SymbolIcon">
+            <Setter Property="FontSize" Value="23" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Style.Triggers>
+                <DataTrigger Value="True"
+                             Binding="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=RadioButton}}">
+                    <Setter Property="Filled" Value="True" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="BottomTabLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,5,0,0" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Style.Triggers>
+                <DataTrigger Value="True"
+                             Binding="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=RadioButton}}">
+                    <Setter Property="FontWeight" Value="Bold" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="FilterLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+
+        <!-- ============ sjablonen voor de resultaten ============ -->
+
+        <!-- Weergave 1: lijst. Een brede kaart per zoekertje, om te lezen. -->
+        <DataTemplate x:Key="ListItemTemplate">
+            <Border Background="{StaticResource CardBrush}" CornerRadius="14"
+                    BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1"
+                    Padding="12" Margin="0,0,0,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Grid Grid.Column="0" Margin="0,0,16,0">
+                        <!-- Rechtsklik op de foto: de prijsindicatie. Het menu krijgt het zoekertje
+                             als DataContext mee van de foto waarop het opengaat. -->
+                        <Grid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Prijsindicatie" Icon="{ui:SymbolIcon Money24}"
+                                          Click="PriceIndicationMenu_Click" />
+                            </ContextMenu>
+                        </Grid.ContextMenu>
+
+                        <controls:PhotoThumbnail PhotoWidth="240" PhotoHeight="200"
+                                                 ShowPreview="{Binding IsMouseOver, ElementName=ListZoom}" />
+
+                        <Border CornerRadius="6" Padding="6,2" Background="{StaticResource NewBadgeBrush}"
+                                HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8"
+                                Visibility="{Binding IsNew, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="NIEUW" FontSize="10" FontWeight="Bold" Foreground="White" />
+                        </Border>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                    VerticalAlignment="Top" Margin="8">
+                            <Border x:Name="ListZoom" Style="{StaticResource OverlayIcon}" Margin="0,0,6,0"
+                                    AutomationProperties.Name="Grote foto tonen">
+                                <ui:SymbolIcon Symbol="ZoomIn24" FontSize="16" Foreground="White" />
+                            </Border>
+
+                            <Button Style="{StaticResource OverlayButton}" Click="FavoriteButton_Click"
+                                    ToolTip="Aanduiden als favoriet">
+                                <ui:SymbolIcon x:Name="ListStar" Symbol="Star24" FontSize="17" Foreground="White" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="15"
+                                   Foreground="{StaticResource CardTextBrush}"
+                                   TextTrimming="CharacterEllipsis" />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <TextBlock Text="{Binding Price, Converter={StaticResource PriceText}}"
+                                       FontWeight="Bold" FontSize="17"
+                                       Foreground="{StaticResource PriceBrush}" />
+
+                            <!-- Zonder plaatsnaam verdwijnt ook het scheidingsteken,
+                                 anders blijft er een losse punt staan. -->
+                            <StackPanel Orientation="Horizontal">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Location}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <TextBlock Text=" &#183; " Foreground="{StaticResource CardTextSubtleBrush}"
+                                           FontSize="13" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Location}" Foreground="{StaticResource CardTextSubtleBrush}"
+                                           FontSize="13" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text=" &#183; " Foreground="{StaticResource CardTextSubtleBrush}"
+                                       FontSize="13" VerticalAlignment="Center" />
+                            <!-- Gedempt en niet in het accent: dan is de prijs het enige
+                                 indigo op de kaart, en strijden die twee niet om aandacht. -->
+                            <TextBlock Text="{Binding Source}" Foreground="{StaticResource CardTextSubtleBrush}"
+                                       FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                    <Setter TargetName="ListStar" Property="Filled" Value="True" />
+                    <Setter TargetName="ListStar" Property="Foreground" Value="{StaticResource StarBrush}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- Weergave 2: raster. Alleen de foto telt, met de gegevens eronder. -->
+        <DataTemplate x:Key="GridItemTemplate">
+            <Border Width="264" Margin="0,0,14,14" Background="{StaticResource CardBrush}"
+                    CornerRadius="14" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                <StackPanel>
+                    <Grid Margin="12,12,12,0">
+                        <Grid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Prijsindicatie" Icon="{ui:SymbolIcon Money24}"
+                                          Click="PriceIndicationMenu_Click" />
+                            </ContextMenu>
+                        </Grid.ContextMenu>
+
+                        <controls:PhotoThumbnail PhotoWidth="240" PhotoHeight="200"
+                                                 ShowPreview="{Binding IsMouseOver, ElementName=GridZoom}" />
+
+                        <Border CornerRadius="6" Padding="6,2" Background="{StaticResource NewBadgeBrush}"
+                                HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6"
+                                Visibility="{Binding IsNew, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="NIEUW" FontSize="10" FontWeight="Bold" Foreground="White" />
+                        </Border>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                    VerticalAlignment="Top" Margin="6">
+                            <Border x:Name="GridZoom" Style="{StaticResource OverlayIcon}" Margin="0,0,5,0"
+                                    AutomationProperties.Name="Grote foto tonen">
+                                <ui:SymbolIcon Symbol="ZoomIn24" FontSize="15" Foreground="White" />
+                            </Border>
+
+                            <Button Style="{StaticResource OverlayButton}" Click="FavoriteButton_Click"
+                                    ToolTip="Aanduiden als favoriet">
+                                <ui:SymbolIcon x:Name="GridStar" Symbol="Star24" FontSize="16" Foreground="White" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- In het raster is de prijs groter dan de titel, net als op de
+                         lijstkaart: bij het overzien is dat wat je zoekt. -->
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="13" Height="36"
+                               Foreground="{StaticResource CardTextBrush}"
+                               TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                               Margin="14,10,14,0" />
+
+                    <!-- Een Grid en geen StackPanel: zo krijgt de plaats de ruimte die na de
+                         prijs overblijft, met een beletselteken in plaats van hard afgesneden. -->
+                    <Grid Margin="14,3,14,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0" Text="{Binding Price, Converter={StaticResource PriceText}}"
+                                   FontWeight="Bold" FontSize="15"
+                                   Foreground="{StaticResource PriceBrush}" />
+
+                        <DockPanel Grid.Column="1" LastChildFill="True" ToolTip="{Binding Location}">
+                            <DockPanel.Style>
+                                <Style TargetType="DockPanel">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Location}" Value="">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DockPanel.Style>
+                            <TextBlock DockPanel.Dock="Left" Text=" &#183; " Foreground="{StaticResource CardTextSubtleBrush}" FontSize="11"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Location}" Foreground="{StaticResource CardTextSubtleBrush}"
+                                       FontSize="11" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                    <Setter TargetName="GridStar" Property="Filled" Value="True" />
+                    <Setter TargetName="GridStar" Property="Foreground" Value="{StaticResource StarBrush}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- De lijst stapelt van boven naar onder en houdt virtualisatie; het raster
+             vult eerst een rij en breekt dan af. -->
+        <ItemsPanelTemplate x:Key="ListItemsPanel">
+            <VirtualizingStackPanel />
+        </ItemsPanelTemplate>
+
+        <!-- De omhulling van een kaart in het raster. Zonder dit rekent het
+             paneel met de maat die WPF-UI zijn ListViewItem standaard geeft, en
+             die is met opvulling en al ruim 400 breed in plaats van 278 - er
+             pasten dan drie kolommen waar er zes horen. -->
+        <!-- Geen BasedOn op de standaardstijl: die is hier niet als resource op te
+             zoeken en de app viel er bij het opstarten op stuk. Zonder BasedOn
+             blijft het thema-sjabloon gewoon gelden; enkel deze vier waarden
+             worden overschreven. -->
+        <!-- Eén paginanummer. Ze staan tegen elkaar aan als één blok, zoals de
+             pagina-aanduiding op een webwinkel: een dun randje rondom en de open
+             pagina in de accentkleur. -->
+        <Style x:Key="PagerButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Vak" MinWidth="30" Height="30" Margin="0,0,-1,0"
+                                Background="{StaticResource PanelBrush}"
+                                BorderBrush="{StaticResource SurfaceBorderBrush}"
+                                BorderThickness="1">
+                            <TextBlock x:Name="Nr" Text="{TemplateBinding Content}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontSize="12.5" Padding="8,0"
+                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                        </Border>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Vak" Property="Background"
+                                        Value="{StaticResource SurfaceHoverBrush}" />
+                            </Trigger>
+
+                            <!-- De pagina waar je nu naar kijkt. -->
+                            <Trigger Property="Tag" Value="open">
+                                <Setter TargetName="Vak" Property="Background"
+                                        Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="Vak" Property="BorderBrush"
+                                        Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="Nr" Property="Foreground" Value="White" />
+                                <Setter TargetName="Nr" Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Nr" Property="Opacity" Value="0.35" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="GridItemContainerStyle" TargetType="ListViewItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="VerticalContentAlignment" Value="Top" />
+        </Style>
+
+        <!-- Een eigen WrapPanel dat enkel opbouwt wat in beeld staat. WPF levert
+             er geen; zie Controls/VirtualizingWrapPanel.cs. -->
+        <ItemsPanelTemplate x:Key="GridItemsPanel">
+            <controls:VirtualizingWrapPanel />
+        </ItemsPanelTemplate>
+
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- De achtergrond, in drie lagen achter alles. Niet via de Background
+             van het venster: WPF-UI zet die bij het laden zelf terug op de effen
+             themakleur.
+             1. het verloop uit App.xaml, als terugval wanneer de foto ontbreekt
+             2. de foto zelf, in code gezet zodat een ontbrekend bestand de app
+                niet laat vallen (zie ApplyBackgroundPhoto)
+             3. een sluier, zodat witte tekst leesbaar blijft -->
+        <Border Grid.RowSpan="3" Background="{StaticResource AppBackgroundBrush}" />
+        <Border Grid.RowSpan="3" x:Name="BackgroundPhoto" />
+        <Border Grid.RowSpan="3" Background="{StaticResource ScrimBrush}" />
+
+        <!-- ==================== kopbalk ==================== -->
+        <Border Grid.Row="0" Background="{StaticResource ScrimBrush}" CornerRadius="0,0,20,20"
+                MouseLeftButtonDown="Header_MouseLeftButtonDown">
+            <Grid>
+                <!-- Alles in EEN rij: de titelbalk hangt rechtsboven met het
+                     tandwiel en de knoppen van Windows, het logo en de zoekbalk
+                     staan er middenin. Een eigen rij voor de titelbalk zou een
+                     strook lege ruimte boven het logo geven.
+
+                     De titelbalk staat bewust RECHTS uitgelijnd. Over de volle
+                     breedte eist hij die hele strook op als sleepgebied: de muis
+                     verandert er in een pijl en de zoekbalk eronder neemt geen
+                     invoer meer aan. Het slepen van het venster gebeurt daarom
+                     via de kopbalk zelf, zie Header_MouseLeftButtonDown. -->
+                <ui:TitleBar Title="" Background="Transparent" Foreground="White"
+                             VerticalAlignment="Top" HorizontalAlignment="Right"
+                             ShowMaximize="True" ShowMinimize="True">
+                    <!-- Geen tandwiel meer rechtsboven: er stonden er twee in de
+                         kopbalk en dat las als twee verschillende instellingen. Alles
+                         zit nu achter het tandwiel naast de zoekbalk. -->
+                </ui:TitleBar>
+
+                <!-- Het logo deelt zijn rij met de zoekbalk: die staat links en
+                     is kort, dus in het midden is plaats. Zo blijft de kop laag.
+                     Het staat als afbeelding rechtstreeks op onze eigen
+                     achtergrond: de zwarte ondergrond eromheen is weggerekend naar
+                     doorzichtigheid, zodat enkel de neon en zijn gloed overblijven.
+                     Niet aanklikbaar, anders vangt het de muis af boven de
+                     zoekbalk. -->
+                <Image x:Name="Logo" Source="/Assets/logo.png" Height="76" Margin="0,6,0,4"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       RenderOptions.BitmapScalingMode="HighQuality"
+                       IsHitTestVisible="False" />
+
+                <!-- Zoekbalk met daarnaast het tandwiel van de zoekopdracht.
+                     De balk blijft hooguit ongeveer dertig tekens breed, zodat het
+                     vergrootglas vlak naast de tekst staat in plaats van aan de
+                     overkant van het scherm. -->
+                <StackPanel Orientation="Horizontal" Margin="18,6,18,10"
+                            VerticalAlignment="Center" HorizontalAlignment="Left">
+
+                <Border VerticalAlignment="Center"
+                        CornerRadius="12"
+                        Width="340" HorizontalAlignment="Left"
+                        Background="{StaticResource InputBrush}"
+                        BorderBrush="{StaticResource SurfaceBorderBrush}" BorderThickness="1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Een eigen, kaal sjabloon. Met het standaardsjabloon van WPF-UI
+                             tekende het veld zijn eigen onderlijn, ook met BorderThickness 0:
+                             een los lichtstreepje onder de zoekbalk dat stopte waar het
+                             vergrootglas begon. De balk tekent zijn kader al zelf. -->
+                        <TextBox Grid.Column="0" x:Name="QueryBox" BorderThickness="0"
+                                 MouseDoubleClick="QueryBox_MouseDoubleClick"
+                                 Background="Transparent" FontSize="15" Padding="14,12"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 CaretBrush="{StaticResource TextPrimaryBrush}"
+                                 VerticalContentAlignment="Center"
+                                 KeyDown="QueryBox_KeyDown">
+                            <TextBox.Template>
+                                <ControlTemplate TargetType="TextBox">
+                                    <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                                                  VerticalAlignment="Center" Focusable="False"
+                                                  HorizontalScrollBarVisibility="Hidden"
+                                                  VerticalScrollBarVisibility="Hidden" />
+                                </ControlTemplate>
+                            </TextBox.Template>
+                        </TextBox>
+
+                        <!-- Eigen tijdelijke tekst: een gewone TextBox heeft er geen.
+                             De marge is 30 en niet de opvulling van het vak (14): gemeten op
+                             17 september 2026 staat de cursor van een leeg tekstvak 30 pixels van
+                             de rand, want het tekstvak springt zelf nog eens in. Met 16 begon deze
+                             tekst halverwege de "o" van "Zoek" ten opzichte van wat je typt. -->
+                        <TextBlock Grid.Column="0" x:Name="QueryHint" Text="Zoek overal tegelijk..." IsHitTestVisible="False"
+                                   Foreground="{StaticResource TextSubtleBrush}" FontSize="15" Margin="30,0,0,0"
+                                   VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Text, ElementName=QueryBox}" Value="">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+
+                        <Button Grid.Column="1" x:Name="SearchButton" Click="SearchButton_Click"
+                                        Cursor="Hand" Margin="0,0,6,0">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Back" Width="42" Height="38" CornerRadius="10"
+                                            Background="Transparent">
+                                        <ui:SymbolIcon Symbol="Search24" FontSize="20"
+                                                       Foreground="{StaticResource AccentOnDarkBrush}" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Back" Property="Background"
+                                                    Value="{StaticResource AccentSoftBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- Het enige tandwiel in de kopbalk. Het opent het hele menu; de
+                     instellingen van de zoekterm zelf staan er bovenaan in. Er stonden
+                     hier vroeger twee tandwielen naast elkaar - een voor de zoekterm en
+                     een voor de app - en niemand kon zien welke welke was. -->
+                <Button x:Name="SearchSettingsButton" Click="GearButton_Click"
+                        Cursor="Hand" Margin="6,0,0,0" VerticalAlignment="Center"
+                        ToolTip="Instellingen">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Back" Width="40" Height="40" CornerRadius="12"
+                                    Background="Transparent"
+                                    BorderBrush="{StaticResource SurfaceBorderBrush}" BorderThickness="1">
+                                <ui:SymbolIcon Symbol="Settings24" FontSize="19"
+                                               Foreground="{StaticResource TextPrimaryBrush}" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Back" Property="Background"
+                                            Value="{StaticResource SurfaceHoverBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+
+                    <Button.ContextMenu>
+                        <ContextMenu x:Name="GearMenu">
+                            <!-- Bovenaan, want dit is wat je het vaakst nodig hebt en het
+                                 hoort bij het woord dat links in de balk staat. -->
+                            <MenuItem Header="Instellingen van deze zoekopdracht"
+                                      Icon="{ui:SymbolIcon ContentSettings24}"
+                                      Click="SearchSettingsMenu_Click" />
+                            <Separator />
+                            <!-- Eén woord per begrip, en elk pictogram maar één keer. Hier
+                                 stonden "Cards" (het enige Engelse woord), "Sitemap" (in webtaal
+                                 een XML-bestand), "Brug-code" (de extensie zegt "koppelcode") en
+                                 twee keer hetzelfde oogje. -->
+                            <MenuItem x:Name="CardsMenu" Header="Sites beheren" Icon="{ui:SymbolIcon Globe24}" />
+                            <MenuItem Header="Site toevoegen" Icon="{ui:SymbolIcon Add24}"
+                                      Click="AddSiteMenu_Click" />
+                            <MenuItem Header="Sites importeren uit map" Icon="{ui:SymbolIcon ArrowImport24}"
+                                      Click="ImportSitesFolder_Click" />
+                            <MenuItem Header="Koppelcode" Icon="{ui:SymbolIcon Key24}"
+                                      Click="BridgeCodeMenu_Click" />
+                            <MenuItem Header="Meldingen en achtergrond"
+                                      Icon="{ui:SymbolIcon Alert24}"
+                                      Click="NotifyMenu_Click" />
+                            <MenuItem Header="Logboek openen"
+                                      Icon="{ui:SymbolIcon DocumentText24}"
+                                      Click="OpenLogMenu_Click" />
+                            <Separator />
+                            <MenuItem Header="Weergave" Icon="{ui:SymbolIcon AppsListDetail24}">
+                                <MenuItem x:Name="ViewListMenu" Header="Lijst" IsCheckable="True"
+                                          IsChecked="True" Click="ViewModeMenu_Click" />
+                                <MenuItem x:Name="ViewGridMenu" Header="Raster" IsCheckable="True"
+                                          Click="ViewModeMenu_Click" />
+                            </MenuItem>
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ==================== inhoud ==================== -->
+        <Grid Grid.Row="1" Margin="18,14,18,0">
+
+            <!-- === tabblad: zoeken === -->
+            <Grid x:Name="SearchPanel">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- De volledige omtrek van tabstrip en pagina in EEN figuur: de
+                     bovenkant van de pagina, de open tab die daaruit omhoog steekt
+                     en de uitlopen ernaast. Zie UpdateTabFrame in de code, die de
+                     vorm berekent uit de plaats van de open tab.
+
+                     Waarom in een stuk: elke naad tussen twee losse vormen geeft
+                     onvermijdelijk een sprongetje of een puntje, hoe precies je de
+                     coordinaten ook zet. Een doorlopende figuur heeft geen naden. -->
+                <Path x:Name="TabFrame" Grid.RowSpan="2"
+                      Fill="{StaticResource PanelScrimBrush}"
+                      Stroke="{StaticResource AccentBrush}"
+                      StrokeThickness="1.5"
+                      StrokeLineJoin="Round" />
+
+                <!-- De sites als tabs. Ze tekenen enkel hun inhoud; de omtrek van
+                     de open tab komt van TabFrame hierboven. De gesloten tabs
+                     hebben wel hun eigen randje en zweven boven de lijn. -->
+                <ItemsControl Grid.Row="0" x:Name="SiteTabsList" UseLayoutRounding="True">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+
+                        <!-- Geen ItemTemplate maar sjablonen per type: de rij bevat
+                             tabs EN het chipje waarmee je sites kiest. WPF zoekt dan
+                             zelf het juiste sjabloon bij elk item. -->
+                        <ItemsControl.Resources>
+                            <DataTemplate DataType="{x:Type models:SiteTab}">
+                                <Border x:Name="Pill" CornerRadius="12" Padding="12,9"
+                                        Margin="0,0,10,10" VerticalAlignment="Bottom"
+                                        Background="Transparent" BorderThickness="1.5"
+                                        BorderBrush="{StaticResource SurfaceBorderBrush}"
+                                        Cursor="Hand" SnapsToDevicePixels="True"
+                                        MouseLeftButtonUp="SiteTab_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <ui:SymbolIcon Symbol="Apps24" FontSize="15"
+                                                       VerticalAlignment="Center" Margin="0,0,6,0"
+                                                       Foreground="{StaticResource TextSubtleBrush}"
+                                                       Visibility="{Binding IsAll,
+                                                                   Converter={StaticResource BoolToVisibility}}" />
+                                        <TextBlock x:Name="TabText" Text="{Binding TabName}"
+                                                   VerticalAlignment="Center" FontSize="13.5"
+                                                   Foreground="{StaticResource TextSubtleBrush}" />
+
+                                        <!-- Mislukte deze site bij de laatste zoekopdracht, dan
+                                             staat dat hier, bij de site zelf, met de melding als
+                                             tooltip. Zie SiteTab.ErrorText. -->
+                                        <ui:SymbolIcon Symbol="Warning24" Filled="True" FontSize="14"
+                                                       Margin="6,0,0,0" VerticalAlignment="Center"
+                                                       Foreground="{StaticResource WarningBrush}"
+                                                       ToolTip="{Binding ErrorText}"
+                                                       ToolTipService.InitialShowDelay="200"
+                                                       Visibility="{Binding HasError,
+                                                                   Converter={StaticResource BoolToVisibility}}" />
+                                    </StackPanel>
+                                </Border>
+
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                        <!-- De open tab zakt tot op de pagina en laat zijn
+                                             eigen rand weg; TabFrame tekent hem. De dikte
+                                             blijft staan zodat de tekst niet verspringt. -->
+                                        <Setter TargetName="Pill" Property="Margin" Value="0,0,10,0" />
+                                        <Setter TargetName="Pill" Property="BorderBrush" Value="Transparent" />
+                                        <Setter TargetName="TabText" Property="Foreground"
+                                                Value="{StaticResource TextPrimaryBrush}" />
+                                        <Setter TargetName="TabText" Property="FontWeight" Value="SemiBold" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+
+                            <!-- Het chipje achteraan de rij: hoeveel sites zoeken mee,
+                                 en erachter de lijst om ze aan of uit te vinken. Het
+                                 ziet er met opzet anders uit dan een tab (pijltje naar
+                                 beneden, geen inkeping) want het opent geen resultaten.
+                                 Het was eerst een plusteken, maar dat las als "site
+                                 toevoegen" - en dat staat met hetzelfde plusteken in het menu. -->
+                            <DataTemplate DataType="{x:Type models:SiteChooser}">
+                                <Border x:Name="ChipRand" CornerRadius="12" Padding="12,9"
+                                        Margin="0,0,10,10" VerticalAlignment="Bottom"
+                                        Background="Transparent" BorderThickness="1.5"
+                                        BorderBrush="{StaticResource SurfaceBorderBrush}"
+                                        Cursor="Hand" SnapsToDevicePixels="True"
+                                        ToolTip="Kiezen welke sites meezoeken"
+                                        MouseLeftButtonUp="SitesChip_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock x:Name="ChipText" Text="{Binding Label}"
+                                                   VerticalAlignment="Center" FontSize="13.5"
+                                                   Foreground="{StaticResource TextSubtleBrush}" />
+                                        <ui:SymbolIcon Symbol="ChevronDown24" FontSize="14"
+                                                       VerticalAlignment="Center" Margin="6,0,0,0"
+                                                       Foreground="{StaticResource TextSubtleBrush}" />
+                                    </StackPanel>
+                                </Border>
+
+                                <DataTemplate.Triggers>
+                                    <Trigger SourceName="ChipRand" Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="ChipRand" Property="Background"
+                                                Value="{StaticResource SurfaceHoverBrush}" />
+                                    </Trigger>
+
+                                    <!-- Zoekt er niets mee, dan is dit het enige wat er
+                                         nog te doen valt; dan mag het opvallen. -->
+                                    <DataTrigger Binding="{Binding IsEmpty}" Value="True">
+                                        <Setter TargetName="ChipRand" Property="BorderBrush"
+                                                Value="{StaticResource AccentOnDarkBrush}" />
+                                        <Setter TargetName="ChipText" Property="Foreground"
+                                                Value="{StaticResource TextPrimaryBrush}" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.Resources>
+                </ItemsControl>
+
+                <!-- De inhoud van de pagina. De omtrek eromheen komt van TabFrame,
+                     dus dit is enkel nog opvulling. -->
+                <Grid Grid.Row="1" Margin="16,14,16,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- De zoekinstellingen van de site waarvan de tab open staat -->
+                    <StackPanel Grid.Row="0" x:Name="FilterBar" Orientation="Horizontal"
+                                HorizontalAlignment="Center" Margin="0,0,0,14">
+
+                        <!-- Waar je in de resultaten zit. Staat vooraan in deze rij, vlak
+                             links van het locatiespeldje: hij hoort bij de resultaten
+                             eronder en zit zo altijd binnen handbereik. Stond eerst
+                             naast het logo in de kopbalk, maar dat is een heel scherm
+                             verder weg van waar je aan het kijken bent.
+
+                             De knoppen worden in code gemaakt, want hoeveel pagina's
+                             er zijn hangt van de zoekopdracht af. -->
+                        <StackPanel x:Name="Pager" Orientation="Horizontal"
+                                    VerticalAlignment="Center" Margin="0,0,18,0"
+                                    Visibility="Collapsed" />
+
+                        <!-- ShowOnDisabled: een gedimde knop legt in zijn tooltip uit waarom
+                             hij uit staat ("kies eerst een site"). Zonder deze regel toont WPF
+                             op een uitgeschakelde knop geen enkele tooltip, en kwam die uitleg
+                             nooit in beeld. -->
+                        <Button x:Name="LocationButton" Style="{StaticResource PillButton}"
+                                ToolTipService.ShowOnDisabled="True"
+                                Click="FilterButton_Click" ToolTip="Locatie en afstand">
+                            <ui:SymbolIcon Symbol="Location24" Filled="True" FontSize="19" />
+                        </Button>
+
+                        <!-- Geen eigen knop voor de veilinghuizen meer: dat was een
+                             pictogram dat maar op één site iets deed en dus op de
+                             andere acht in de weg stond. Die keuze zit nu bij de
+                             overige filters van die site, achter de schuifregelaars. -->
+
+                        <!-- Een euroteken leest hier duidelijker dan eender welk
+                             pictogram voor geld. -->
+                        <Button x:Name="PriceButton" Style="{StaticResource PillButton}"
+                                ToolTipService.ShowOnDisabled="True"
+                                Click="FilterButton_Click" ToolTip="Prijs">
+                            <TextBlock Text="&#8364;" FontSize="19" FontWeight="Bold" />
+                        </Button>
+
+                        <Button x:Name="CountButton" Style="{StaticResource PillButton}"
+                                Click="FilterButton_Click" ToolTip="Aantal per pagina">
+                            <ui:SymbolIcon Symbol="NumberSymbol24" Filled="True" FontSize="19" />
+                        </Button>
+
+                        <Button x:Name="SpecialButton" Style="{StaticResource PillButton}"
+                                ToolTipService.ShowOnDisabled="True"
+                                Click="FilterButton_Click" ToolTip="Filters van deze site">
+                            <ui:SymbolIcon Symbol="Options24" Filled="True" FontSize="19" />
+                        </Button>
+
+                        <Button x:Name="SortButton" Style="{StaticResource PillButton}"
+                                Click="FilterButton_Click" ToolTip="Volgorde van de resultaten">
+                            <ui:SymbolIcon Symbol="ArrowSortDownLines24" Filled="True" FontSize="19" />
+                        </Button>
+
+                        <Button x:Name="LayoutButton" Style="{StaticResource PillButton}"
+                                Click="LayoutButton_Click" ToolTip="Wisselen tussen lijst en raster">
+                            <ui:SymbolIcon x:Name="LayoutIcon" Symbol="Grid24" Filled="True" FontSize="19" />
+                        </Button>
+
+                        <!-- Geen tandwiel: dat staat al naast de zoekbalk, en twee gelijke
+                             tandwielen in één scherm is precies wat er eerder weg moest. -->
+                        <Button x:Name="CardButton" Style="{StaticResource PillButton}"
+                                ToolTipService.ShowOnDisabled="True"
+                                Click="CardButton_Click" ToolTip="Deze site beheren">
+                            <ui:SymbolIcon Symbol="DocumentEdit24" Filled="True" FontSize="19" />
+                        </Button>
+                    </StackPanel>
+
+                    <ui:ListView Grid.Row="1" x:Name="ResultsList" Background="Transparent"
+                                 BorderThickness="0"
+                                 ItemTemplate="{StaticResource ListItemTemplate}"
+                                 ItemsPanel="{StaticResource ListItemsPanel}"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 MouseDoubleClick="ResultsList_MouseDoubleClick"
+                                 KeyDown="ResultsList_KeyDown" />
+
+                    <!-- Dezelfde pager nog eens, onder de resultaten. Wie naar beneden
+                         gescrold heeft, staat met de muis al in de buurt: dan hoeft hij
+                         niet helemaal terug naar boven om een pagina verder te gaan.
+                         Beide worden door BouwPager tegelijk gevuld. -->
+                    <StackPanel Grid.Row="2" x:Name="PagerOnder" Orientation="Horizontal"
+                                HorizontalAlignment="Center" Margin="0,12,0,10"
+                                Visibility="Collapsed" />
+
+                    <Border Grid.Row="1" Margin="0,60,0,0" HorizontalAlignment="Center" VerticalAlignment="Top"
+                        Background="{StaticResource PanelBrush}" CornerRadius="12" Padding="20,12"
+                        Visibility="{Binding Visibility, ElementName=EmptyHint}">
+                    <TextBlock x:Name="EmptyHint" Foreground="{StaticResource TextSubtleBrush}" FontSize="14"
+                               TextWrapping="Wrap" MaxWidth="520" TextAlignment="Center"
+                               Text="Typ hierboven wat je zoekt en druk op Enter."  />
+                </Border>
+
+                    <!-- Nog geen enkele site. De app komt zonder sites - die staan in een
+                         aparte repository - dus dit is wat een nieuwe gebruiker als eerste
+                         ziet. Een lijst met "typ hierboven wat je zoekt" stuurt die de
+                         verkeerde kant op: er valt nog niets te zoeken. Zie UpdateEmptyHints. -->
+                    <Border Grid.Row="1" Margin="0,60,0,0" HorizontalAlignment="Center" VerticalAlignment="Top"
+                            Background="{StaticResource PanelBrush}" CornerRadius="12" Padding="28,22"
+                            Visibility="{Binding Visibility, ElementName=NoSitesPanel}">
+                    <StackPanel x:Name="NoSitesPanel" MaxWidth="480" Visibility="Collapsed">
+                        <TextBlock Text="Nog geen sites" Style="{StaticResource TitleText}"
+                                   HorizontalAlignment="Center" />
+                        <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" TextAlignment="Center"
+                                   Foreground="{StaticResource TextSubtleBrush}" FontSize="14"
+                                   Text="Zentrix zoekt op de sites die jij toevoegt. Heb je een map met sitebestanden, importeer die dan in één keer. Anders voeg je een site toe: plak een zoek-URL, en de app zoekt zelf uit hoe de pagina in elkaar zit." />
+                        <WrapPanel HorizontalAlignment="Center" Margin="0,18,0,0">
+                            <ui:Button Content="Sites importeren uit map" Appearance="Primary"
+                                       Icon="{ui:SymbolIcon ArrowImport24}" Padding="16,8" Margin="0,0,10,0"
+                                       Click="ImportSitesFolder_Click" />
+                            <ui:Button Content="Site toevoegen" Icon="{ui:SymbolIcon Add24}"
+                                       Padding="16,8" Click="AddSiteMenu_Click" />
+                        </WrapPanel>
+                    </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Popups met de eigenlijke filters van deze site -->
+                <Popup x:Name="LocationPopup" StaysOpen="False" AllowsTransparency="True"
+                       Closed="FilterPopup_Closed"
+                       Placement="Bottom" PlacementTarget="{Binding ElementName=LocationButton}"
+                       PopupAnimation="Fade">
+                    <Border Style="{StaticResource PopupCard}">
+                        <StackPanel Width="230">
+                            <!-- Wat een site niet kent, tonen we niet: AlleVeilingen
+                                 werkt met provincies en kent geen postcode of straal,
+                                 2dehands net omgekeerd. -->
+                            <StackPanel x:Name="PostcodePanel">
+                            <TextBlock Text="Postcode" Style="{StaticResource FilterLabel}" />
+                            <TextBox x:Name="PostcodeBox" Padding="8,6"
+                                     Text="{Binding Filters.Postcode, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <TextBlock Text="Straal" Style="{StaticResource FilterLabel}" Margin="0,12,0,4" />
+                            <ComboBox x:Name="RadiusBox" SelectedValuePath="Tag"
+                                      SelectedValue="{Binding RadiusText, Mode=TwoWay}">
+                                <ComboBoxItem Content="Overal" Tag="0" />
+                                <ComboBoxItem Content="Binnen 10 km" Tag="10" />
+                                <ComboBoxItem Content="Binnen 25 km" Tag="25" />
+                                <ComboBoxItem Content="Binnen 50 km" Tag="50" />
+                                <ComboBoxItem Content="Binnen 100 km" Tag="100" />
+                            </ComboBox>
+                            </StackPanel>
+
+                            <!-- Filters uit het sitebestand die over de plaats gaan,
+                                 zoals de provincies van AlleVeilingen. In code
+                                 opgebouwd: zie BuildLocationFilters. -->
+                            <StackPanel x:Name="LocationCustomPanel" />
+
+                            <TextBlock x:Name="LocationNote" TextWrapping="Wrap" Margin="0,12,0,0"
+                                       FontSize="11" Foreground="{StaticResource TextSubtleBrush}" />
+                        </StackPanel>
+                    </Border>
+                </Popup>
+
+                <!-- De filters die alleen op deze site bestaan. Wat erin staat komt
+                     uit het sitebestand, dus deze popup wordt in code opgebouwd:
+                     zie BuildSpecialFilters. -->
+                <Popup x:Name="SpecialPopup" StaysOpen="False" AllowsTransparency="True"
+                       Closed="FilterPopup_Closed"
+                       Placement="Bottom" PlacementTarget="{Binding ElementName=SpecialButton}"
+                       PopupAnimation="Fade">
+                    <Border Style="{StaticResource PopupCard}">
+                        <Grid Width="400">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" x:Name="SpecialTitle" Text="Filters van deze site"
+                                       Style="{StaticResource FilterLabel}" />
+
+                            <ScrollViewer Grid.Row="1" MaxHeight="520" VerticalScrollBarVisibility="Auto">
+                                <StackPanel x:Name="SpecialPanel" Margin="0,0,10,0" />
+                            </ScrollViewer>
+
+                            <Button Grid.Row="2" Content="Alles wissen" Click="ClearSpecial_Click"
+                                    Cursor="Hand" Margin="0,12,0,0" HorizontalAlignment="Left"
+                                    Padding="10,4" FontSize="12" BorderThickness="1"
+                                    Background="Transparent"
+                                    BorderBrush="{StaticResource SurfaceBorderBrush}"
+                                    Foreground="{StaticResource TextSubtleBrush}" />
+                        </Grid>
+                    </Border>
+                </Popup>
+
+                <!-- De volgorde geldt voor de hele app en niet per site: je wil
+                     niet per tabblad opnieuw moeten kiezen hoe je kijkt. -->
+                <Popup x:Name="SortPopup" StaysOpen="False" AllowsTransparency="True"
+                       Placement="Bottom" PlacementTarget="{Binding ElementName=SortButton}"
+                       PopupAnimation="Fade">
+                    <Border Style="{StaticResource PopupCard}">
+                        <StackPanel Width="230">
+                            <TextBlock Text="Volgorde" Style="{StaticResource FilterLabel}" />
+
+                            <RadioButton x:Name="SortDefault" GroupName="Volgorde" Margin="0,4"
+                                         Content="Zoals de site ze geeft" Checked="Sort_Checked" />
+                            <RadioButton x:Name="SortPriceUp" GroupName="Volgorde" Margin="0,4"
+                                         Content="Prijs: laag naar hoog" Checked="Sort_Checked" />
+                            <RadioButton x:Name="SortPriceDown" GroupName="Volgorde" Margin="0,4"
+                                         Content="Prijs: hoog naar laag" Checked="Sort_Checked" />
+                            <RadioButton x:Name="SortNewest" GroupName="Volgorde" Margin="0,4"
+                                         Content="Nieuwste eerst" Checked="Sort_Checked" />
+
+                            <TextBlock Text="Zoekertjes zonder prijs of zonder datum komen achteraan."
+                                       TextWrapping="Wrap" Margin="0,10,0,0" FontSize="11"
+                                       Foreground="{StaticResource TextSubtleBrush}" />
+                        </StackPanel>
+                    </Border>
+                </Popup>
+
+                <!-- Welke sites meezoeken. Dit stond vroeger als vinkje in elke tab,
+                     maar dan groeide de tabstrip mee met het aantal sites terwijl je er
+                     doorgaans twee of drie gebruikt. Nu tonen de tabs enkel wat meedoet
+                     en zit het kiezen hier. De PlacementTarget wordt in code gezet: het
+                     chipje zit in een ItemsControl en heeft dus geen naam. -->
+                <Popup x:Name="SitesPopup" StaysOpen="False" AllowsTransparency="True"
+                       Closed="SitesPopup_Closed"
+                       Placement="Bottom" PopupAnimation="Fade">
+                    <Border Style="{StaticResource PopupCard}">
+                        <StackPanel Width="250">
+                            <TextBlock Text="Welke sites zoeken mee" Style="{StaticResource FilterLabel}" />
+
+                            <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="SitesChoiceList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <!-- De volledige naam, niet de korte: hier is er
+                                                 plaats en moet je de site herkennen. -->
+                                            <CheckBox Content="{Binding Name}" Margin="0,4"
+                                                      IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                      Checked="SiteEnabled_Changed"
+                                                      Unchecked="SiteEnabled_Changed" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+
+                            <TextBlock Text="Elke site kost tijd, zeker die via de brug. Vink er dus enkel aan wat je nodig hebt."
+                                       TextWrapping="Wrap" Margin="0,12,0,0" FontSize="11"
+                                       Foreground="{StaticResource TextSubtleBrush}" />
+                        </StackPanel>
+                    </Border>
+                </Popup>
+
+                <Popup x:Name="PricePopup" StaysOpen="False" AllowsTransparency="True"
+                       Closed="FilterPopup_Closed"
+                       Placement="Bottom" PlacementTarget="{Binding ElementName=PriceButton}"
+                       PopupAnimation="Fade">
+                    <Border Style="{StaticResource PopupCard}">
+                        <StackPanel Width="200">
+                            <TextBlock Text="Prijs van" Style="{StaticResource FilterLabel}" />
+                            <TextBox Padding="8,6" TextChanged="PriceFilter_TextChanged"
+                                     Text="{Binding Filters.PriceMin, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}" />
+
+                            <TextBlock Text="tot" Style="{StaticResource FilterLabel}" Margin="0,12,0,4" />
+                            <TextBox Padding="8,6" TextChanged="PriceFilter_TextChanged"
+                                     Text="{Binding Filters.PriceMax, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}" />
+
+                            <TextBlock Text="Leeg laten betekent geen grens. De lijst past zich meteen aan."
+                                       TextWrapping="Wrap"
+                                       Margin="0,12,0,0" FontSize="11"
+                                       Foreground="{StaticResource TextSubtleBrush}" />
+                        </StackPanel>
+                    </Border>
+                </Popup>
+
+                <Popup x:Name="CountPopup" StaysOpen="False" AllowsTransparency="True"
+                       Closed="FilterPopup_Closed"
+                       Placement="Bottom" PlacementTarget="{Binding ElementName=CountButton}"
+                       PopupAnimation="Fade">
+                    <Border Style="{StaticResource PopupCard}">
+                        <StackPanel Width="210">
+                            <TextBlock Text="Aantal per pagina" Style="{StaticResource FilterLabel}" />
+
+                            <StackPanel x:Name="PageSizeKeuze" Margin="0,4,0,0">
+                                <RadioButton Content="50" Tag="50" Margin="0,3"
+                                             Click="PageSize_Click" />
+                                <RadioButton Content="100" Tag="100" Margin="0,3"
+                                             Click="PageSize_Click" />
+                                <RadioButton Content="150" Tag="150" Margin="0,3"
+                                             Click="PageSize_Click" />
+                                <RadioButton Content="200" Tag="200" Margin="0,3"
+                                             Click="PageSize_Click" />
+                            </StackPanel>
+
+                            <TextBlock Text="De app haalt op wat de sites geven en verdeelt dat over pagina's. Dit bepaalt enkel hoeveel je er tegelijk ziet."
+                                       TextWrapping="Wrap" Margin="0,12,0,0" FontSize="11"
+                                       Foreground="{StaticResource TextSubtleBrush}" />
+                        </StackPanel>
+                    </Border>
+                </Popup>
+            </Grid>
+
+            <!-- === tabblad: favorieten === -->
+            <Grid x:Name="FavoritesPanel" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="0,0,0,12">
+                    <TextBlock Text="Favorieten" FontSize="18" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                    <TextBlock x:Name="FavoritesCount" HorizontalAlignment="Right" VerticalAlignment="Center"
+                               Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" />
+                </Grid>
+
+                <ui:ListView Grid.Row="1" x:Name="FavoritesList" Background="Transparent" BorderThickness="0"
+                             ItemTemplate="{StaticResource ListItemTemplate}"
+                             ItemsPanel="{StaticResource ListItemsPanel}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             MouseDoubleClick="ResultsList_MouseDoubleClick"
+                             KeyDown="ResultsList_KeyDown" />
+
+                <Border Grid.Row="1" Margin="0,60,0,0" HorizontalAlignment="Center" VerticalAlignment="Top"
+                        Background="{StaticResource PanelBrush}" CornerRadius="12" Padding="20,12"
+                        Visibility="{Binding Visibility, ElementName=FavoritesEmpty}">
+                    <TextBlock x:Name="FavoritesEmpty" Foreground="{StaticResource TextSubtleBrush}" FontSize="14"
+                           Text="Nog geen favorieten. Klik op het sterretje bij een zoekertje."  />
+                </Border>
+            </Grid>
+
+            <!-- === tabblad: recent === -->
+            <Grid x:Name="RecentPanel" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="0,0,0,12">
+                    <TextBlock Text="Recent gezocht" FontSize="18" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                    <Button Content="Lijst wissen" HorizontalAlignment="Right" VerticalAlignment="Center"
+                            Click="ClearRecent_Click" Cursor="Hand" Padding="12,6"
+                            Background="Transparent" BorderThickness="1"
+                            BorderBrush="{StaticResource SurfaceBorderBrush}"
+                            Foreground="{StaticResource TextPrimaryBrush}" />
+                </Grid>
+
+                <ui:ListView Grid.Row="1" x:Name="RecentList" Background="Transparent" BorderThickness="0"
+                             MouseDoubleClick="RecentList_MouseDoubleClick"
+                             KeyDown="RecentList_KeyDown">
+                    <ui:ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{StaticResource CardBrush}" CornerRadius="12"
+                                    BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1"
+                                    Padding="14,12" Margin="0,0,0,8">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <ui:SymbolIcon Grid.Column="0" Symbol="History24" FontSize="18"
+                                                   Foreground="{StaticResource AccentBrush}"
+                                                   Margin="0,0,12,0" VerticalAlignment="Center" />
+
+                                    <TextBlock Grid.Column="1" Text="{Binding Query}" FontSize="14"
+                                               FontWeight="SemiBold" VerticalAlignment="Center"
+                                               Foreground="{StaticResource CardTextBrush}" />
+
+                                    <TextBlock Grid.Column="2" Text="{Binding WhenLabel}" FontSize="12"
+                                               VerticalAlignment="Center"
+                                               Foreground="{StaticResource CardTextSubtleBrush}" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ui:ListView.ItemTemplate>
+                </ui:ListView>
+
+                <Border Grid.Row="1" Margin="0,60,0,0" HorizontalAlignment="Center" VerticalAlignment="Top"
+                        Background="{StaticResource PanelBrush}" CornerRadius="12" Padding="20,12"
+                        Visibility="{Binding Visibility, ElementName=RecentEmpty}">
+                    <TextBlock x:Name="RecentEmpty" Foreground="{StaticResource TextSubtleBrush}" FontSize="14"
+                           Text="Nog niets gezocht."  />
+                </Border>
+            </Grid>
+
+            <!-- === tabblad: zoekopdrachten === -->
+            <Grid x:Name="SavedPanel" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="0,0,0,12">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Zoekopdrachten" FontSize="18" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock x:Name="SchedulerHint" FontSize="12"
+                                   Foreground="{StaticResource TextSubtleBrush}" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                VerticalAlignment="Center">
+                        <Button Content="Nieuwe" Click="NewSavedButton_Click" Cursor="Hand"
+                                Padding="12,6" Margin="0,0,8,0" BorderThickness="0" Foreground="White"
+                                Background="{StaticResource AccentGradientBrush}" />
+                        <Button Content="Huidige vastzetten" Click="PinButton_Click" Cursor="Hand"
+                                Padding="12,6" Margin="0,0,8,0" BorderThickness="1"
+                                Background="Transparent"
+                                BorderBrush="{StaticResource SurfaceBorderBrush}"
+                                Foreground="{StaticResource TextPrimaryBrush}" />
+                        <Button x:Name="DeleteSavedButton" Content="Verwijderen" Click="DeleteSavedButton_Click"
+                                Cursor="Hand" Padding="12,6" IsEnabled="False" BorderThickness="1"
+                                BorderBrush="{StaticResource SurfaceBorderBrush}"
+                                Background="Transparent" />
+                    </StackPanel>
+                </Grid>
+
+                <ui:ListView Grid.Row="1" x:Name="SavedList" Background="Transparent" BorderThickness="0"
+                             HorizontalContentAlignment="Stretch"
+                             SelectionChanged="SavedList_SelectionChanged"
+                             MouseDoubleClick="SavedList_MouseDoubleClick"
+                             KeyDown="SavedList_KeyDown">
+                    <ui:ListView.ItemTemplate>
+                        <DataTemplate>
+                            <!-- Niet over de volle breedte: met een kaart die het
+                                 scherm vult staan de knoppen aan de overkant van
+                                 het zoekwoord. -->
+                            <Border Background="{StaticResource CardBrush}" CornerRadius="12"
+                                    BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1"
+                                    Padding="14,12" Margin="0,0,0,8"
+                                    Width="440" HorizontalAlignment="Left">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <ui:SymbolIcon Grid.Column="0" Symbol="Pin24" FontSize="18"
+                                                   Foreground="{StaticResource AccentBrush}"
+                                                   Margin="0,0,12,0" VerticalAlignment="Center" />
+
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center"
+                                                Margin="0,0,10,0">
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Foreground="{StaticResource CardTextBrush}" />
+
+                                        <!-- Het schema, wanneer hij laatst liep, en of er sites
+                                             mislukten. Die laatste staan in de tooltip, want
+                                             een geplande zoekopdracht faalde vroeger zonder
+                                             dat iemand het zag. -->
+                                        <!-- Een Grid en geen horizontale StackPanel: in die laatste
+                                             viel het einde weg ("· 1 site mislukt" en het
+                                             waarschuwingsteken) zodra het schema lang was. Nu
+                                             staat het teken vooraan en wordt de tekst afgekapt. -->
+                                        <Grid Margin="0,3,0,0" ToolTip="{Binding ErrorSummary}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <ui:SymbolIcon Grid.Column="0" Symbol="Clock24" FontSize="12" Margin="0,0,5,0"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{StaticResource CardTextSubtleBrush}" />
+                                            <ui:SymbolIcon Grid.Column="1" Symbol="Warning24" Filled="True" FontSize="12"
+                                                           Margin="0,0,5,0" VerticalAlignment="Center"
+                                                           Foreground="{StaticResource WarningOnCardBrush}"
+                                                           Visibility="{Binding HasErrors,
+                                                                       Converter={StaticResource BoolToVisibility}}" />
+                                            <TextBlock Grid.Column="2" Text="{Binding StatusLabel}" FontSize="11"
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                       Foreground="{StaticResource CardTextSubtleBrush}" />
+                                        </Grid>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <Border CornerRadius="10" Padding="8,2" Margin="0,0,8,0"
+                                                Background="{StaticResource NewBadgeBrush}"
+                                                VerticalAlignment="Center"
+                                                Visibility="{Binding NewCount, Converter={StaticResource CountToVisibility}}">
+                                            <TextBlock Text="{Binding NewCount}" FontSize="11" FontWeight="Bold"
+                                                       Foreground="White" />
+                                        </Border>
+
+                                        <Button Click="RunSavedButton_Click" Cursor="Hand"
+                                                ToolTip="Nu uitvoeren" Tag="{Binding}"
+                                                Style="{StaticResource CardIconButton}">
+                                            <ui:SymbolIcon Symbol="Play24" FontSize="16" />
+                                        </Button>
+
+                                        <Button Click="EditSavedButton_Click" Cursor="Hand"
+                                                ToolTip="Instellingen van deze zoekopdracht" Tag="{Binding}"
+                                                Style="{StaticResource CardIconButton}">
+                                            <ui:SymbolIcon Symbol="Settings24" FontSize="16" />
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ui:ListView.ItemTemplate>
+                </ui:ListView>
+
+                <Border Grid.Row="1" Margin="0,60,0,0" HorizontalAlignment="Center" VerticalAlignment="Top"
+                        Background="{StaticResource PanelBrush}" CornerRadius="12" Padding="20,12"
+                        Visibility="{Binding Visibility, ElementName=SavedEmpty}">
+                    <TextBlock x:Name="SavedEmpty" Foreground="{StaticResource TextSubtleBrush}" FontSize="14"
+                           TextWrapping="Wrap" MaxWidth="460" TextAlignment="Center"
+                           Text="Nog geen zoekopdrachten. Klik op 'Nieuwe' om er een te maken die vanzelf blijft zoeken, of zoek eerst iets en klik op 'Huidige vastzetten'."  />
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- ==================== balk onderaan ==================== -->
+        <Border Grid.Row="2" Background="{StaticResource ScrimBrush}"
+                BorderBrush="{StaticResource SurfaceBorderBrush}" BorderThickness="0,1,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Voortgang van het zoeken. Een Grid en geen horizontale StackPanel:
+                     die laatste geeft de tekst oneindige breedte, en dan liep een lange
+                     melding gewoon voorbij de vensterrand. Nu wordt ze afgekapt met een
+                     beletselteken, en toont de tooltip de volledige tekst. -->
+                <Grid Grid.Row="0" Margin="20,8,20,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <ui:ProgressRing Grid.Column="0" x:Name="Spinner" IsIndeterminate="True" Visibility="Collapsed"
+                                     Foreground="{StaticResource AccentOnDarkBrush}"
+                                     Width="16" Height="16" Margin="0,0,10,0" />
+                    <TextBlock Grid.Column="1" x:Name="StatusText" Text="Klaar." FontSize="12"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
+                               Foreground="{StaticResource TextSubtleBrush}" VerticalAlignment="Center" />
+                </Grid>
+
+                <!-- Bij elkaar in het midden in plaats van uitgesmeerd over de
+                     volle breedte. -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal"
+                            HorizontalAlignment="Center" Margin="0,4,0,0">
+                    <RadioButton x:Name="TabSearch" Style="{StaticResource BottomTab}"
+                                 MinWidth="112" Margin="2,0" IsChecked="True"
+                                 Checked="BottomTab_Checked">
+                        <StackPanel HorizontalAlignment="Center">
+                            <ui:SymbolIcon Symbol="Search24" Style="{StaticResource BottomTabIcon}" />
+                            <TextBlock Text="Zoeken" Style="{StaticResource BottomTabLabel}" />
+                        </StackPanel>
+                    </RadioButton>
+
+                    <RadioButton x:Name="TabFavorites" Style="{StaticResource BottomTab}"
+                                 MinWidth="112" Margin="2,0"
+                                 Checked="BottomTab_Checked">
+                        <StackPanel HorizontalAlignment="Center">
+                            <ui:SymbolIcon Symbol="Star24" Style="{StaticResource BottomTabIcon}" />
+                            <TextBlock Text="Favorieten" Style="{StaticResource BottomTabLabel}" />
+                        </StackPanel>
+                    </RadioButton>
+
+                    <RadioButton x:Name="TabRecent" Style="{StaticResource BottomTab}"
+                                 MinWidth="112" Margin="2,0"
+                                 Checked="BottomTab_Checked">
+                        <StackPanel HorizontalAlignment="Center">
+                            <ui:SymbolIcon Symbol="History24" Style="{StaticResource BottomTabIcon}" />
+                            <TextBlock Text="Recent" Style="{StaticResource BottomTabLabel}" />
+                        </StackPanel>
+                    </RadioButton>
+
+                    <RadioButton x:Name="TabSaved" Style="{StaticResource BottomTab}"
+                                 MinWidth="112" Margin="2,0"
+                                 Checked="BottomTab_Checked">
+                        <StackPanel HorizontalAlignment="Center">
+                            <ui:SymbolIcon Symbol="Pin24" Style="{StaticResource BottomTabIcon}" />
+                            <TextBlock Text="Zoekopdrachten" Style="{StaticResource BottomTabLabel}" />
+                        </StackPanel>
+                    </RadioButton>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

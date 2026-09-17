@@ -1,0 +1,124 @@
+﻿<ui:FluentWindow x:Class="Zentrix.AddSiteWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 Title="Site toevoegen"
+                 Height="700" Width="900"
+                 MinWidth="760" MinHeight="520"
+                 WindowBackdropType="None"
+                 Background="{StaticResource AppBackgroundBrush}"
+                 Foreground="{StaticResource TextPrimaryBrush}"
+                 FontFamily="{StaticResource AppFontFamily}"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowStartupLocation="CenterOwner">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Het verloop als eigen laag achter de inhoud, zoals in de andere vensters.
+             De Background van het venster zelf zet WPF-UI bij het laden terug op zijn
+             effen themakleur, en dan stond dit venster grijs tussen de rest. -->
+        <Border Grid.RowSpan="4" Background="{StaticResource AppBackgroundBrush}" />
+
+        <ui:TitleBar Grid.Row="0" Title="Site toevoegen" />
+
+        <StackPanel Grid.Row="1" Margin="24,12,24,12">
+            <!-- Zonder API-sleutel kan de analyse niet. Dat meldde de app vroeger pas
+                 nadat je de URL had opgezocht en op Analyseren had geklikt, met een
+                 verwijzing naar een omgevingsvariabele. Nu staat het meteen bovenaan,
+                 met een veld om de sleutel te plakken. Zie AddSiteWindow.xaml.cs. -->
+            <Border x:Name="ApiKeyPanel" Visibility="Collapsed" CornerRadius="8" Padding="12,10"
+                    Margin="0,0,0,12" Background="{StaticResource AccentSoftBrush}">
+                <StackPanel>
+                    <TextBlock TextWrapping="Wrap"
+                               Text="Voor de automatische analyse heb je een Claude API-sleutel nodig; een analyse kost ongeveer 50 cent. Een sleutel maak je op console.anthropic.com, onder API Keys. Plak hem hieronder. Hij wordt bewaard bij je Windows-account (als ANTHROPIC_API_KEY), niet in een bestand van Zentrix. Let op: bij de analyse gaat de volledige zoekpagina naar Claude; meld je voor een site die persoonlijke gegevens toont liever niet aan." />
+                    <WrapPanel Margin="0,8,0,0">
+                        <PasswordBox x:Name="ApiKeyBox" Width="340" Padding="8,6"
+                                     Background="{StaticResource InputBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     BorderBrush="{StaticResource SurfaceBorderBrush}" BorderThickness="1" />
+                        <ui:Button Content="Sleutel bewaren" Appearance="Primary" Margin="8,0,0,0"
+                                   Padding="14,6" Click="SaveApiKey_Click" />
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="Zoek één keer op de site zelf en plak hier de URL uit je adresbalk."
+                       Opacity="0.7" TextWrapping="Wrap" Margin="0,0,0,4" />
+            <TextBlock Text="Neem een gewoon woord dat overal iets oplevert, zoals cd of fiets. Voorbeeld: https://www.site.be/zoeken?q=cd"
+                       Opacity="0.5" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+            <ui:TextBox x:Name="UrlBox" PlaceholderText="https://.../zoeken?q={query}" />
+
+            <!-- Een WrapPanel en geen horizontale StackPanel: die laatste knipte het
+                 brug-vinkje rechts af zodra het label langer werd. -->
+            <WrapPanel Margin="0,12,0,0">
+                <TextBlock Text="Welk woord zocht je?" VerticalAlignment="Center" Margin="0,0,8,0" Opacity="0.7" />
+                <ui:TextBox x:Name="TestQueryBox" Text="cd" Width="200" />
+
+                <ui:Button x:Name="AnalyzeButton" Content="Analyseren met AI"
+                           Icon="{ui:SymbolIcon Sparkle24}" Appearance="Primary"
+                           Margin="12,0,0,0" Padding="16,6" Click="AnalyzeButton_Click" />
+                <ui:Button x:Name="LoginButton" Content="Aanmelden bij site"
+                           Icon="{ui:SymbolIcon Person24}" Appearance="Secondary"
+                           Margin="8,0,0,0" Padding="16,6" Click="LoginButton_Click" />
+                <!-- Staat standaard UIT: de analyse probeert zelf eerst rechtstreeks, dan
+                     een browser, en pas bij een blokkade de brug. Aanvinken slaat die
+                     eerste twee over, voor een site waarvan je al weet dat ze blokkeert. -->
+                <CheckBox x:Name="BridgeCheck" Content="Meteen via mijn eigen Chrome"
+                          IsChecked="False" VerticalAlignment="Center" Margin="16,0,0,0"
+                          ToolTip="De app probeert zelf eerst zonder browser, dan met een browser, en pas bij een blokkade via je eigen Chrome. Vink dit aan om die eerste twee over te slaan." />
+                <ui:ProgressRing x:Name="Spinner" IsIndeterminate="True" Visibility="Collapsed"
+                                 Width="20" Height="20" Margin="12,0,0,0" />
+            </WrapPanel>
+        </StackPanel>
+
+        <!-- Gevonden definitie en testresultaten -->
+        <Grid Grid.Row="2" Margin="24,0,24,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="320" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+                <StackPanel x:Name="FieldsPanel" Margin="0,0,12,0" />
+            </ScrollViewer>
+
+            <ui:ListView Grid.Column="1" x:Name="PreviewList">
+                <ui:ListView.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="0,6">
+                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                <TextBlock Text="{Binding Price, Converter={StaticResource PriceText}}"
+                                           FontSize="12" Opacity="0.8" />
+                                <TextBlock Text=" · " FontSize="12" Opacity="0.5" />
+                                <TextBlock Text="{Binding Location}" FontSize="12" Opacity="0.5" />
+                            </StackPanel>
+                        </StackPanel>
+                    </DataTemplate>
+                </ui:ListView.ItemTemplate>
+            </ui:ListView>
+        </Grid>
+
+        <!-- Een Grid, zodat een lange melding links begint en afbreekt in plaats van links
+             buiten beeld te verdwijnen. -->
+        <Grid Grid.Row="3" Margin="24,12,24,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="StatusText" Text="" Opacity="0.8" VerticalAlignment="Center" Margin="0,0,16,0"
+                       TextWrapping="Wrap" />
+            <ui:Button Grid.Column="1" x:Name="TestButton" Content="Testen" Margin="0,0,8,0" Padding="16,6"
+                       Appearance="Secondary" IsEnabled="False" Click="TestButton_Click" />
+            <ui:Button Grid.Column="2" x:Name="SaveButton" Content="Opslaan" Appearance="Primary" Padding="16,6"
+                       IsEnabled="False" Click="SaveButton_Click" />
+        </Grid>
+    </Grid>
+</ui:FluentWindow>

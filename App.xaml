@@ -1,0 +1,191 @@
+﻿<Application x:Class="Zentrix.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:conv="clr-namespace:Zentrix.Converters"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ui:ThemesDictionary Theme="Dark" />
+                <ui:ControlsDictionary />
+            </ResourceDictionary.MergedDictionaries>
+
+            <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+            <conv:PriceTextConverter x:Key="PriceText" />
+
+            <!-- Het oogje en het sterretje boven een foto. Op een witte productfoto haalde het
+                 witte pictogram op het vroegere #59000000 maar 2,4:1; op #80000000 is dat 4:1. -->
+            <SolidColorBrush x:Key="OverlayBrush" Color="#80000000" />
+            <SolidColorBrush x:Key="OverlayHoverBrush" Color="#A6000000" />
+            <conv:CountToVisibilityConverter x:Key="CountToVisibility" />
+            <conv:RoundedClipConverter x:Key="RoundedClip" />
+            <conv:CenterOffsetConverter x:Key="CenterOffset" />
+
+            <!-- ==================================================================
+                 DESIGNSYSTEEM
+
+                 Alles wat met kleur, vorm en tekst te maken heeft staat hier, en
+                 nergens anders. Wil je de app een andere tint geven, dan wijzig je
+                 de kleuren hieronder en volgt de rest vanzelf. Vensters en
+                 sjablonen verwijzen enkel naar deze namen, nooit naar een losse
+                 kleurcode.
+                 ================================================================== -->
+
+            <!-- === kleuren === -->
+
+            <Color x:Key="AccentColor">#4F46E5</Color>
+            <Color x:Key="AccentAltColor">#7C3AED</Color>
+            <Color x:Key="BackgroundTopColor">#3B3470</Color>
+            <Color x:Key="BackgroundMidColor">#2E2859</Color>
+            <Color x:Key="BackgroundBottomColor">#1D193A</Color>
+            <Color x:Key="TextPrimaryColor">#F1EFF7</Color>
+
+            <!-- De achtergrond loopt van links licht naar rechts donker, met de
+                 middelste stop laat (0,65) zodat het grootste deel van het scherm
+                 aan de lichte kant blijft. Licht schuin, niet vol diagonaal: zo
+                 blijft het rustig. -->
+            <LinearGradientBrush x:Key="AppBackgroundBrush" StartPoint="0,0" EndPoint="1,0.55">
+                <GradientStop Color="{StaticResource BackgroundTopColor}" Offset="0" />
+                <GradientStop Color="{StaticResource BackgroundMidColor}" Offset="0.65" />
+                <GradientStop Color="{StaticResource BackgroundBottomColor}" Offset="1" />
+            </LinearGradientBrush>
+
+            <!-- === accent === -->
+
+            <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
+            <SolidColorBrush x:Key="AccentAltBrush" Color="{StaticResource AccentAltColor}" />
+
+            <!-- Het accent als TEKST of PICTOGRAM op de donkere achtergrond. Het gewone
+                 indigo haalt daar maar een contrast van 2:1 - de actieve tab onderaan was
+                 slechter leesbaar dan de inactieve ernaast. Dit lichte indigo haalt
+                 ongeveer 6:1. AccentBrush blijft voor vlakken en voor tekst op kaarten. -->
+            <SolidColorBrush x:Key="AccentOnDarkBrush" Color="#A5B4FC" />
+
+            <!-- Indigo naar violet. Voor primaire knoppen en voor wat actief is;
+                 bewust niet voor grote vlakken, anders wordt het onrustig. -->
+            <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="{StaticResource AccentColor}" Offset="0" />
+                <GradientStop Color="{StaticResource AccentAltColor}" Offset="1" />
+            </LinearGradientBrush>
+
+            <!-- Het accent, sterk verdund: voor rustige knopvlakken. -->
+            <SolidColorBrush x:Key="AccentSoftBrush" Color="{StaticResource AccentColor}" Opacity="0.20" />
+            <SolidColorBrush x:Key="AccentSoftHoverBrush" Color="{StaticResource AccentColor}" Opacity="0.34" />
+
+            <!-- === oppervlakken === -->
+
+            <!-- Kaarten en panelen: wit met 6% dekking op de donkere achtergrond,
+                 met een randje van 10%. Zo blijft het verloop erdoor schemeren. -->
+            <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF" Opacity="0.06" />
+            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#FFFFFF" Opacity="0.10" />
+            <SolidColorBrush x:Key="SurfaceBorderBrush" Color="#FFFFFF" Opacity="0.10" />
+
+            <!-- Ondoorzichtige variant, voor balken die iets moeten afdekken
+                 (zoals de rand van een pagina onder een tab). -->
+            <SolidColorBrush x:Key="PanelBrush" Color="#332C63" />
+
+            <!-- Invoervelden mogen iets meer opvallen dan een kaart. -->
+            <SolidColorBrush x:Key="InputBrush" Color="#FFFFFF" Opacity="0.10" />
+
+            <CornerRadius x:Key="SurfaceRadius">12</CornerRadius>
+
+            <!-- === tekst === -->
+
+            <FontFamily x:Key="AppFontFamily">Segoe UI Variable Text, Segoe UI</FontFamily>
+            <FontFamily x:Key="AppDisplayFontFamily">Segoe UI Variable Display, Segoe UI</FontFamily>
+
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />
+            <SolidColorBrush x:Key="TextSubtleBrush" Color="{StaticResource TextPrimaryColor}" Opacity="0.6" />
+
+            <Style x:Key="TitleText" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource AppDisplayFontFamily}" />
+                <Setter Property="FontSize" Value="20" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            </Style>
+
+            <Style x:Key="HeadingText" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            </Style>
+
+            <Style x:Key="BodyText" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            </Style>
+
+            <Style x:Key="CaptionText" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+            </Style>
+
+            <!-- === afgeleide namen === -->
+            <!-- Deze namen bestonden al in de vensters. Ze wijzen nu naar het
+                 designsysteem hierboven, zodat er maar één plaats is waar kleur
+                 vandaan komt. -->
+
+            <SolidColorBrush x:Key="PageBrush" Color="#332C63" />
+
+            <!-- Een KAART is een stuk inhoud: een zoekertje, een bewaarde
+                 zoekopdracht, een regel in Recent. Die zijn licht, met donkere
+                 tekst, en laten de achtergrond er net doorheen schemeren.
+                 Een OPPERVLAK (SurfaceBrush hierboven) is iets anders: een donker
+                 paneel of knopvlak dat op de achtergrond meedeint. -->
+            <SolidColorBrush x:Key="CardBrush" Color="#F5F3FF" Opacity="0.94" />
+            <SolidColorBrush x:Key="CardBorderBrush" Color="#1E1B2E" Opacity="0.08" />
+            <SolidColorBrush x:Key="CardTextBrush" Color="#1E1B2E" />
+            <SolidColorBrush x:Key="CardTextSubtleBrush" Color="#1E1B2E" Opacity="0.6" />
+            <SolidColorBrush x:Key="CardHoverBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="PriceBrush" Color="{StaticResource AccentColor}" />
+            <SolidColorBrush x:Key="NewBadgeBrush" Color="{StaticResource AccentColor}" />
+
+            <SolidColorBrush x:Key="StarBrush" Color="#FBBF24" />
+
+            <!-- Een zoekertje dat opvallend onder de mediaanprijs zit. Groen en
+                 niet indigo: dit is geen accent maar een oordeel, en dat moet
+                 zich van de rest onderscheiden. -->
+
+            <!-- Iets misliep bij een site. Amber op de donkere achtergrond (de tabs), en
+                 een donkerder amber op de lichte kaarten, want het lichte is daar niet
+                 te lezen. -->
+            <SolidColorBrush x:Key="WarningBrush" Color="#FBBF24" />
+            <SolidColorBrush x:Key="WarningOnCardBrush" Color="#B45309" />
+
+            <!-- Sluier over de achtergrondfoto: 35% van de donkerste
+                 achtergrondkleur, zodat witte tekst er leesbaar op blijft. -->
+            <SolidColorBrush x:Key="ScrimBrush" Color="#1A1730" Opacity="0.35" />
+
+            <!-- Lichtere sluier voor het vlak onder de resultaten: de foto mag
+                 er nog doorheen schemeren. -->
+            <SolidColorBrush x:Key="PanelScrimBrush" Color="#1A1730" Opacity="0.22" />
+
+            <!-- De navigatierail krijgt geen foto maar een effen, rustige kleur. -->
+            <SolidColorBrush x:Key="RailBrush" Color="#14122A" />
+
+            <!-- De kopbalk blijft rustig: een donker paneel met een vleugje
+                 indigo, niet het volle accentverloop. Dat laatste is voorbehouden
+                 aan knoppen en aan wat actief staat. -->
+            <LinearGradientBrush x:Key="HeaderBrush" StartPoint="0,0" EndPoint="1,0.55">
+                <GradientStop Color="#463E86" Offset="0" />
+                <GradientStop Color="#372F6B" Offset="0.65" />
+                <GradientStop Color="#241F47" Offset="1" />
+            </LinearGradientBrush>
+
+            <!-- === vensters === -->
+
+            <!-- Let op: geef FluentWindow géén impliciete stijl. WPF-UI levert zijn
+                 venstersjabloon als thema-stijl; een eigen stijl met TargetType
+                 FluentWindow neemt die plaats in en dan tekent het venster niets
+                 meer - je krijgt een leeg wit kader. Zet lettertype, tekstkleur,
+                 achtergrond en backdrop dus per venster. Mica valt af: dat vlekt
+                 door het verloop heen en maakt de achtergrond onrustig. -->
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
+
+

@@ -1,0 +1,177 @@
+<ui:FluentWindow x:Class="Zentrix.PriceIndicationWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 Title="Prijsindicatie"
+                 Height="820" Width="720"
+                 MinHeight="480" MinWidth="560"
+                 WindowBackdropType="None"
+                 Background="{StaticResource AppBackgroundBrush}"
+                 Foreground="{StaticResource TextPrimaryBrush}"
+                 FontFamily="{StaticResource AppFontFamily}"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowStartupLocation="CenterOwner">
+
+    <ui:FluentWindow.Resources>
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+
+        <Style x:Key="Uitleg" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Style.Triggers>
+                <!-- Een lege uitleg neemt geen plaats in. -->
+                <Trigger Property="Text" Value="">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="Section" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource SurfaceBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="Margin" Value="0,0,0,14" />
+        </Style>
+
+        <!-- Eén vergelijking: prijs links, titel en site rechts. Klikken opent het zoekertje. -->
+        <DataTemplate x:Key="VergelijkingRij">
+            <Border x:Name="Rij" Background="Transparent" CornerRadius="8" Padding="8,6" Cursor="Hand"
+                    ToolTip="Openen in je browser" MouseLeftButtonUp="Rij_Click">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="96" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="{Binding PriceText}" FontWeight="SemiBold" FontSize="14"
+                               VerticalAlignment="Top" Margin="0,1,8,0" />
+
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="{Binding Listing.Title}" FontSize="13" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{StaticResource TextSubtleBrush}"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <Trigger SourceName="Rij" Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Rij" Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                </Trigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- WPF-UI zet de Background van een FluentWindow bij het laden zelf terug op de
+             effen themakleur; daarom staat het verloop als eigen vlak achter de inhoud. -->
+        <Border Grid.RowSpan="3" Background="{StaticResource AppBackgroundBrush}" />
+
+        <ui:TitleBar Grid.Row="0" Title="Prijsindicatie" />
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="20,10,20,0">
+            <StackPanel>
+
+                <!-- ==================== het zoekertje ==================== -->
+                <Border Style="{StaticResource Section}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Width="104" Height="84" CornerRadius="8" Margin="0,0,14,0"
+                                Background="{StaticResource SurfaceHoverBrush}">
+                            <Border x:Name="OriginPhoto" CornerRadius="8" />
+                        </Border>
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock x:Name="OriginTitle" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock x:Name="OriginPrice" FontSize="13" Margin="0,4,0,0" TextWrapping="Wrap"
+                                       Foreground="{StaticResource TextSubtleBrush}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- ==================== zoekterm ==================== -->
+                <Border Style="{StaticResource Section}">
+                    <StackPanel>
+                        <TextBlock Text="Zoeken op" Style="{StaticResource SectionTitle}" />
+                        <TextBlock Style="{StaticResource Uitleg}"
+                                   Text="Het merk en het model uit de titel. Klopt het niet, pas het dan aan: elk woord moet in de titel van een vergelijking staan, en een ander achtervoegsel (zoals AE bij DCD-520AE) is een ander model." />
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <ui:TextBox x:Name="TermBox" />
+                            <ui:Button x:Name="SearchButton" Grid.Column="1" Content="Zoeken" Appearance="Primary"
+                                       Margin="8,0,0,0" IsDefault="True" Click="SearchButton_Click" />
+                        </Grid>
+
+                        <TextBlock x:Name="StatusText" Style="{StaticResource Uitleg}" Margin="0,10,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================== marktwaarde ==================== -->
+                <Border x:Name="MarketPanel" Style="{StaticResource Section}" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock Text="Marktwaarde" Style="{StaticResource SectionTitle}" />
+                        <TextBlock x:Name="MarketValue" FontSize="30" FontWeight="SemiBold" Margin="0,2,0,2" />
+                        <TextBlock x:Name="MarketDetail" Style="{StaticResource Uitleg}" />
+                        <TextBlock x:Name="Comparison" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                                   Foreground="{StaticResource AccentOnDarkBrush}" Margin="0,0,0,8">
+                            <TextBlock.Style>
+                                <!-- Zonder vergelijking (te weinig gegevens) geen lege strook. -->
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <Trigger Property="Text" Value="">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock x:Name="BroadText" Style="{StaticResource Uitleg}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================== de vergelijkingen, per groep ==================== -->
+                <ItemsControl x:Name="Groups">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource Section}">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Header}" Style="{StaticResource SectionTitle}" />
+                                    <TextBlock Text="{Binding Summary}" Style="{StaticResource Uitleg}" />
+                                    <ItemsControl ItemsSource="{Binding Items}"
+                                                  ItemTemplate="{StaticResource VergelijkingRij}" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid Grid.Row="2" Margin="20,8,20,16">
+            <ui:Button Content="Sluiten" Appearance="Secondary" IsCancel="True" HorizontalAlignment="Right"
+                       Click="CloseButton_Click" />
+        </Grid>
+    </Grid>
+</ui:FluentWindow>

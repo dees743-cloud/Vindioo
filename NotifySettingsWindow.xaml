@@ -1,0 +1,189 @@
+﻿<ui:FluentWindow x:Class="Zentrix.NotifySettingsWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 Title="Meldingen en achtergrond"
+                 Height="780" Width="640"
+                 MinHeight="500" MinWidth="520"
+                 WindowBackdropType="None"
+                 Background="{StaticResource AppBackgroundBrush}"
+                 Foreground="{StaticResource TextPrimaryBrush}"
+                 FontFamily="{StaticResource AppFontFamily}"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowStartupLocation="CenterOwner">
+
+    <ui:FluentWindow.Resources>
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+
+        <Style x:Key="Uitleg" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+        </Style>
+
+        <Style x:Key="Section" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource SurfaceBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="Margin" Value="0,0,0,14" />
+        </Style>
+
+        <!-- Hier stonden de stijlen Veld, PrimaireKnop en StilleKnop. Zonder BasedOn vielen
+             die terug op het sjabloon van Windows: vierkante knoppen die lichtblauw oplichtten,
+             en een zwarte cursor in een donker veld. Nu zijn het de ui:TextBox en ui:Button
+             van WPF-UI, zoals in Sites beheren. -->
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- WPF-UI zet de Background van een FluentWindow bij het laden zelf
+             terug op de effen themakleur; ons verloop verdwijnt dan zonder
+             foutmelding. Daarom staat het als eigen vlak achter de inhoud. -->
+        <Border Grid.RowSpan="3" Background="{StaticResource AppBackgroundBrush}" />
+
+        <ui:TitleBar Grid.Row="0" Title="Meldingen en achtergrond" />
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="20,10,20,0">
+            <StackPanel>
+
+                <!-- ==================== op de achtergrond ==================== -->
+                <Border Style="{StaticResource Section}">
+                    <StackPanel>
+                        <TextBlock Text="Op de achtergrond draaien" Style="{StaticResource SectionTitle}" />
+                        <TextBlock Style="{StaticResource Uitleg}"
+                                   Text="Een zoekopdracht met een schema draait alleen wanneer de app ook echt draait. Met deze instellingen blijft ze bij de klok staan in plaats van in de weg." />
+
+                        <CheckBox x:Name="MinimizeBox" Margin="0,0,0,8"
+                                  Content="Bij minimaliseren naar het systeemvak (naast de klok)" />
+                        <CheckBox x:Name="CloseBox" Margin="0,0,0,8"
+                                  Content="Het kruisje verbergt de app in plaats van ze af te sluiten" />
+                        <CheckBox x:Name="StartMinBox" Margin="0,0,0,8"
+                                  Content="Opstarten met enkel het pictogram, zonder venster" />
+                        <CheckBox x:Name="AutostartBox"
+                                  Content="Mee opstarten met Windows" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================== systeemvak ==================== -->
+                <Border Style="{StaticResource Section}">
+                    <StackPanel>
+                        <TextBlock Text="Ballon bij de klok" Style="{StaticResource SectionTitle}" />
+                        <TextBlock Style="{StaticResource Uitleg}"
+                                   Text="Vraagt niets om in te stellen, maar je ziet het enkel wanneer je aan de pc zit." />
+
+                        <StackPanel Orientation="Horizontal">
+                            <CheckBox x:Name="TrayNotifyBox" Content="Aan" VerticalAlignment="Center"
+                                      Margin="0,0,12,0" />
+                            <ui:Button Content="Testen" Click="TestTray_Click" Appearance="Secondary" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================== Telegram ==================== -->
+                <Border Style="{StaticResource Section}">
+                    <StackPanel>
+                        <TextBlock Text="Telegram" Style="{StaticResource SectionTitle}" />
+                        <TextBlock Style="{StaticResource Uitleg}"
+                                   Text="De aangewezen weg als je het van ver wil zien: het komt op je telefoon. Instellen: open Telegram, zoek @BotFather, stuur /newbot en volg de vragen. Je krijgt een token. Stuur daarna zelf één bericht naar je nieuwe bot en klik hieronder op 'Chat-id ophalen'." />
+
+                        <CheckBox x:Name="TelegramBox" Content="Aan" Margin="0,0,0,10" />
+
+                        <TextBlock Text="Token van de bot" Style="{StaticResource FieldLabel}" />
+                        <ui:TextBox x:Name="TelegramTokenBox" Margin="0,0,0,10" />
+
+                        <TextBlock Text="Chat-id" Style="{StaticResource FieldLabel}" />
+                        <ui:TextBox x:Name="TelegramChatBox" Margin="0,0,0,10" />
+
+                        <CheckBox x:Name="TelegramPhotosBox" Margin="0,0,0,10"
+                                  Content="De foto meesturen (één bericht per zoekertje, hoogstens zes)" />
+
+                        <StackPanel Orientation="Horizontal">
+                            <ui:Button Content="Chat-id ophalen" Click="FetchChatId_Click"
+                                       Appearance="Secondary" Margin="0,0,8,0" />
+                            <ui:Button Content="Testen" Click="TestTelegram_Click"
+                                       Appearance="Secondary" />
+                        </StackPanel>
+
+                        <TextBlock x:Name="TelegramResult" Style="{StaticResource Uitleg}" Margin="0,10,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================== e-mail ==================== -->
+                <Border Style="{StaticResource Section}">
+                    <StackPanel>
+                        <TextBlock Text="E-mail" Style="{StaticResource SectionTitle}" />
+                        <TextBlock Style="{StaticResource Uitleg}"
+                                   Text="Werkt overal, maar vraagt een mailserver. Bij Telenet is dat smtp.telenet.be op poort 587; bij Gmail smtp.gmail.com op poort 587, daar met een app-wachtwoord en niet je gewone wachtwoord." />
+
+                        <CheckBox x:Name="EmailBox" Content="Aan" Margin="0,0,0,10" />
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="90" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Server" Style="{StaticResource FieldLabel}" />
+                                <ui:TextBox x:Name="SmtpHostBox" Margin="0,0,0,10" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Poort" Style="{StaticResource FieldLabel}" />
+                                <ui:TextBox x:Name="SmtpPortBox" Margin="0,0,0,10" />
+                            </StackPanel>
+                        </Grid>
+
+                        <CheckBox x:Name="SmtpSslBox" Content="Beveiligde verbinding (TLS)" Margin="0,0,0,10" />
+
+                        <TextBlock Text="Gebruikersnaam — meestal je volledige e-mailadres, niet je naam"
+                                   Style="{StaticResource FieldLabel}" />
+                        <ui:TextBox x:Name="SmtpUserBox" Margin="0,0,0,10" />
+
+                        <TextBlock Text="Wachtwoord" Style="{StaticResource FieldLabel}" />
+                        <ui:PasswordBox x:Name="SmtpPasswordBox" Margin="0,0,0,10" />
+
+                        <TextBlock Text="Sturen naar" Style="{StaticResource FieldLabel}" />
+                        <ui:TextBox x:Name="MailToBox" Margin="0,0,0,10" />
+
+                        <ui:Button Content="Testen" Click="TestEmail_Click" Appearance="Secondary"
+                                   HorizontalAlignment="Left" />
+
+                        <TextBlock x:Name="EmailResult" Style="{StaticResource Uitleg}" Margin="0,10,0,0" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" Background="{StaticResource ScrimBrush}"
+                BorderBrush="{StaticResource SurfaceBorderBrush}" BorderThickness="0,1,0,0"
+                Padding="20,12">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <!-- Esc annuleert. Geen Enter om te bewaren: in dit venster plak je
+                     tokens en adressen, en daar sluit een Enter het venster te makkelijk. -->
+                <ui:Button Content="Annuleren" Click="Cancel_Click" Appearance="Secondary"
+                           Padding="16,8" Margin="0,0,8,0" IsCancel="True" />
+                <ui:Button Content="Bewaren" Click="Save_Click" Appearance="Primary" Padding="16,8" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

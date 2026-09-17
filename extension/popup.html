@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #e8e6ea;
+      --dim: #9b96a3;
+      --line: #35313c;
+      --bg: #1c1a20;
+      --ok: #7ad19a;
+      --off: #c98a8a;
+      --warn: #e0b35a;
+    }
+
+    body {
+      width: 300px;
+      margin: 0;
+      padding: 18px;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    h1 {
+      margin: 0 0 2px;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    p {
+      margin: 0 0 14px;
+      color: var(--dim);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--dim);
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #232028;
+      color: var(--ink);
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 12px;
+    }
+
+    input:focus {
+      outline: 2px solid #8a6fa8;
+      outline-offset: 1px;
+    }
+
+    button {
+      margin-top: 10px;
+      width: 100%;
+      padding: 9px;
+      border: 0;
+      border-radius: 6px;
+      background: #7c5f9c;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:hover { background: #8b6cae; }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--off);
+      flex: none;
+    }
+
+    .dot.on { background: var(--ok); }
+    .dot.warn { background: var(--warn); }
+    .saved.warn { color: var(--warn); }
+
+    .saved {
+      margin-top: 8px;
+      color: var(--ok);
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Zentrix Brug</h1>
+  <p>Deze extensie opent zoekpagina's in dit browservenster voor de Zentrix-app op deze computer.</p>
+
+  <label for="token">Koppelcode uit Zentrix (tandwiel &gt; Koppelcode)</label>
+  <input id="token" type="text" placeholder="plak de code hier" spellcheck="false" />
+  <button id="save">Code opslaan</button>
+  <div class="saved" id="saved">Opgeslagen.</div>
+
+  <div class="status">
+    <span class="dot" id="dot"></span>
+    <span id="statusText">Zoeken naar de app…</span>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

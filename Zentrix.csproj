@@ -1,0 +1,60 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+
+    <!-- Enkel voor NotifyIcon: WPF heeft zelf geen pictogram voor het
+         systeemvak, en WPF-UI 4.3 levert er ook geen. De rest van de app blijft
+         gewoon WPF; er wordt geen enkel WinForms-venster getoond. -->
+    <UseWindowsForms>true</UseWindowsForms>
+
+    <!-- Icoon van de app: verschijnt in de titelbalk, de taakbalk en op het
+         bestand zelf. Gemaakt uit Assets/logo.png met de maten 16/32/48/256. -->
+    <ApplicationIcon>Assets/zentrix.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- UseWindowsForms zet System.Drawing en System.Windows.Forms als globale
+         using over het hele project. Dat botst meteen met WPF: Application,
+         UserControl, TextBox, CheckBox en KeyEventArgs bestaan in allebei. We
+         houden de verwijzing naar de assembly maar halen die globale usings
+         weg; TrayIcon.cs zet zijn using zelf, en dat is het enige bestand dat
+         WinForms nodig heeft. -->
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Als Resource ingebouwd, dus ze zitten in de exe en niet als los
+         bestand ernaast. -->
+    <Resource Include="Assets/logo.png" />
+    <Resource Include="Assets/background.png" />
+
+    <!-- Het icoon zit al als ApplicationIcon in de exe, maar NotifyIcon heeft
+         het als los bestand nodig om het uit te lezen. -->
+    <Resource Include="Assets/zentrix.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- De controles in tests\ zijn een eigen project dat deze broncode zelf meecompileert.
+         Zonder deze regels zou de app hun .cs-bestanden (en hun obj) ook opnemen. -->
+    <Compile Remove="tests\**" />
+    <None Remove="tests\**" />
+    <Page Remove="tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AngleSharp" Version="1.8.0" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="MailKit" Version="4.17.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.62.0" />
+    <PackageReference Include="WPF-UI" Version="4.3.0" />
+  </ItemGroup>
+
+</Project>
+
