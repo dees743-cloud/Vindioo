@@ -1968,7 +1968,46 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         while (_zichtbaar.Count > schijf.Count) _zichtbaar.RemoveAt(_zichtbaar.Count - 1);
 
         BouwPager(paginas);
+        VulEinddatumsAan();
     }
+
+    /// <summary>
+    /// Haalt op de achtergrond de sluitingsdatum op van de veilingkavels die nu op het
+    /// scherm staan. Enkel van wat je ziet: die datum staat bij AlleVeilingen op de pagina
+    /// van het kavel zelf, dus het is één verzoek per kavel. Voor alle vijfhonderd
+    /// zoekertjes van een zoekopdracht zou dat vijfhonderd verzoeken zijn.
+    ///
+    /// Wat al opgehaald is, onthoudt <see cref="DetailFetcher"/>, dus heen en weer bladeren
+    /// kost niets. Bij elke nieuwe pagina wordt het vorige stilgelegd: die kavels staan dan
+    /// niet meer in beeld.
+    /// </summary>
+    private void VulEinddatumsAan()
+    {
+        _einddatums?.Cancel();
+        _einddatums?.Dispose();
+        _einddatums = new CancellationTokenSource();
+
+        var token = _einddatums.Token;
+        var kavels = _zichtbaar.ToList();
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await DetailFetcher.FillAsync(kavels, _store.Sites, token);
+            }
+            catch (OperationCanceledException)
+            {
+                // Volgende pagina, andere zoekopdracht: dit hoeft niet af.
+            }
+            catch (Exception ex)
+            {
+                Log.Write("einddatums ophalen mislukt - " + ex.Message);
+            }
+        }, token);
+    }
+
+    private CancellationTokenSource? _einddatums;
 
     /// <summary>Hoeveel paginanummers er hoogstens naast elkaar staan.</summary>
     private const int PagerBreedte = 7;

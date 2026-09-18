@@ -86,12 +86,15 @@ Services/
   Log.cs             logboek in een tekstbestand
   FriendlyError.cs   zet een fout om in een zin die de gebruiker iets zegt
   PriceIndicator.cs  wat is een toestel ongeveer waard: zoeken, opschonen, rekenen
+  DetailFetcher.cs   haalt van de pagina van een zoekertje wat niet op de zoekpagina staat
 Converters/
   Converters.cs      zichtbaarheid van NIEUW-label en tellers
 Controls/
   PhotoThumbnail.xaml  miniatuur met de grote foto ernaast, gedeeld door beide weergaven
   VirtualizingWrapPanel.cs  raster dat enkel opbouwt wat in beeld staat
   SmoothScroll.cs      vloeiend schuiven met het muiswiel, voor allebei de weergaven
+  ScrollingText.cs     een regel die te lang is voor haar vak: vervaagt, en schuift als je
+                       er met de muis op gaat staan
   CustomFilterControls.cs  de invoer voor sitegebonden filters, gedeeld door
                        het zoekscherm en het instellingenvenster
 Vensters (root):
@@ -740,6 +743,154 @@ meldt voortaan gewoon alles wat nieuw is; de velden in het JSON-blokje worden ge
 Wat de vraag "is dit een goede prijs" wél beantwoordt, staat hieronder: de prijsindicatie, die
 per model vergelijkt en veilingen apart houdt.
 
+**Naast de prijs staat de stad, en anders het land** (17 september 2026). Dat is wat je bij een
+zoekertje wil weten: kan ik het gaan halen, of komt het van ver. Wat de sites aanleveren is daar
+niet naar. AlleVeilingen zet het volledige adres van het veilinghuis in één tekstje
+("Rijksweg 2, 9681 Maarkedal, België"), eBay geeft in zijn kaarten van september 2026 helemaal
+geen stad meer maar wel het land ("van Nederland"), en de selector `.s-item__location` uit het
+sitebestand bestond daar niet meer - op 62 kaarten nul treffers, dus stond er niets.
+
+Dat is opgelost in de **sitebestanden** en niet in de app, want hoe een site zijn adres opschrijft
+hoort bij die site. De nieuwe regel `::match(patroon)` achter een selector (zie "Sites toevoegen")
+houdt enkel over wat in de eerste haakjes van het patroon past:
+
+| Site | wat de pagina geeft | wat er nu staat |
+|---|---|---|
+| 2dehands, Marktplaats | `Aalter` | ongewijzigd |
+| AlleVeilingen | `Rijksweg 2, 9681 Maarkedal, België` | `Maarkedal` |
+| eBay | `van Nederland` | `Nederland` |
+| Kleinanzeigen | `72461 Albstadt` | `Albstadt` |
+| AutoScout24 | `BE-1160 Auderghem` | `Auderghem` |
+| leboncoin | `Photo, audio & vidéo` (de **categorie**) | `Argenteuil` |
+| Discogs | het land van de verkoper | ongewijzigd: geen stad beschikbaar |
+| Catawiki | niets | nog niets, zie hieronder |
+
+Bij AlleVeilingen is het patroon `(?:^|,)\s*(?:\d{4,6}\s+)?([^,]+?)\s*,\s*[^,]+$`: het komma-stuk
+vlak voor het land, zonder de postcode die er soms voor staat. Dat ene patroon vangt alle vormen die
+de site geeft - met straat, met een gehucht ervoor, met en zonder postcode, en enkel de stad.
+Nagemeten op de echte zoekpagina: 13 verschillende adressen, 13 juiste steden. Bij eBay is het
+`^(?:van|uit)\s+(.+)$` op de laatste `.s-card__attribute-row`: 60 van de 62 kaarten geven zo hun
+land. De twee andere zijn advertenties zonder land, en die blijven leeg - wat het patroon niet
+herkent, komt er niet in, dus daar verschijnen niet de verzendkosten die in diezelfde rij staan.
+
+Bij het nameten bleken er nog drie sites meer te tonen dan een stad, en die zijn in dezelfde
+beweging meegegaan - het is telkens één regel in het sitebestand:
+
+- **Kleinanzeigen** en **AutoScout24** zetten de postcode voor de stad (`72461 Albstadt`,
+  `BE-1160 Auderghem`). Patroon: `^(?:[A-Z]{2}-)?(?:\d{4,6}\s+)?(.+)$`, nagemeten 27 van de 27
+  en 20 van de 20.
+- **leboncoin** toonde de **categorie** in plaats van de plaats. Een kaart heeft daar twee keer
+  `p.text-caption.text-neutral` - eerst de categorie, dan de plaats - en de motor neemt het eerste
+  element dat past. De selector wijst nu met buren (`p... + p.sr-only + p...`) de tweede aan, en
+  het patroon `^(.+?)(?:\s+\d{4,5}\b.*)?$` knipt de postcode en de wijk eraf: `Argenteuil 95100
+  Centre-ville` wordt `Argenteuil`. Nagemeten: 35 van de 35 kaarten een Franse stadsnaam.
+
+**Discogs** geeft het land van de verkoper en **Facebook** "Kortrijk, VLG"; die blijven zoals ze
+waren. Facebook loopt trouwens via de linkmotor, en die haalt de plaats uit de tekstregels van de
+kaart in plaats van uit `LocationSelector` - `::match` doet daar dus niets.
+
+**Bij een veiling staat achter de plaats hoelang er nog geboden kan worden** (17 september 2026):
+"Nederland · Nog 9d 12u". Dat is precies wat er bij een kavel ontbrak, want daar is de tijd
+belangrijker dan de prijs van dit moment. Het sitebestand wijst die tekst aan met
+`TimeLeftSelector`, en `Listing.PlaceLine` plakt de twee aan elkaar: is er geen plaats - Catawiki
+geeft er geen - dan blijft de tijd alleen over, zonder los scheidingsteken.
+
+| Site | Waar het staat | Wat er komt |
+|---|---|---|
+| Catawiki | `time` op de kaart | `Nog 3 dagen`, `Nog 21 uur` |
+| eBay | `.s-card__time-left` | `Nog 9d 12u` (enkel bij een veiling; bij "Nu kopen" bestaat dat element niet) |
+| AlleVeilingen | niet op de zoekpagina, wel op de **kavelpagina** | `Nog 11 dagen`, uitgerekend uit `29/09/2026 19:00` |
+
+**Het is tekst en geen datum**, met opzet. Catawiki zet geen `datetime` bij zijn aftelklok - dat
+was nog een open vraag, en nu is ze beantwoord - en wat de site zelf toont, klopt altijd met wat een
+bezoeker daar ziet. Daarom gaat het ook **niet mee** in een favoriet of in de bewaarde resultaten
+van een vorige beurt: "nog 3 dagen" van vorige week zou een leugen zijn. Bij Catawiki komt de klok,
+net als de prijs, pas met JavaScript in de pagina, dus `Listing.MergeFrom` vult ze aan uit een
+latere levering van de brug.
+
+**En het kost niets extra.** De vraag lag voor de hand: als je die tijd toch moet ophalen, haal dan
+meteen het land op. Maar de tijd wordt niet opgehaald - ze staat al op de zoekpagina, in dezelfde
+kaart als de titel en de prijs. Het land staat daar niet, en enkel daarvoor zou je per kavel een
+pagina moeten laden.
+
+**Behalve bij AlleVeilingen**, en daar wordt ze wél opgehaald (18 september 2026). Op de kaart
+staan enkel het huidige bod, het aantal biedingen en het kavelnummer; de sluitingsdatum staat op de
+pagina van het kavel, in `div[title='Einddatum']`: "Einde op 29/09/2026 19:00". Wat dat mogelijk
+maakte, was een meting: die pagina komt binnen met een **gewoon verzoek** - geen browser, geen brug -
+en gemeten over acht echte kavels duurde dat **191 ms voor alle acht samen**, zes tegelijk.
+
+`DetailFetcher` doet dat, en de regel eromheen is belangrijker dan de code: **enkel voor de
+zoekertjes die op dat moment op het scherm staan**. Een zoekopdracht levert tot vijfhonderd
+zoekertjes per site, en dan zouden dat vijfhonderd verzoeken aan die site zijn. Nu is het er
+één per kavel dat je ziet - bij een pagina van vijftig ongeveer een seconde, op de
+achtergrond, terwijl de resultaten al in beeld staan. Zo koos de eigenaar het. Verder:
+
+- **Wat opgehaald is, blijft onthouden** zolang de app draait (op de sleutel van het zoekertje), dus
+  heen en weer bladeren kost niets. Nagemeten: de tweede ronde over dezelfde acht kavels deed 0 ms.
+- **Bij een nieuwe pagina wordt het vorige stilgelegd** (`VulEinddatumsAan` in `MainWindow`): die
+  kavels staan dan niet meer in beeld.
+- **Een zoekertje dat zijn tijd al toont, wordt overgeslagen**, en een link die geen webadres is ook.
+- Het is een **echt tijdstip** en geen tekst, dus de app rekent er zelf "Nog 11 dagen" uit
+  (`Listing.TijdTot`) en dat blijft kloppen - ook morgen, en ook bij een favoriet.
+- **De melding aan het scherm moet op de schermdraad.** Het ophalen gebeurt op
+  achtergronddraden, en een `PropertyChanged` van daar bereikt de binding niet: het zoekertje
+  stond goed in het geheugen, maar op de kaart bleef enkel de plaats staan. `DetailFetcher.Zet`
+  gaat daarom via `Application.Current.Dispatcher` - en zonder venster, zoals in de controles,
+  gewoon meteen. Dit is precies het soort fout dat je niet ziet in een controle zonder scherm:
+  het kwam pas boven met het hoofdscherm buiten beeld.
+
+Het veld heet `DetailEndDateSelector` en staat in *Sites beheren* als "Einddatum (op de
+kavelpagina)". Vul het enkel in wanneer het echt niet op de zoekpagina staat: het is een verzoek per
+zoekertje.
+
+**Past de regel niet, dan schuift ze** (`Controls/ScrollingText.cs`). In het raster is een kaart
+264 breed, en daar gaat "Saint-Rémy-lès-Chevreuse · Nog 9d 12u" (193 beeldpunten) niet
+naast de prijs in. In rust dooft het einde uit over de laatste 22 beeldpunten - dat zegt "er staat
+meer" zonder een beletselteken - en zodra de muis erop komt, schuift de tekst heen en weer zodat je
+het einde kan lezen. Na een aanloop van 0,4 seconde, zodat een muis die over de lijst passeert niets
+in gang zet, en met 45 beeldpunten per seconde (minstens 1,2 s heen, zodat een regel die net niet
+past niet zit te trillen).
+
+Drie dingen die daarbij horen, en die alle drie uit een meting kwamen:
+
+- **Een TextBlock met een animatie volstaat niet.** Een TextBlock krijgt van zijn ouder nooit meer
+  breedte dan er beschikbaar is, dus valt er ook niets te schuiven. Vandaar een eigen `Decorator`
+  die zijn tekst méét met oneindige breedte en op die natuurlijke breedte plaatst; het vak
+  eromheen knipt af.
+- **Een `OpacityMask` met een verloop van 0 tot 1 wordt uitgerekt over het element én zijn
+  kinderen.** De tekst is hier juist breder dan het vak, dus viel de hele vervaging in het stuk dat
+  toch al weggeknipt was - op het scherm was er niets te zien. Met
+  `MappingMode="Absolute"` en een eindpunt in beeldpunten staat ze wel waar ze hoort.
+- **Het vak moet zelf de muis aannemen.** Zonder een doorzichtige rechthoek in `OnRender` reageert
+  enkel de tekst zelf, en moet je precies op een letter mikken.
+
+Nagemeten met twee wegwerpprojectjes: één dat het besturingselement los opbouwt (aanloop,
+snelheid, terugspringen, en stoppen wanneer een kaart uit beeld gaat - in het raster worden kaarten
+hergebruikt, en een animatie die blijft lopen schuift daarna de tekst van een ánder zoekertje),
+en één dat het hoofdscherm buiten beeld opbouwt en de twee sjablonen vult. Let op bij dat
+laatste: het raster bouwt buiten beeld **geen enkele kaart** op (nul rijen), dus daar is het
+sjabloon met de hand gevuld. En een `VisualBrush` toont de `OpacityMask` van zijn wortelelement
+niet, dus fotografeer de ouder wanneer je zoiets wil zien.
+
+**Catawiki heeft geen plaats op zijn zoekpagina**, en ook niet in de API's erachter. Wat er op
+17 september 2026 nagekeken is, zodat niemand het nog eens hoeft af te tasten:
+
+| Waar | Wat het geeft |
+|---|---|
+| de kaart (`article.c-lot-card__container`) | titel, prijs, foto, aftelklok - geen plaats |
+| `__NEXT_DATA__` van de zoekpagina | dezelfde velden plus de verkoper (`sellerShopName`) - geen land |
+| `/buyer/api/v1/search?q=` en `/buyer/api/v2/search?q=` | een echte zoek-API met 25 kavels, maar per kavel geen land (en ook geen prijs) |
+| `/buyer/api/v1/lots?ids=<lijst>` | meerdere kavels tegelijk: titel, foto, link - geen land |
+| `/buyer/api/v2/lots/<id>/shipping` | verzendprijzen naar elk land, niet het land van herkomst |
+| `__NEXT_DATA__` van de **pagina van het kavel** | `"country":{"name":"Nederland","shortCode":"nl"}` |
+
+Het land bestaat dus wel, maar enkel per kavel, en enkel achter een paginabezoek - via de brug zo'n
+vier seconden per kavel, en een zoekopdracht geeft er honderd. Zichtbaar op het scherm staat er
+bovendien vaak "Verzending vanuit de EU" in plaats van een land; het land zit enkel in het JSON-blok.
+Dezelfde afweging dus als bij "Grote foto's op aanvraag" (Volgende stappen 2): iets voor op aanvraag,
+niet tijdens het zoeken. Wat vandaag wel kan: Catawiki heeft een eigen filter *Land van de verkoper*,
+en wie dat aanvinkt weet het land van elk resultaat zonder het op te halen.
+
 ### Prijsindicatie: wat is dit ongeveer waard
 
 De **prijsindicatie** beantwoordt de vraag per zoekertje in plaats van per lading:
@@ -1269,7 +1420,7 @@ telling boven de velden. Dit is exact wat we met de hand deden bij AutoScout24 (
 de 20 plaatsen) en Discogs (73 van de 100 zoekertjes).
 
 **4. De prompt kent de motor.** `SystemPrompt` beschrijft wat de motor werkelijk kan:
-`@attribuut`, `.`, komma-lijsten, `::replace`, de terugval tussen `src` en `data-src`,
+`@attribuut`, `.`, komma-lijsten, `::replace`, `::match`, de terugval tussen `src` en `data-src`,
 hoe een prijs uit tekst gehaald wordt, waarom de link de identiteit is, stabiele
 selectors boven klassen met willekeurige achtervoegsels, grote foto's via een formaat in
 het pad, geen AVIF, puntpaden in JSON en `PageTemplate`. **Leer je bij een site iets dat
@@ -1324,7 +1475,8 @@ Voor wie eraan werkt:
 
 Wat de analyse **niet** doet, en waar je dus zelf aan moet: `Filters`, `CustomFilters`,
 `Headers`, `AllowsEmptyQuery`, de velden voor de prijsindicatie (`PriceReference`, `IsAuction`,
-`SellerSelector`, `AuctionSellers`), een eigen `UrlStyle` en paginering die in het pad zit
+`SellerSelector`, `AuctionSellers`), `TimeLeftSelector`, `DetailEndDateSelector`, een eigen `UrlStyle`
+en paginering die in het pad zit
 (Kleinanzeigen: `/s-seite:2/cd/k0`). Dat vraagt meten, zie `tools/meet-filter.py`.
 
 Selectors gebruiken een eigen notatie: `a.title@href` neemt een attribuut in
@@ -1353,6 +1505,34 @@ Bijvoorbeeld:
 
 Let op dat het stukje dat je vervangt uniek genoeg is. Bij AlleVeilingen is `_S`
 te kort — dat komt ook elders in het pad voor — dus vervangen we `_S.webp`.
+
+**`::match(patroon)`** houdt enkel over wat in **groep 1** van dat patroon staat - de eerste
+haakjes. Zonder haakjes blijft de hele treffer over, en past het patroon niet, dan blijft het veld
+**leeg**. Ook dit werkt bij HTML en bij JSON, en het mag samen met `::replace` (eerst vervangen, dan
+knippen).
+
+Waarvoor het dient: soms staat het gezochte middenin een langere tekst, en is er geen apart element
+voor. Een vervangregel helpt daar niet, want er staat elke keer iets anders:
+
+| In de pagina | Selector | Resultaat |
+|---|---|---|
+| `Rijksweg 2, 9681 Maarkedal, België` | `p::match((?:^\|,)\s*(?:\d{4,6}\s+)?([^,]+?)\s*,\s*[^,]+$)` | `Maarkedal` |
+| `van Nederland` | `.rij:last-child::match(^(?:van\|uit)\s+(.+)$)` | `Nederland` |
+
+Dat "leeg als het niet past" is de halve reden om het te gebruiken: bij eBay staan de verzendkosten
+en het land in rijen die er hetzelfde uitzien, en zo pik je er precies één soort uit.
+
+**En met een patroon neemt de motor het eerste element waar dat patroon ook echt op past**, in
+plaats van botweg het eerste dat de selector vindt (zonder patroon blijft het het eerste, zoals in
+CSS). Dat bleek nodig op een kavelpagina van AlleVeilingen: `div[title='Einddatum']` staat er
+**twee keer**, en de eerste bevat het kavelnummer - een foutje in hun HTML. De datum kwam dus nooit
+binnen. Zo hoef je daar geen bange selector als `:last-child` of een rij buren voor te verzinnen,
+die bij de volgende opmaakwijziging omvalt.
+
+Twee dingen om te onthouden. Een patroon mag komma's en haakjes bevatten, dus `::match` loopt tot
+het **laatste** haakje en staat dus altijd achteraan. En in een sitebestand is het JSON: een
+backslash schrijf je er dubbel (`\\s`, `\\d`). Een ongeldig patroon laat de zoekopdracht niet
+vallen - de waarde blijft dan zoals ze was, en het logboek zegt het één keer.
 
 Als de AI geen bruikbare selectors vindt, is de beproefde werkwijze: de
 pagina in Chrome inspecteren en de juiste klassenaam zelf opzoeken. Zo zijn
@@ -1789,9 +1969,9 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 ```
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
-controle OK of FOUT af en eindigt met "ALLES OK (153 controles)" of het aantal fouten. Draait
+controle OK of FOUT af en eindigt met "ALLES OK (182 controles)" of het aantal fouten. Draait
 Zentrix zelf, dan is de poort van de brug bezet en vallen de 15 controles van de brug weg
-(met `--snel` blijven er dan 134). Drie
+(met `--snel` blijven er dan 163). Drie
 regels waar het aan vastzit:
 
 - **Het compileert de broncode zelf mee** (`Models`, `Sources`, `Services`, zonder
@@ -2085,6 +2265,11 @@ witte tekst leesbaar blijft.
   boom en erft de gegevens. Een `Image` met een webadres als `Source` begint dan meteen te
   downloaden, ook als niemand de popup opent. Zet zo'n bron pas in `Opened` en maak ze leeg
   in `Closed` - zie `PhotoThumbnail.Preview_Opened`.
+- **Een `OpacityMask` rekent met de omhullende van het element én zijn kinderen.** Steekt een
+  kind buiten het vak - een tekst die breder is dan haar kader - dan valt een verloop van 0 tot 1
+  grotendeels in het weggeknipte stuk. Gebruik dan `MappingMode="Absolute"` met een eindpunt in
+  beeldpunten. En let op bij het nakijken: een `VisualBrush` neemt de `OpacityMask`, de `Clip` en de
+  `Transform` van zijn wórtelelement niet mee, wel die van de kinderen.
 - **Een `ObservableCollection` wissen geeft een Reset**, en daarop gooit een lijst of raster
   al zijn containers weg en springt het naar boven. Pas aan wat veranderde (zie
   `ToonPagina`) in plaats van `Clear()` en alles opnieuw toevoegen.
@@ -2153,6 +2338,10 @@ witte tekst leesbaar blijft.
 - **Prijsindicatie**: rechtsklik op een foto geeft de marktwaarde van dat model uit de
   vraagprijzen op de sites met het vinkje, met varianten apart, zonder veilingen, sets en
   toebehoren, en verbreed naar de reeks als er te weinig zijn
+- Naast de prijs de **stad** (en anders het land), en bij een veiling erachter **hoelang er nog
+  geboden kan worden**. Past die regel niet, dan vervaagt het einde en schuift ze zodra je er met
+  de muis op gaat staan. Staat die tijd niet op de zoekpagina van de site maar wel op de pagina van
+  het kavel, dan haalt de app ze daar op - enkel voor de kavels die je op dat moment ziet
 - Miniaturen in de resultatenlijst, dubbelklik opent het zoekertje
 - *Sites beheren* met een tab per site: alle velden bewerkbaar, per site testen,
   aanmelden bij sites die dat vragen, en exporteren/importeren van losse sitebestanden

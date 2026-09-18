@@ -257,13 +257,14 @@
                                        FontWeight="Bold" FontSize="17"
                                        Foreground="{StaticResource PriceBrush}" />
 
-                            <!-- Zonder plaatsnaam verdwijnt ook het scheidingsteken,
-                                 anders blijft er een losse punt staan. -->
+                            <!-- Zonder plaats en zonder veilingtijd verdwijnt ook het
+                                 scheidingsteken, anders blijft er een losse punt staan.
+                                 Past de regel niet, dan schuift ze als je erop gaat staan. -->
                             <StackPanel Orientation="Horizontal">
                                 <StackPanel.Style>
                                     <Style TargetType="StackPanel">
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Location}" Value="">
+                                            <DataTrigger Binding="{Binding PlaceLine}" Value="">
                                                 <Setter Property="Visibility" Value="Collapsed" />
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -271,8 +272,9 @@
                                 </StackPanel.Style>
                                 <TextBlock Text=" &#183; " Foreground="{StaticResource CardTextSubtleBrush}"
                                            FontSize="13" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding Location}" Foreground="{StaticResource CardTextSubtleBrush}"
-                                           FontSize="13" VerticalAlignment="Center" />
+                                <controls:ScrollingText Text="{Binding PlaceLine}" MaxWidth="300"
+                                                        Foreground="{StaticResource CardTextSubtleBrush}"
+                                                        FontSize="13" VerticalAlignment="Center" />
                             </StackPanel>
                             <TextBlock Text=" &#183; " Foreground="{StaticResource CardTextSubtleBrush}"
                                        FontSize="13" VerticalAlignment="Center" />
@@ -337,7 +339,9 @@
                                Margin="14,10,14,0" />
 
                     <!-- Een Grid en geen StackPanel: zo krijgt de plaats de ruimte die na de
-                         prijs overblijft, met een beletselteken in plaats van hard afgesneden. -->
+                         prijs overblijft. Past ze niet - een kaart is hier maar 264 breed en
+                         bij een veiling staat de resterende tijd erachter - dan vervaagt het
+                         einde, en schuift de tekst zodra de muis erop staat. -->
                     <Grid Margin="14,3,14,12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
@@ -348,11 +352,11 @@
                                    FontWeight="Bold" FontSize="15"
                                    Foreground="{StaticResource PriceBrush}" />
 
-                        <DockPanel Grid.Column="1" LastChildFill="True" ToolTip="{Binding Location}">
+                        <DockPanel Grid.Column="1" LastChildFill="True">
                             <DockPanel.Style>
                                 <Style TargetType="DockPanel">
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Location}" Value="">
+                                        <DataTrigger Binding="{Binding PlaceLine}" Value="">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
                                     </Style.Triggers>
@@ -360,9 +364,9 @@
                             </DockPanel.Style>
                             <TextBlock DockPanel.Dock="Left" Text=" &#183; " Foreground="{StaticResource CardTextSubtleBrush}" FontSize="11"
                                        VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding Location}" Foreground="{StaticResource CardTextSubtleBrush}"
-                                       FontSize="11" VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis" />
+                            <controls:ScrollingText Text="{Binding PlaceLine}"
+                                                    Foreground="{StaticResource CardTextSubtleBrush}"
+                                                    FontSize="11" VerticalAlignment="Center" />
                         </DockPanel>
                     </Grid>
                 </StackPanel>

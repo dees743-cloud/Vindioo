@@ -877,6 +877,11 @@ public class SiteAnalyzer
           particulieren anders getoond worden.
         - "::replace(oud,nieuw)" achter een selector vervangt achteraf een stukje in de gevonden waarde. Geen
           komma's of haakjes in oud en nieuw; meerdere na elkaar mag.
+        - "::match(patroon)" achter een selector houdt enkel over wat in groep 1 van dat patroon staat (een
+          .NET-reguliere expressie). Daarmee knip je iets uit een langere tekst waar geen apart element voor
+          bestaat: "Rijksweg 2, 9681 Maarkedal, België" wordt "Maarkedal", "van Nederland" wordt "Nederland".
+          Past het patroon niet, dan blijft het veld leeg - zo pik je één soort regel uit een rij die er
+          hetzelfde uitziet. Het staat altijd achteraan, want een patroon mag komma's en haakjes bevatten.
         - Vraag je @src en is dat leeg, dan probeert de motor zelf data-src, en omgekeerd.
         - Witruimte wordt samengevoegd.
         - Een relatieve link of foto ("/pad", "pad" of "//host/pad") maakt de motor zelf volledig met baseUrl;
@@ -902,7 +907,10 @@ public class SiteAnalyzer
           stukje dat uniek is in de URL (_S.webp, niet _S). Een srcset enkel als er één URL in staat. AVIF kan
           de app niet tonen; kies binnen <picture> de JPEG- of WebP-bron. Leeg laten als het niet uit de
           pagina af te leiden is - verzin geen formaten.
-        - descriptionSelector en locationSelector: als ze er staan.
+        - descriptionSelector: als hij er staat.
+        - locationSelector: de app zet dit naast de prijs en wil daar enkel de naam van de stad zien, en
+          anders die van het land. Staat er meer in hetzelfde element - een straat, een postcode, een land,
+          of "van Nederland" - knip dat er dan af met ::match.
 
         ## Stabiele selectors
         Sites bouwen hun opmaak bij elke update opnieuw. Kies bij voorkeur data-testid en andere

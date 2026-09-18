@@ -417,6 +417,20 @@ public class GenericSource : ISearchSource
         return new HtmlParser().ParseDocument(content).QuerySelectorAll(def.ItemSelector).Length;
     }
 
+    /// <summary>
+    /// Leest één veld uit een losse pagina — niet uit een zoekpagina met resultaten, maar
+    /// uit de pagina van één zoekertje. Dezelfde notatie als elders (<c>@attribuut</c>,
+    /// <c>::replace</c>, <c>::match</c>), zodat er maar één manier is om een veld aan te
+    /// wijzen. Gebruikt door <c>DetailFetcher</c> voor de einddatum van een veiling.
+    /// </summary>
+    public static async Task<string> ReadFieldAsync(string html, string selector, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(selector)) return "";
+
+        var document = await new HtmlParser().ParseDocumentAsync(html, ct);
+        return document.Body is null ? "" : Pick(document.Body, selector);
+    }
+
     // ---------- HTML ----------
 
     private async Task<List<Listing>> ParseHtmlAsync(string html, int maxResults, CancellationToken ct)
@@ -433,6 +447,7 @@ public class GenericSource : ISearchSource
                 Title = Pick(node, _def.TitleSelector),
                 Description = Pick(node, _def.DescriptionSelector),
                 Location = Pick(node, _def.LocationSelector),
+                TimeLeft = Pick(node, _def.TimeLeftSelector),
                 Seller = Pick(node, _def.SellerSelector),
                 Url = MakeAbsolute(Pick(node, _def.UrlSelector))
             };
@@ -494,21 +509,48 @@ public class GenericSource : ISearchSource
         new(@"::replace\(([^,()]*),([^,()]*)\)", RegexOptions.Compiled);
 
     /// <summary>
-    /// Splitst de vervangregels van een selector af, en geeft de kale selector
-    /// terug plus wat er achteraf vervangen moet worden.
-    ///
-    /// Waarvoor dit dient: verschillende sites zetten het formaat van een foto in
-    /// het pad van de URL. De zoekpagina toont een miniatuur, maar dezelfde URL
-    /// met een ander stukje erin geeft de grote versie — bij AutoScout24 gaat
-    /// 250x188 (8 kB) zo naar 1024x768 (124 kB), bij eBay s-l500 naar s-l1600,
-    /// bij Catawiki cw_lot_card_ext naar cw_large en bij AlleVeilingen _S.webp
-    /// naar _L.webp. Zonder deze regel konden de selectors enkel een attribuut
-    /// uitlezen en was die grote foto onbereikbaar.
-    ///
-    /// Meerdere regels achter elkaar mag; ze worden op volgorde toegepast.
+    /// Herkent een patroonregel achter een selector: <c>::match(patroon)</c>. Een
+    /// reguliere expressie zit vol komma's en haakjes, dus hier wordt alles tot het
+    /// láátste haakje genomen — een patroonregel staat dus altijd achteraan.
     /// </summary>
-    private static (string Selector, List<(string Van, string Naar)> Regels) SplitRewrites(string selector)
+    private static readonly Regex MatchRule =
+        new(@"::match\((.*)\)\s*$", RegexOptions.Compiled);
+
+    /// <summary>Wat er na het uitlezen nog met de waarde gebeurt: vervangen en/of uitknippen.</summary>
+    private sealed record Opschoning(List<(string Van, string Naar)> Vervangingen, string Patroon);
+
+    /// <summary>
+    /// Splitst de opschoonregels van een selector af, en geeft de kale selector
+    /// terug plus wat er achteraf met de waarde moet gebeuren.
+    ///
+    /// Waarvoor <c>::replace(oud,nieuw)</c> dient: verschillende sites zetten het
+    /// formaat van een foto in het pad van de URL. De zoekpagina toont een miniatuur,
+    /// maar dezelfde URL met een ander stukje erin geeft de grote versie — bij
+    /// AutoScout24 gaat 250x188 (8 kB) zo naar 1024x768 (124 kB), bij eBay s-l500
+    /// naar s-l1600, bij Catawiki cw_lot_card_ext naar cw_large en bij AlleVeilingen
+    /// _S.webp naar _L.webp. Zonder deze regel konden de selectors enkel een
+    /// attribuut uitlezen en was die grote foto onbereikbaar.
+    ///
+    /// Waarvoor <c>::match(patroon)</c> dient: soms staat het gezochte stuk middenin
+    /// een langere tekst, en is er geen apart element voor. AlleVeilingen zet de
+    /// plaats als "Rijksweg 2, 9681 Maarkedal, België" — wij willen enkel "Maarkedal"
+    /// — en eBay zet het land als "van Nederland" in dezelfde soort regel als de
+    /// verzendkosten. Een vervangregel helpt daar niet, want elke keer staat er iets
+    /// anders. Wat in groep 1 van het patroon staat, blijft over.
+    ///
+    /// Meerdere vervangregels achter elkaar mag; ze worden op volgorde toegepast,
+    /// en het patroon komt daarna.
+    /// </summary>
+    private static (string Selector, Opschoning Regels) SplitRewrites(string selector)
     {
+        var patroon = "";
+        var uitknippen = MatchRule.Match(selector);
+        if (uitknippen.Success)
+        {
+            patroon = uitknippen.Groups[1].Value;
+            selector = selector.Remove(uitknippen.Index, uitknippen.Length);
+        }
+
         var regels = new List<(string, string)>();
 
         for (var match = RewritePattern.Match(selector); match.Success; match = RewritePattern.Match(selector))
@@ -517,22 +559,55 @@ public class GenericSource : ISearchSource
             selector = selector.Remove(match.Index, match.Length);
         }
 
-        return (selector.Trim(), regels);
+        return (selector.Trim(), new Opschoning(regels, patroon));
     }
 
-    private static string ApplyRewrites(string value, List<(string Van, string Naar)> regels)
+    /// <summary>Patronen die al eens fout bleken; zo staat een kapot sitebestand één keer in het logboek en niet per zoekertje.</summary>
+    private static readonly HashSet<string> GemeldePatronen = new();
+
+    private static string ApplyRewrites(string value, Opschoning regels)
     {
-        foreach (var (van, naar) in regels)
+        foreach (var (van, naar) in regels.Vervangingen)
             if (van.Length > 0) value = value.Replace(van, naar);
 
-        return value;
+        if (regels.Patroon.Length == 0) return value;
+
+        try
+        {
+            // Past het patroon niet, dan hoort dit veld hier niet: bij eBay staat er
+            // op een advertentiekaart geen land, en dan is leeg beter dan de
+            // verzendkosten die toevallig op dezelfde plaats staan.
+            var treffer = Regex.Match(value, regels.Patroon);
+            if (!treffer.Success) return "";
+
+            return (treffer.Groups.Count > 1 ? treffer.Groups[1].Value : treffer.Value).Trim();
+        }
+        catch (ArgumentException ex)
+        {
+            // Een ongeldig patroon in een sitebestand mag de zoekopdracht niet laten
+            // vallen; de waarde blijft dan zoals ze was, en het logboek zegt het.
+            lock (GemeldePatronen)
+                if (GemeldePatronen.Add(regels.Patroon))
+                    Services.Log.Write($"::match({regels.Patroon}) is geen geldig patroon - {ex.Message}");
+
+            return value;
+        }
     }
 
     /// <summary>
     /// Leest één veld uit. Schrijf "a@href" of "img@src" om een attribuut te nemen
     /// in plaats van de tekst. Hang er "::replace(oud,nieuw)" achter om in de
-    /// gevonden waarde nog iets te vervangen — zie <see cref="SplitRewrites"/>.
+    /// gevonden waarde nog iets te vervangen, of "::match(patroon)" om er enkel een
+    /// stuk uit te knippen — zie <see cref="SplitRewrites"/>.
     /// Laat leeg om het veld over te slaan.
+    ///
+    /// Zonder patroon is het altijd het eerste element dat past, zoals in CSS. **Mét een
+    /// patroon** wordt het eerste element genomen waar dat patroon ook echt op past. Dat
+    /// scheelt: op een kavelpagina van AlleVeilingen staat `div[title='Einddatum']` twee
+    /// keer — de eerste bevat het kavelnummer (een foutje van de site), pas de tweede de
+    /// datum — en bij eBay zien de regel met de verzendkosten en die met het land er
+    /// hetzelfde uit. Zo hoef je daar geen bange selector als <c>:last-child</c> voor te
+    /// verzinnen die bij de volgende opmaakwijziging omvalt.
     /// </summary>
     private static string Pick(AngleSharp.Dom.IElement node, string selector)
     {
@@ -552,9 +627,25 @@ public class GenericSource : ISearchSource
         }
 
         // Een punt betekent: het resultaat zelf, niet een kind ervan.
-        var target = selector.Trim() == "." ? node : node.QuerySelector(selector);
-        if (target is null) return "";
+        var kandidaten = selector.Trim() == "."
+            ? new[] { node }
+            : node.QuerySelectorAll(selector).ToArray();
 
+        foreach (var target in kandidaten)
+        {
+            var waarde = ApplyRewrites(Regex.Replace(Ruw(target, attribute), @"\s+", " ").Trim(), regels);
+
+            // Zonder patroon telt het eerste element, ook als er niets in staat. Met een
+            // patroon betekent leeg "dit is het niet", en mag het volgende geprobeerd worden.
+            if (regels.Patroon.Length == 0 || waarde.Length > 0) return waarde;
+        }
+
+        return "";
+    }
+
+    /// <summary>De tekst of het attribuut van één element, nog zonder opschoonregels.</summary>
+    private static string Ruw(AngleSharp.Dom.IElement target, string? attribute)
+    {
         var value = attribute is null
             ? target.TextContent
             : target.GetAttribute(attribute) ?? "";
@@ -571,7 +662,7 @@ public class GenericSource : ISearchSource
                 value = target.GetAttribute(fallback) ?? "";
         }
 
-        return ApplyRewrites(Regex.Replace(value, @"\s+", " ").Trim(), regels);
+        return value;
     }
 
     // ---------- JSON ----------
@@ -628,6 +719,7 @@ public class GenericSource : ISearchSource
                 Title = Read(item, _def.TitleSelector),
                 Description = Read(item, _def.DescriptionSelector),
                 Location = Read(item, _def.LocationSelector),
+                TimeLeft = Read(item, _def.TimeLeftSelector),
                 Seller = Read(item, _def.SellerSelector),
                 Url = MakeAbsolute(Read(item, _def.UrlSelector))
             };
@@ -690,8 +782,8 @@ public class GenericSource : ISearchSource
 
     private static string Read(JsonElement item, string path)
     {
-        // Dezelfde vervangregel als bij HTML: een JSON-API kan net zo goed een
-        // fotoformaat in het pad van de URL zetten.
+        // Dezelfde opschoonregels als bij HTML: een JSON-API kan net zo goed een
+        // fotoformaat in het pad van de URL zetten, of een plaats met straat erbij.
         var (kaal, regels) = SplitRewrites(path);
 
         if (!TryWalk(item, kaal, out var value)) return "";

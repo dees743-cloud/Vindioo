@@ -148,6 +148,32 @@ public class SiteDefinition
     /// </summary>
     public string LargeImageSelector { get; set; } = "";
 
+    /// <summary>
+    /// Selector (HTML) of pad (JSON) naar hoelang er nog geboden kan worden, zoals de
+    /// site het zelf schrijft ("Nog 3 dagen", "Nog 9d 12u"). Dat komt naast de plaats te
+    /// staan. Leeg laten bij een site zonder veilingen — en ook bij een veilingsite die
+    /// het niet op haar zoekpagina zet, want dan zou het per zoekertje een paginabezoek
+    /// kosten.
+    ///
+    /// Met opzet tekst en geen datum: de sites schrijven er geen tijdstip bij, en wat zij
+    /// tonen klopt altijd met wat de bezoeker op hun eigen pagina ziet. Daarom wordt het
+    /// ook niet bewaard bij een favoriet: "nog 3 dagen" van vorige week is een leugen.
+    /// </summary>
+    public string TimeLeftSelector { get; set; } = "";
+
+    /// <summary>
+    /// Selector naar de sluitingsdatum op de pagina van het zoekertje zélf, niet op de
+    /// zoekpagina. Staat die er, dan haalt <c>DetailFetcher</c> die pagina op voor de
+    /// zoekertjes die op dat moment op het scherm staan — niet voor alles wat binnenkwam,
+    /// want het is één verzoek per zoekertje.
+    ///
+    /// AlleVeilingen heeft die datum enkel daar: <c>div[title='Einddatum']</c>, met
+    /// "Einde op 29/09/2026 19:00" erin. Anders dan <see cref="TimeLeftSelector"/> is dit
+    /// een echt tijdstip, dus de app rekent zelf uit hoelang het nog duurt en dat blijft
+    /// kloppen.
+    /// </summary>
+    public string DetailEndDateSelector { get; set; } = "";
+
     /// <summary>Wanneer de prijs in centen staat in plaats van euro (zoals bij 2dehands).</summary>
     public bool PriceInCents { get; set; }
 

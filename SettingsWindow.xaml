@@ -187,7 +187,18 @@
                             </StackPanel>
                             <StackPanel Width="240" Margin="0,0,16,10">
                                 <TextBlock Text="Plaats" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
-                                <ui:TextBox Text="{Binding Def.LocationSelector, UpdateSourceTrigger=PropertyChanged}" />
+                                <ui:TextBox Text="{Binding Def.LocationSelector, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="Wat naast de prijs komt te staan: liefst de stad, en anders het land. Staat er meer in hetzelfde element - een straat, een postcode of 'van Nederland' - zet er dan ::match(patroon) achter; wat in de eerste haakjes van dat patroon past, blijft over." />
+                            </StackPanel>
+                            <StackPanel Width="240" Margin="0,0,16,10">
+                                <TextBlock Text="Tijd tot het einde (veiling)" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.TimeLeftSelector, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="Hoelang er nog geboden kan worden, zoals de site het schrijft ('Nog 3 dagen'). Dat komt achter de plaats te staan. Laat leeg bij een site zonder veilingen, en ook bij een veilingsite die het niet op haar zoekpagina zet." />
+                            </StackPanel>
+                            <StackPanel Width="240" Margin="0,0,16,10">
+                                <TextBlock Text="Einddatum (op de kavelpagina)" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.DetailEndDateSelector, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="Voor een veilingsite die de sluitingsdatum niet op haar zoekpagina zet, maar wel op de pagina van het kavel. De app haalt die pagina dan op voor de kavels die op het scherm staan - een verzoek per kavel, dus enkel invullen als het echt nodig is." />
                             </StackPanel>
                             <StackPanel Width="240" Margin="0,0,16,10">
                                 <TextBlock Text="Datum" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
