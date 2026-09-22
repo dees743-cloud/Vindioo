@@ -22,8 +22,8 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
 
     /// <summary>
     /// Opent "Sites beheren". Met <paramref name="openSite"/> springt het scherm
-    /// meteen naar de kaart van die site - zo komt "tandwiel > Sites beheren > 2dehands"
-    /// in het hoofdscherm rechtstreeks op de juiste tab uit.
+    /// meteen naar de kaart van die site - zo komt "tandwiel > Sites beheren" rechtstreeks
+    /// uit op de site waarvan de tab in het hoofdscherm openstaat.
     /// </summary>
     public SettingsWindow(SiteStore store, string? openSite = null)
     {

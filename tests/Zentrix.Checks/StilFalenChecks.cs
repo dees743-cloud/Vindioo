@@ -79,7 +79,7 @@ public static class StilFalenChecks
             var s = new SavedSearch
             {
                 Query = "cd",
-                SiteSettings = sites.Select(n => new SiteSetting { Site = n, Enabled = true, MaxResults = 20 }).ToList(),
+                SiteSettings = sites.Select(n => new SiteSetting { Site = n, Enabled = true }).ToList(),
                 Schedule = new SearchSchedule { Mode = ScheduleMode.Interval, NotifyOnNew = false }
             };
             s.Id = history.Add(s);

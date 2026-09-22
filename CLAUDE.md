@@ -58,6 +58,7 @@ Models/
   LinkTextOptions.cs de instellingen van de linkmotor, uit het sitebestand
   ListingSort.cs     de volgorde van de resultaten, met een eigen vergelijking
   PriceIndication.cs wat een prijsindicatie opleverde: marktwaarde, varianten, verbreding
+  EndTimeApiOptions.cs  een API met het exacte sluitingstijdstip van veel veilingen tegelijk
   RecentSearch.cs    een eerder gebruikte zoekterm, met wanneer
 Sources/
   ISearchSource.cs      contract waar elke bron aan voldoet
@@ -87,6 +88,8 @@ Services/
   FriendlyError.cs   zet een fout om in een zin die de gebruiker iets zegt
   PriceIndicator.cs  wat is een toestel ongeveer waard: zoeken, opschonen, rekenen
   DetailFetcher.cs   haalt van de pagina van een zoekertje wat niet op de zoekpagina staat
+  DisplayDiagnostics.cs  zet in het logboek hoe er getekend wordt en wat Windows aan het
+                     scherm verandert, voor een wit venster
 Converters/
   Converters.cs      zichtbaarheid van NIEUW-label en tellers
 Controls/
@@ -95,6 +98,7 @@ Controls/
   SmoothScroll.cs      vloeiend schuiven met het muiswiel, voor allebei de weergaven
   ScrollingText.cs     een regel die te lang is voor haar vak: vervaagt, en schuift als je
                        er met de muis op gaat staan
+  CountdownBadge.cs    de timer rechtsonder op een veilingkaart, met één gedeelde klok
   CustomFilterControls.cs  de invoer voor sitegebonden filters, gedeeld door
                        het zoekscherm en het instellingenvenster
 Vensters (root):
@@ -194,6 +198,40 @@ vaste map; sinds 15 september 2026 is dat deze. Wie nog een oude kopie heeft (bv
 extensie laden", deze map kiezen en de koppelcode opnieuw plakken - een andere map is voor
 Chrome een andere extensie, met een lege opslag.
 
+## Starten zonder Visual Studio
+
+Een versie die je gewoon dubbelklikt, staat in **`C:\Users\davyb\Zentrix\Zentrix.exe`**
+(18 september 2026). Ze is **zelfstandig**: .NET zit erin, dus ze start ook op een pc zonder
+Visual Studio of .NET. Opnieuw maken na een wijziging, met Zentrix dicht (anders zijn de
+bestanden in gebruik):
+
+```bash
+dotnet publish Zentrix.csproj -c Release -r win-x64 --self-contained true -o C:\Users\davyb\Zentrix
+```
+
+Wat daarbij hoort:
+
+- **Snelkoppelingen** "Zentrix" staan op het bureaublad (`G:\ONEDRIVE\Bureaublad`) en in het
+  startmenu. Die laatste staat onder `%APPDATA%`, dus vanuit de Claude-app aangemaakt via
+  `Win32_Process.Create` - anders belandt hij in de omgeleide kopie en verschijnt hij nooit.
+  Verhuist de map, dan wijzen ze nergens meer naar.
+- **De hele map hoort bij elkaar**, niet enkel de exe: ruim zeshonderd bestanden, samen zo'n
+  290 MB. Het grootste deel is .NET zelf en het stuk van Playwright dat Chrome aanstuurt
+  (`.playwright\node`). Daarom geen "enkel bestand": Playwright zoekt die map naast de exe.
+  Browsers hoeven er niet bij, want Playwright gebruikt de gewone Chrome (`Channel = "chrome"`).
+- **Dezelfde gegevens als vanuit Visual Studio**: `%APPDATA%\Zentrix`, met dezelfde sites,
+  favorieten en zoekopdrachten. En er draait er maar één tegelijk: sluit de ene voor je de
+  andere start.
+- **Opstarten met Windows volgt de exe die het laatst draaide.** `Autostart.RefreshPath` zet het
+  pad bij elke start gelijk. Start je vanuit Visual Studio, dan wijst het naar
+  `bin\Debug\...\Zentrix.exe`; start je daarna de gepubliceerde, dan naar die. Wie wil dat
+  Windows de gepubliceerde start, start die dus één keer na het werken in Visual Studio.
+- **Proefstarten vanuit de Claude-app** gebeurt met `ZENTRIX_DATA` naar een lege map (zie "Fouten
+  opsporen" over de omgeleide gegevensmap). Het register hoeft daarbij niet bewaakt te worden:
+  ook dat is vanuit de Claude-app omgeleid, dus de proef kan het echte "opstarten met Windows"
+  niet wijzigen. Zo nagemeten: proces draaiend na 7 s, "hoofdscherm opgebouwd" in het logboek,
+  databank aangemaakt, brug op 8731.
+
 ## De indeling van het hoofdscherm
 
 Het scherm is opgebouwd zoals een app op een telefoon, met vier lagen:
@@ -206,6 +244,10 @@ Het scherm is opgebouwd zoals een app op een telefoon, met vier lagen:
    naam en elk pictogram staat er één keer: "Cards" (Engels), "Sitemap" (in webtaal een
    XML-bestand) en "Brug-code" (de extensie zegt "koppelcode") zetten de gebruiker op het
    verkeerde been, en hetzelfde oogje stond bij twee menu-items.
+
+   *Sites beheren* opent meteen het venster met een tab per site (`ManageSitesMenu_Click`), op de
+   site waarvan de tab openstaat. Tot 18 september 2026 hing daar een submenu met elke site apart,
+   dat meegroeide met het aantal sites - een extra stap, want in het venster staan ze al als tabs.
 
    Er stonden hier een tijd **twee** tandwielen: een naast de zoekbalk voor de
    zoekterm en een rechtsboven voor de app. Ze zagen er identiek uit en stonden in
@@ -340,10 +382,15 @@ Het scherm is opgebouwd zoals een app op een telefoon, met vier lagen:
 4. **Balk onderaan** met vier tabbladen: *Zoeken*, *Favorieten*, *Recent* en
    *Zoekopdrachten*. Die wisselen enkel de zichtbaarheid van vier panelen.
    Op *Zoekopdrachten* staat per regel het schema en wanneer hij laatst liep, met
-   een knop om hem nu te laten draaien en een knop naar zijn instellingen.
-   Dubbelklikken toont de resultaten van de laatste beurt wanneer die nog vers
-   is (een kwartier), en zoekt anders opnieuw — bij sites via de brug scheelt dat
-   al gauw een halve minuut wachten.
+   een knop om hem nu te laten draaien, een vuilbakje en een knop naar zijn instellingen.
+   Het vuilbakje vraagt eerst of het mag, net als de Delete-toets op een geselecteerde regel.
+   Tot 19 september 2026 stond daarvoor een knop *Verwijderen* bovenaan, die pas werkte na
+   het selecteren van een regel. *Nieuwe* en *Huidige vastzetten* staan vlak naast de titel,
+   boven de kaarten; ze stonden eerst helemaal rechts, een schermbreedte van de lijst.
+   Dubbelklikken toont de resultaten van de laatste beurt, zonder opnieuw te zoeken -
+   bij sites via de brug scheelt dat al gauw een halve minuut wachten. De **teller**
+   ervoor zegt hoeveel je daarvan nog niet bekeek; erop klikken toont enkel die (zie
+   "3d. Nieuw is wat je nog niet bekeek").
 
    **Een geplande beurt neemt het scherm enkel over als het vrij is**
    (`Scheduler_Started`): je drukte zelf op haar afspeelknop, het scherm toont die
@@ -508,6 +555,54 @@ een time-out "gaf geen antwoord binnen de tijd", een JSON-fout "gaf iets anders 
 resultaten". Dat komt op de tab, in de lijst, in de melding op je telefoon en bij Testen. Wat
 al Nederlands is, blijft staan; het Engelse origineel staat in het logboek.
 
+**3d. Nieuw is wat je nog niet bekeek** (19 september 2026). Tot dan betekende "nieuw" *nieuw
+bij de laatste beurt*, en dan wiste elke volgende beurt de vorige nieuwe. Het logboek van die dag
+toont het zo: om 12:07:19 vond de planner 48 nieuwe bij "Cd speler" (de beurt van 8u, ingehaald bij
+het opstarten), om 12:07:45 drukte de eigenaar op het driehoekje, en die beurt vond er 0 - de 48
+waren "gezien" zonder dat iemand ze zag, en de bewaarde lijst was overschreven. Bovendien was er
+geen manier om enkel de nieuwe te tonen.
+
+Nu blijft een zoekertje nieuw **tot je de zoekopdracht opent** (dubbelklik, Enter of de teller), zo
+koos de eigenaar het. Het driehoekje, het vergrootglas en de planner laten de nieuwe staan; de
+teller telt op over de beurten heen. Hoe dat werkt:
+
+- **Geen nieuwe vlag per zoekertje, maar twee tijdstippen.** De tabel `seen` had al per sleutel
+  `firstSeen`. Er kwam één kolom bij in `searches`: `lastViewed`, wanneer je de zoekopdracht laatst
+  opende. Nieuw is wat voor het eerst opdook ná dat moment (`SavedSearch.IsUnviewed`). Zo is het
+  ook juist voor een zoekertje dat één beurt ontbrak - een site die mislukte - en daarna terugkomt:
+  een vlag in de bewaarde lijst was dan verloren gegaan.
+- **Een eigen kolom, niet in het JSON-blokje `config`.** Dat blokje schrijft ook een beurt die al
+  liep voor je keek (`Update` op het einde), en die zou het tijdstip terugzetten. `SetViewed` schrijft
+  enkel `lastViewed` en zet `newCount` op 0.
+- **Een beurt leest `lastViewed` op het einde opnieuw** (`SearchRunner.RunAsync`). Opende je de
+  zoekopdracht terwijl ze liep, dan zag je de nieuwe van daarvoor al.
+- **Twee soorten nieuw.** De melding gaat over `SearchOutcome.New`: wat deze beurt voor het eerst
+  zag. Anders kreeg je elk uur een melding over dezelfde zoekertjes. De teller en het NIEUW-label
+  gaan over wat je nog niet bekeek (`Listing.IsNew`). De statusregel zegt allebei: "niets nieuws
+  sinds de vorige beurt. Nog 48 van eerder niet bekeken; klik op de teller."
+- **Een beurt die niet kon draaien**, laat de teller staan. Vroeger zette ze hem op 0.
+- **Bij het openen wordt opnieuw bepaald wat nieuw is**, uit `seen` en `lastViewed`, in plaats van
+  de vlag uit de bewaarde lijst te geloven. Het NIEUW-label blijft staan zolang die lijst op het
+  scherm staat; pas de volgende keer tellen ze als bekeken.
+
+**Tonen.** Een klik op de teller opent de zoekopdracht met de schakelaar **Enkel nieuwe (54)** aan, in
+de knoppenrij boven de resultaten, vooraan (`NewOnlyButton`, `_enkelNieuw`). Die filter komt bovenop
+die van de tab en de prijs (`HoortInHuidigeTab`); het getal telt de nieuwe op de open tab. De
+schakelaar staat er enkel als er iets nieuws is, of zolang hij aan staat - anders kan je hem niet meer
+uitzetten. Hij gaat uit bij elke nieuwe zoekopdracht. Dubbelklikken opent met de schakelaar uit: alles,
+met de nieuwe bovenaan.
+
+**De overstap** (`HistoryStore.StartpuntBekeken`) gebeurt één keer, wanneer de kolom er net bijkomt.
+Zonder startpunt zou alles wat ooit gezien werd als nieuw tellen. Het startpunt is het laatste
+`firstSeen` van wat bij de laatste beurt al gekend was; wat daarna opdook, is precies wat die beurt
+nieuw vond. Nagemeten op een kopie van de echte databank, met het hoofdscherm buiten beeld: "Computer"
+hield **54** van zijn 64 nieuwe. De andere 10 zijn AlleVeilingen-kavels die al op 13 september gezien
+waren, maar op 16 september nog met het paginanummer in hun link (`IdPattern` kwam er pas op 17
+september), en dus toen ten onrechte nieuw. De 48 van "Cd speler" waren al overschreven en zijn niet
+terug te halen. Een klik op de teller toonde de 54, schakelaar aan; uit gaf alle 274 met de nieuwe
+bovenaan; de teller stond daarna op 0, ook in de databank; opnieuw openen gaf niets nieuws meer, en
+de schakelaar verdween.
+
 **4. Melding.** `Notifier` stuurt naar alle kanalen die aanstaan; een kanaal dat
 mislukt houdt de rest niet tegen, want een melding is een extra en geen
 voorwaarde om te blijven zoeken.
@@ -563,6 +658,11 @@ geen versleuteling en doet ook niet alsof; het houdt het enkel uit het zicht.
 Elk kanaal heeft een testknop: wachten tot er 's nachts iets gevonden wordt om te
 ontdekken dat je token niet klopt, is geen manier van werken.
 
+**Hoeveel zoekertjes er in een melding staan:** de ballon 3, Telegram 15 (plus hoogstens zes
+met foto), een e-mail 50. Telkens met eronder hoeveel er nog zijn; de e-mail zegt ook waar: de
+teller van die zoekopdracht in Zentrix. Een e-mail zette er tot 22 september 2026 alle nieuwe in,
+en sinds een site tot 2000 zoekertjes levert, kon dat er 1700 zijn.
+
 Er komt niets centraal samen. Telegram en e-mail gaan rechtstreeks van deze pc
 naar de dienst die de gebruiker zelf koos.
 
@@ -575,6 +675,26 @@ van de app af te sluiten; de eerste keer - en alleen de eerste keer
 (`AppSettings.CloseToTrayExplained`) - legt een ballon uit waar ze gebleven is.
 Minimaliseren gaat standaard gewoon naar de taakbalk (`MinimizeToTray` staat uit): het
 kruisje verbergt de app al, en wie minimaliseert, verwacht haar in de taakbalk terug.
+
+**Een start door Windows toont geen venster** (22 september 2026). Opstarten met Windows geeft
+`--systeemvak` mee (`Autostart`), en dan maakt `App.OnStartup` het hoofdvenster wel, maar toont
+het niet: `MainWindow.StartOpAchtergrond` start enkel het pictogram en de planner. Het venster
+wordt pas getoond, en dus pas voor het eerst getekend, wanneer je het opent. Daarom staat er ook
+geen `StartupUri` meer in `App.xaml`: die toont het venster altijd. `MainWindow_Loaded` en
+`StartOpAchtergrond` lopen samen via `StartAchtergrondAsync`, dat maar één keer iets doet
+(`AchtergrondGestart`). Hetzelfde bij de instelling "meteen in het systeemvak" (`StartMinimized`).
+
+Waarom: na het opstarten van de pc bleef het venster soms spierwit, tot de eigenaar Zentrix
+herstartte. De app liep gewoon - om 17:05 zocht de planner en stuurde ze een melding - enkel het
+tekenen faalde, zonder één fout in het logboek of in dat van Windows, en zonder een hapering van
+het stuurprogramma van de grafische kaart. Tot dan werd het venster ook bij een start door Windows
+getoond en in `Loaded` meteen weer verborgen, een minuut na het aanmelden, terwijl Windows en de
+grafische kaart nog opstartten; het vlak waarop de kaart tekent, werd op dat moment gemaakt. Een
+start met `--systeemvak` zonder pc-start gaf het witte venster nooit, dus het moment is de
+verdachte en niet de code. Of het hiermee weg is, zegt de volgende pc-start: zie "Een spierwit
+venster" bij Fouten opsporen. Nagemeten zonder pc-start: geen venster na een start zoals Windows
+die doet, het venster er na een tweede start (en 226 ms later getekend), een gewone start, en het
+kruisje met opnieuw openen.
 
 **Er draait maar één Zentrix tegelijk.** `App.OnStartup` neemt een benoemd slot (`Mutex`);
 een tweede start vindt dat bezet, geeft het draaiende exemplaar een seintje
@@ -620,8 +740,9 @@ de opstart klaar, en die loopt zodra de dispatcher de eerste keer berichten verw
 Zentrix intussen gewoon, dan vindt die opstart het slot "Zentrix draait al", haalt ze het
 venster van de gebruiker naar voren en stopt ze het testprojectje. Zo sla je ze over: zet
 voor het eerste pompen het private statische veld `Application._isShuttingDown` op `true`,
-laat de dispatcher één keer pompen, en zet het terug op `false`. Zet ook `_startupUri` op
-null. Nagemeten op 17 september 2026 met een eigen `Application` en een tegenproef:
+laat de dispatcher één keer pompen, en zet het terug op `false`. (`_startupUri` op null zetten
+hoeft sinds 22 september 2026 niet meer: `App.xaml` heeft geen `StartupUri`, `OnStartup` maakt
+het hoofdvenster zelf.) Nagemeten op 17 september 2026 met een eigen `Application` en een tegenproef:
 met het veld aan liep `OnStartup` niet, zonder wel. Het `Loaded` van het hoofdvenster
 loskoppelen voorkomt daarnaast een pictogram in het systeemvak en een planner die start.
 
@@ -636,16 +757,46 @@ stellen achter het `#`. Dat was de verkeerde knop. Je wilde niet mínder ophalen
 wilde er niet vijfhonderd tegelijk op je scherm. Die twee dingen staan nu los van
 elkaar:
 
-- **De app haalt op wat de sites geven**, tot vijfhonderd per site. Voor "cd" over
-  vijf sites is dat 1124 zoekertjes in plaats van de 500 van vroeger: Catawiki gaf er
-  240 in plaats van 100, eBay 500.
+- **De app haalt op wat de sites geven**, tot een rem die afhangt van het soort site (zie
+  hieronder). Voor "cd" over vijf sites was dat al in september 1124 zoekertjes in plaats
+  van de 500 van vroeger: Catawiki gaf er 240 in plaats van 100, eBay 500.
 - **Het `#` bepaalt enkel hoeveel je er tegelijk ziet**: 50, 100, 150 of 200. Het is
   een instelling van de app (`AppSettings.PageSize`), niet van een site, dus die knop
   werkt ook op het tabblad "Alles".
 
-De harde veiligheidsgrens blijft het maximum aantal pagina's per site (`MaxPages`,
-tien). Vijfhonderd per site is ruim genoeg om door te bladeren en houdt het ophalen
-binnen de perken.
+**De rem hangt af van hoe een site binnenkomt** (22 september 2026,
+`SiteDefinition.ResultLimit` en `PageLimit`). Het is een keuze van de app, geen grens van de site:
+
+| Soort site | Hoogstens | Pagina's | Waarom |
+|---|---|---|---|
+| rechtstreeks (`AnswersDirectly`: gewone motor, geen browser, geen brug) | 2000 | 20 | 100 zoekertjes kosten bij 2dehands 0,3 tot 0,8 s |
+| via de browser of de brug | 500 | 10 | 2 tot 8 s per pagina, en veel pagina's na elkaar valt een robotbeveiliging op |
+| de linkmotor (Facebook) | 300 | - | geen pagina's maar scrollen, als jouw aangemelde account (zie bij de linkmotor) |
+
+Tot dan was het 500 voor elke site, en onthield elke bewaarde zoekopdracht per site zelf een
+maximum, uit het veld "Max. resultaten" in haar venster: 100 bij de oudste, 500 bij de rest. Dat
+veld is weg (`SiteSetting.MaxResults`); anders was de hogere rem nooit bij "Computer" of
+"Commodore" aangekomen. Een oude zoekopdracht met dat veld in haar JSON-blokje leest gewoon verder.
+
+Wat de hogere rem losmaakte: 2dehands heeft voor "cd speler" **3961** zoekertjes (het zoekt ook in
+de beschrijving), en de app haalde er 76 van op - de eerste 100, min 24 van Catawiki. Ook verderop
+zijn het nog echte cd-spelers: vanaf het 500e 70 van de 100 met "cd" en "speler" in de titel,
+vanaf het 2000e 51, pas helemaal achteraan (3800) auto's met een cd-speler in de beschrijving.
+Gemeten op 22 september 2026, met de motor van de app: **2dehands 1816 in 10,5 s, Marktplaats
+1750 in 16,0 s**, telkens 20 pagina's (de rem, niet het einde: pagina 20 gaf nog 87 nieuwe) en
+zo'n 110 advertenties van Catawiki overgeslagen. Een site met kleine pagina's haalt de 2000 niet:
+de rem van 20 pagina's geldt ook daar, want tachtig verzoeken na elkaar aan dezelfde site valt op.
+
+Let op bij een bestaande zoekopdracht: wat voorbij de eerste 100 staat, heeft ze nooit gezien.
+De eerste beurt na deze wijziging telt dat dus als nieuw - bij "Cd speler" zo'n 1700 op 2dehands.
+Een melding blijft daarbij klein: de ballon toont er 3, Telegram 15, en een e-mail sinds dezelfde
+dag hoogstens 50 (`Notifier.MailMaximum`), telkens met "en nog ..." eronder.
+
+**`{offset}`: pagina's die zeggen vanaf het hoeveelste zoekertje ze beginnen.** De API van
+2dehands en Marktplaats nummert zijn pagina's niet: de derde pagina is `limit=100&offset=200`.
+In de zoek-URL of in `PageTemplate` wordt `{offset}` (pagina - 1) maal `PageSize` uit het
+sitebestand; zonder `PageSize` telt het niet als paginering (anders vraagt de app twintig keer
+dezelfde pagina). Meer dan 100 per keer weigert die API (`limit=200` gaf een 400).
 
 **Een korte pagina is de laatste.** De app vraagt geen volgende pagina meer wanneer een
 pagina minder dan de helft van de eerste opleverde (`GenericSource.SearchAsync`). Zonder die
@@ -704,11 +855,37 @@ werkt op de **weergave** en niet op de lijst zelf: wat binnenkwam blijft staan, 
 enkel anders naar gekeken. Zo is alles omkeerbaar zonder opnieuw te zoeken.
 
 **Volgorde** (`ListingSort`). Zoals de site ze geeft, op prijs in beide
-richtingen, of nieuwste eerst. Dat gebeurt met `ListCollectionView.CustomSort`
+richtingen, nieuwste eerst, of de veiling die het eerst afloopt. Dat gebeurt met `ListCollectionView.CustomSort`
 en niet met een `SortDescription`, want die laatste zet zoekertjes zonder prijs
 of zonder datum vooraan — precies waar je niet naar wil kijken. Ze horen
 achteraan, in beide richtingen, en gelijke waarden worden op hun sleutel uit
 elkaar gehouden zodat de lijst niet danst bij elke verversing.
+
+**Veiling die het eerst afloopt** (18 september 2026, `ListingSort.EndingSoonest`): bovenaan wat
+het eerst sluit, over de sites heen. Achteraan komen gewone zoekertjes (die lopen niet af) en
+veilingen die al voorbij zijn (daar kan je niet meer op bieden). Waar het einde vandaan komt:
+
+- bij **AlleVeilingen** de echte datum van de kavelpagina (`EndsAt`, zie hieronder);
+- bij **Catawiki en eBay** een schatting uit hun aftelklok (`Listing.SchatEinde`): "Nog 3 dagen" is
+  over drie dagen, "Nog 9d 12u" over negen dagen en twaalf uur, "01:23:45" over zoveel tijd.
+  Gerekend vanaf het moment dat de pagina gelezen werd, niet vanaf de klik op de volgorde. Een
+  klokuur als "19:30" telt niet: dat is een tijdstip, geen resterende tijd.
+
+`Listing.EndsAtOrEstimate` geeft het ene of het andere, en daarop sorteert `ListingComparer`, met
+**één vast "nu" per beurt** - anders kan een veiling halverwege het sorteren voorbij raken.
+
+**Bij deze volgorde haalt de app de einddatum van álle AlleVeilingen-kavels op**, niet enkel van
+wat in beeld staat. Zonder dat zou het niet werken: de kavels zonder datum komen achteraan,
+raken dus nooit in beeld, en krijgen daardoor nooit een datum. De eigenaar koos het zo, met de
+cijfers uit het logboek erbij: meestal 60 tot 100 kavels per zoekopdracht, hoogstens 300. Zodra
+die datums binnen zijn, gaat de lijst **één keer** opnieuw op volgorde (niet bij elke datum,
+anders springt ze voortdurend); `DetailFetcher.FillAsync` zegt daarvoor hoeveel zoekertjes er
+een datum bijkregen, en de ronde daarna vindt alles in het geheugen, dus dat loopt niet rond.
+
+Nagemeten op het hoofdscherm buiten beeld, met tien zoekertjes per pagina en acht echte
+AlleVeilingen-kavels waarvan er vijf buiten pagina 1 stonden: met de gewone volgorde kregen er
+3 van de 8 een datum (wat in beeld stond), met "eerst afloopt" alle 8, en pagina 1 liep van
+"Nog 2 uur" (Catawiki) over "Nog 4d 3u" (eBay) en de AlleVeilingen-kavels tot "Nog 12 dagen".
 
 Een prijs van **nul telt niet als prijs**. Bij 2dehands staat er nul in het
 prijsveld wanneer er "bieden" of "zie beschrijving" bedoeld wordt: van de honderd
@@ -825,6 +1002,8 @@ zoekertjes per site, en dan zouden dat vijfhonderd verzoeken aan die site zijn. 
 één per kavel dat je ziet - bij een pagina van vijftig ongeveer een seconde, op de
 achtergrond, terwijl de resultaten al in beeld staan. Zo koos de eigenaar het. Verder:
 
+- **Behalve bij de volgorde "Veiling die het eerst afloopt"**: die haalt de datum van álle kavels in
+  de lijst op, zie "Wat je te zien krijgt".
 - **Wat opgehaald is, blijft onthouden** zolang de app draait (op de sleutel van het zoekertje), dus
   heen en weer bladeren kost niets. Nagemeten: de tweede ronde over dezelfde acht kavels deed 0 ms.
 - **Bij een nieuwe pagina wordt het vorige stilgelegd** (`VulEinddatumsAan` in `MainWindow`): die
@@ -871,6 +1050,47 @@ en één dat het hoofdscherm buiten beeld opbouwt en de twee sjablonen vult. Let
 laatste: het raster bouwt buiten beeld **geen enkele kaart** op (nul rijen), dus daar is het
 sjabloon met de hand gevuld. En een `VisualBrush` toont de `OpacityMask` van zijn wortelelement
 niet, dus fotografeer de ouder wanneer je zoiets wil zien.
+
+**Rechtsonder op een veilingkaart staat een timer** (18 september 2026, `Controls/CountdownBadge.cs`):
+een klokje met hoelang er nog geboden kan worden. Op de lijstkaart in de rechterbenedenhoek, op de
+rasterkaart aan het einde van de prijsregel - daar is dat de onderste regel. De tijd achter de stad
+blijft ook staan; zo koos de eigenaar het.
+
+De timer **telt enkel echt af als het tijdstip dat toelaat** (`Listing.TimerEinde`):
+
+| Site | Waar het tijdstip vandaan komt | De timer |
+|---|---|---|
+| AlleVeilingen | de kavelpagina (`DetailEndDateSelector`) | telt af, op de seconde |
+| Catawiki | hun API, na het zoeken (`EndTimeApi`, zie hieronder) | telt af; tot de API antwoordde de tekst van de site ("3 dagen") |
+| eBay | de aftelklok van de kaart | "9d 12u" als tekst; telt af zodra eBay op de minuut of seconde schrijft ("Nog 6s") |
+
+Aftellen vanaf "Nog 3 dagen" zou een precisie tonen die er niet is: de echte sluiting kan evengoed
+23 uur later zijn. Daarom onthoudt `Listing` bij een geschatte tijd of de tekst tot op de minuut
+ging; enkel dan telt de timer ervan af. eBay schrijft zijn klok fijner naarmate het einde nadert -
+gemeten op 18 september 2026: "Nog 6s" bij een veiling die zes seconden later sloot - dus daar telt
+hij af precies wanneer het ertoe doet. eBay zet ernaast ook een tijdstip, maar in wisselende vormen
+("(Vandaag 19:46)", "(27/09, 11:24)"); dat lezen we niet.
+
+Opmaak (`Listing.TimerTekst`): "3d 04u", "4u 12m", "12m 34s", "Afgelopen". In het laatste uur kleurt
+hij amber (`TimerUrgentBrush` en `WarningOnCardBrush`, `Listing.IsDringend`). De tooltip zegt het
+exacte uur ("Sluit zondag 20 september om 23:09"), of dat de tekst van de site komt.
+
+**Alle timers delen één klok.** Een timer meldt zich aan bij `Loaded` en af bij `Unloaded`; het
+raster bouwt enkel de kaarten in beeld op, dus er tikken er hoogstens een paar tientallen, en staat
+er geen enkele in beeld, dan staat de klok stil. Nagemeten met de twee sjablonen buiten beeld: de
+timer van AlleVeilingen "2d 03u", die van Catawiki "3 dagen" en na twee seconden nog steeds, die van
+eBay van "0m 44s" naar "0m 42s" en amber, een gewoon zoekertje zonder timer, en na het sluiten
+luisterde er niemand meer naar de klok.
+
+**Het exacte tijdstip van Catawiki komt uit hun API** (`EndTimeApi` in het sitebestand,
+`DetailFetcher.FillFromApiAsync`). De zoekpagina van Catawiki vraagt het zelf op bij
+`/buyer/api/v3/bidding/lots?ids=...`, voor alle 24 kavels van een pagina samen, met per kavel
+`bidding_end_time` (in UTC). Wij doen hetzelfde: één verzoek per 24 kavels, voor álle kavels van de
+zoekopdracht, dus meestal één tot zes. Een gewoon verzoek krijgt daar een 403, dus het loopt via de
+brug, zoals de zoekpagina zelf - en **pas na het zoeken**: zolang er gezocht wordt, heeft de
+zoekopdracht de brug nodig (`SearchRunner.Gate`), en na het zoeken komt er vanzelf een beurt. Werkt
+de brug niet, dan wordt het overgeslagen en toont de timer de tekst van de site. Het blok is
+algemeen: een andere site met zo'n API zet er haar eigen adres en puntpaden in.
 
 **Catawiki heeft geen plaats op zijn zoekpagina**, en ook niet in de API's erachter. Wat er op
 17 september 2026 nagekeken is, zodat niemand het nog eens hoeft af te tasten:
@@ -959,7 +1179,9 @@ gemaakt op echte titels; een nieuwe soort rommel vraagt daar een woord bij. Nage
 1. **Rechtstreeks** (`HttpClient`). Snelst. Werkt bij 2dehands en Marktplaats,
    die allebei op de `lrp` JSON-API zitten.
 2. **Playwright** (`NeedsBrowser = true`). Eigen Chrome-profiel zodat logins
-   bewaard blijven. Nodig bij Facebook, eBay en AlleVeilingen.
+   bewaard blijven. Nodig bij Facebook en AlleVeilingen. eBay liep hier ook, tot zijn
+   robotbeveiliging de onzichtbare Chrome van de app in september 2026 niet meer
+   betrouwbaar doorliet; sindsdien gaat het via de brug (zie `SITES.md`).
 3. **De brug** (`UseBridge = true`). De eigen Chrome van de gebruiker, via een
    extensie. Enige weg voor sites met zware bot-detectie.
 
@@ -1152,6 +1374,15 @@ Er zijn geen ingebouwde bronnen meer — **elke site is een bestand**. Het veld
   | `PriceMarkers` | `€`, `Gratis` | welke regel de prijs is |
   | `LocationPattern` | `,\s*(VLG\|WAL\|BRU)$` | staat het einde van een plaatsnaam in de titel en niet in de plaats, dan zijn die twee omgewisseld |
   | `LoginMarkers` | `log in to facebook`, `aanmelden bij facebook` | tekst waaraan je ziet dat je niet aangemeld bent |
+
+  **Scrollen in plaats van pagina's** (22 september 2026). Facebook heeft geen volgende pagina;
+  het laadt bij terwijl je naar beneden gaat. Met één keer scrollen bleven er 25 over, terwijl
+  je in je eigen browser er veel meer ziet. Nu scrolt `BrowserFetcher.ScrolTotAsync` tot er 300
+  staan (`ResultLimit` van de linkmotor), telkens door het **laatste zoekertje** in beeld te
+  brengen - het muiswiel werkt op wat onder de muis staat, en de pagina heeft meer dan één deel
+  dat schuift. Het stopt zodra een ronde niets bracht, en na hoogstens 20 rondes: dit gebeurt met
+  je eigen aangemelde account, en eindeloos scrollen is wat Facebook als een robot ziet. Testen
+  in Sites beheren vraagt 20, en scrolt dan niet. Nog niet live gemeten, zie Volgende stappen.
 
   Tot september 2026 heette dit de Facebook-motor (`FacebookSource.cs`), met al die
   waarden in de code. Na de keuzelijsten van AlleVeilingen was dat de laatste plek waar
@@ -1468,14 +1699,14 @@ Voor wie eraan werkt:
   sleutel (401), dan verschijnt dat veld opnieuw; daarvoor kon je een verkeerde sleutel enkel
   in de omgevingsvariabelen van Windows vervangen. Het veld zegt ook waar je een sleutel maakt,
   en dat de volledige zoekpagina naar Claude gaat.
-- **Aanmelden bij een site** kan op de kaart van die site: tandwiel > Sites beheren > site >
-  Aanmelden (`SettingsWindow.LoginButton_Click`), enkel bij sites die de browser van de app
+- **Aanmelden bij een site** kan op de kaart van die site: tandwiel > Sites beheren > tab van de
+  site > Aanmelden (`SettingsWindow.LoginButton_Click`), enkel bij sites die de browser van de app
   gebruiken. Dat stond vroeger enkel in "Site toevoegen", en dan maakte je een lege nieuwe
   site aan om je bij een bestaande aan te melden.
 
 Wat de analyse **niet** doet, en waar je dus zelf aan moet: `Filters`, `CustomFilters`,
 `Headers`, `AllowsEmptyQuery`, de velden voor de prijsindicatie (`PriceReference`, `IsAuction`,
-`SellerSelector`, `AuctionSellers`), `TimeLeftSelector`, `DetailEndDateSelector`, een eigen `UrlStyle`
+`SellerSelector`, `AuctionSellers`), `TimeLeftSelector`, `DetailEndDateSelector`, `EndTimeApi`, een eigen `UrlStyle`
 en paginering die in het pad zit
 (Kleinanzeigen: `/s-seite:2/cd/k0`). Dat vraagt meten, zie `tools/meet-filter.py`.
 
@@ -1961,6 +2192,12 @@ alle gegevens ruim een week in de kopie, en startte Visual Studio met een lege m
 echte map wil lezen of de app met echte gegevens wil starten, doet dat buiten die omleiding
 (bv. via `Win32_Process.Create`) of start ze gewoon vanuit Visual Studio.
 
+**Het register wordt net zo omgeleid** (`HKCU`). Op 18 september 2026 toonde een terminal in de
+Claude-app bij "opstarten met Windows" een Zentrix-regel naar `bin\Debug\...\Zentrix.exe`, terwijl
+het echte register er geen had - die regel was ooit geschreven door een Zentrix die vanuit de
+Claude-app gestart was. Wie wil weten of Zentrix echt mee opstart, leest het register buiten de
+omleiding, met hetzelfde `Win32_Process.Create`.
+
 **Controles.** `tests\Zentrix.Checks` is een gewoon consoleprogramma dat de logica nameet,
 zonder testframework en zonder netwerk:
 
@@ -1969,9 +2206,9 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 ```
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
-controle OK of FOUT af en eindigt met "ALLES OK (182 controles)" of het aantal fouten. Draait
-Zentrix zelf, dan is de poort van de brug bezet en vallen de 15 controles van de brug weg
-(met `--snel` blijven er dan 163). Drie
+controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
+`--snel` en Zentrix dicht waren dat er 229 op 22 september 2026. Draait Zentrix zelf, dan is de
+poort van de brug bezet en vallen de controles van de brug weg. Drie
 regels waar het aan vastzit:
 
 - **Het compileert de broncode zelf mee** (`Models`, `Sources`, `Services`, zonder
@@ -2053,8 +2290,25 @@ niets stuk aan de code: WPF tekent wel, maar de grafische kaart presenteert niet
 meer. Zo herken je het — de vensterrand en de afgeronde hoeken staan er wél, de
 boom is compleet (na te gaan met UI Automation), en het venster laat zich netjes
 naar een `RenderTargetBitmap` tekenen. Het komt voor na een slaapstand of een
-reset van het stuurprogramma. Herstarten van de pc lost het op; als noodrem kan
-alles op de processor getekend worden:
+reset van het stuurprogramma. Herstarten van de pc lost het op.
+
+Bij het **opstarten van de pc** kwam het ook voor, en dan loste een herstart van Zentrix het
+op; daarom toont een start door Windows het venster niet meer (zie "In het systeemvak blijven
+draaien"). Het logboek zegt sinds 22 september 2026 wat er gebeurt (`DisplayDiagnostics`):
+
+```
+tekenen: niveau 2 (met de grafische kaart), ...; pc aan sinds 1 min 29 s; scherm 2560x1440, ...
+gestart in het systeemvak, zonder venster: dat wordt pas getekend als je het opent
+hoofdvenster: getoond (eerste keer), pc aan sinds 12 min 4 s
+hoofdvenster: eerste beeld getekend, 226 ms na het tonen, met de grafische kaart waar het kan
+```
+
+Staat er "getoond" zonder "eerste beeld getekend" erna, dan tekende het venster nooit. Een lager
+niveau dan 2, "Windows wijzigde het scherm" of "pc ontwaakt" vlak ervoor zeggen waar het aan lag.
+Het scherm staat in eenheden van WPF: 3840x2160 op 150% is 2560x1440. Werkt het venster weer na
+het groter of kleiner trekken, dan was het het tekenvlak.
+
+Als noodrem kan alles op de processor getekend worden:
 
 ```bash
 set ZENTRIX_SOFTWARE_RENDER=1
@@ -2302,9 +2556,10 @@ witte tekst leesbaar blijft.
 - Sites importeren uit een map (ook meteen bij een lege eerste start), toevoegen
   met de AI-analyse, en verwijderen in het instellingen-scherm (de knop
   "Verwijderen" op de kaart van die site)
-- Vastgezette zoekopdrachten op hun eigen tabblad, met NIEUW-markering voor wat
-  er sinds vorige keer bij kwam; overleeft een herstart. Dubbelklikken zoekt
-  ze opnieuw, "Huidige vastzetten" voegt er een toe
+- Vastgezette zoekopdrachten op hun eigen tabblad, met een teller en een NIEUW-markering
+  voor wat je nog niet bekeek - dat stapelt op over de beurten heen tot je de zoekopdracht
+  opent. Een klik op de teller toont enkel de nieuwe (schakelaar "Enkel nieuwe"), dubbelklikken
+  alles. Overleeft een herstart; "Huidige vastzetten" voegt er een toe
 - **Favorieten**: het sterretje op elke foto zet een zoekertje apart. Wat je
   bewaart, wordt als kopie opgeslagen, dus het blijft zichtbaar ook als de site
   het zoekertje intussen weghaalt
@@ -2328,13 +2583,14 @@ witte tekst leesbaar blijft.
   uit zijn `Filters`-mapping, dus zonder lijstje "welke site kan wat"
 - **Resultaten over pagina's**, met de pager links van het locatiespeldje en nog
   eens onder de resultaten (hoogstens zeven nummers, schuivend). Het aantal per pagina (50/100/150/200) staat achter het `#`;
-  de app haalt intussen op wat de sites geven tot vijfhonderd per site
+  de app haalt intussen op wat de sites geven: tot 2000 bij een site die rechtstreeks antwoordt,
+  300 bij Facebook, 500 bij de rest
 - Een tabblad **Alles** vooraan, met de resultaten van alle sites samen. De
   tabstrip toont verder enkel de sites die meezoeken; kiezen welke dat zijn
   gebeurt in het chipje achteraan de rij. Een site mag met `ShortName` een
   kortere naam voor zijn tab opgeven
-- **Sorteren** op prijs (beide richtingen) of op nieuwste; de keuze wordt
-  onthouden tussen twee starts
+- **Sorteren** op prijs (beide richtingen), op nieuwste of op de veiling die het eerst
+  afloopt (over Catawiki, eBay en AlleVeilingen heen); de keuze wordt onthouden tussen twee starts
 - **Prijsindicatie**: rechtsklik op een foto geeft de marktwaarde van dat model uit de
   vraagprijzen op de sites met het vinkje, met varianten apart, zonder veilingen, sets en
   toebehoren, en verbreed naar de reeks als er te weinig zijn
@@ -2342,6 +2598,8 @@ witte tekst leesbaar blijft.
   geboden kan worden**. Past die regel niet, dan vervaagt het einde en schuift ze zodra je er met
   de muis op gaat staan. Staat die tijd niet op de zoekpagina van de site maar wel op de pagina van
   het kavel, dan haalt de app ze daar op - enkel voor de kavels die je op dat moment ziet
+- Rechtsonder op een veilingkaart een **timer** die echt aftelt waar het tijdstip exact is
+  (AlleVeilingen, Catawiki via zijn API, eBay op het einde), in het laatste uur in amber
 - Miniaturen in de resultatenlijst, dubbelklik opent het zoekertje
 - *Sites beheren* met een tab per site: alle velden bewerkbaar, per site testen,
   aanmelden bij sites die dat vragen, en exporteren/importeren van losse sitebestanden
@@ -2364,8 +2622,8 @@ witte tekst leesbaar blijft.
   afwijkende opbouw krijgt een andere motor via het `Engine`-veld
 - Resultaten verschijnen per bron zodra die klaar is, en bij de brug zelfs al
   tijdens het laden van de pagina (tussentijdse leveringen)
-- Paginering via `PageTemplate` of `{page}` in de zoek-URL: de app haalt extra
-  pagina's op tot vijfhonderd per site (rem op tien pagina's). Geeft een site bij
+- Paginering via `PageTemplate`, `{page}` of `{offset}` in de zoek-URL: de app haalt extra
+  pagina's op tot de rem van die soort site (20 of 10 pagina's). Geeft een site bij
   pagina 2 hetzelfde terug, dan stopt hij vanzelf. Eén browser wordt hergebruikt
   over alle pagina's. Een API die meteen genoeg teruggeeft, heeft het niet nodig
 - Prijsfilter op de site zelf wanneer het sitebestand er een heeft; anders filtert
@@ -2382,9 +2640,9 @@ witte tekst leesbaar blijft.
 Wat er per site nog ontbreekt, staat bij "Nog open" in `SITES.md` van `zentrix-sites`.
 Hieronder enkel wat aan de app zelf te doen valt.
 
-1. Een `{offset}`-plaatshouder voor API's die pagineren met een offset in plaats
-   van een paginanummer. Nu niet nodig, want zulke sites geven meteen honderd,
-   maar wie er meer wil heeft hem nodig.
+1. Nagaan hoe het scrollen tot 300 bij Facebook in de praktijk loopt (22 september 2026
+   gebouwd, nog niet live gemeten): hoeveel zoekertjes, hoeveel seconden, en of Facebook om
+   een controle vraagt. Het logboek zegt het per beurt: `(N zoekertjes na M keer scrollen)`.
 2. Grote foto's op aanvraag. Bij sommige sites geeft de zoekpagina enkel kleine,
    bijgesneden foto's en staat de grote pas op de pagina van het zoekertje. Die
    ophalen kost een volledige browsersessie (5–10 s), dus niet tijdens het
@@ -2399,9 +2657,8 @@ Hieronder enkel wat aan de app zelf te doen valt.
    - Een gemiste beurt wordt enkel dezelfde dag ingehaald (zie "3. De planner"). Stond de
      app drie dagen dicht, dan draait "dagelijks" één keer, niet drie - en dat is
      vermoedelijk ook wat je wil.
-   - De planner meldt per zoekopdracht hoeveel er nieuw is, maar je ziet pas
-     wélke wanneer je de zoekopdracht opent. Een lijstje "dit kwam er sinds
-     gisteren bij" over alle zoekopdrachten samen bestaat nog niet.
+   - Per zoekopdracht toont de teller wat je nog niet bekeek. Een lijstje "dit kwam er
+     sinds gisteren bij" over alle zoekopdrachten samen bestaat nog niet.
 5b. **Favorieten opvolgen** (gevraagd op 17 september 2026, in drie stappen; de derde is gedaan):
    - of een favoriet **nog te koop** is, en tegen welke prijs nu (een favoriet is een kopie; bij
      Catawiki op 2dehands was het bod intussen van € 5 naar € 24 gestegen);
@@ -2421,8 +2678,8 @@ Hieronder enkel wat aan de app zelf te doen valt.
      mechanisch werk.
    - **Playwright-vervolgpagina's naast elkaar**, zie "Wat er nog te halen valt".
    - Het veld `Enabled` ("Standaard aangevinkt") in het sitebestand doet niets en staat niet
-     meer in *Sites beheren*; "Max. resultaten" in het venster van een zoekopdracht botst
-     met het idee dat het `#` enkel bepaalt wat je ziet.
+     meer in *Sites beheren*. ("Max. resultaten" in het venster van een zoekopdracht botste
+     daar ook mee; dat veld is weg sinds 22 september 2026, zie "Resultaten over pagina's".)
    - De koppelcode-controle, de rijstroken en de kortere wachttijden zijn met een build en
      een testprojectje nagekeken, maar nog niet gemeten tijdens een echte zoekopdracht.
 8. Uit de adviesronde van 16 september 2026 (zes adviseurs, zie `.claude\agents`). Gedaan:
@@ -2434,8 +2691,8 @@ Hieronder enkel wat aan de app zelf te doen valt.
    de brug in golven, pagina 1 meteen, gecomprimeerde antwoorden, IdPattern, de linkmotor,
    Discogs met een aanhalingsteken, de weergave (contrast, afknippen, smal venster,
    pictogrammen, knopstijlen) en het controleproject. Nog te doen:
-   - **Enkel live na te gaan**: of eBay nog resultaten geeft (bij de laatste beurt 0, "uitlezen
-     2ms"), of Kleinanzeigen pagineert met `s-seite:{page}` in het pad, of Catawiki een datum
+   - **Enkel live na te gaan**: of eBay via de brug werkt (de 0 resultaten van toen waren zijn
+     robotbeveiliging, zie `SITES.md`), of Kleinanzeigen pagineert met `s-seite:{page}` in het pad, of Catawiki een datum
      heeft in `time@datetime`, en of de brug met extensie 1.7 werkt.
    - **Tekststijlen** (punt 7) en het opruimen van ongebruikte sleutels in `App.xaml`.
    - **Snelheid**: zie "Wat er nog te halen valt".

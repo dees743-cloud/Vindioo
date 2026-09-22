@@ -1,0 +1,190 @@
+using Microsoft.Data.Sqlite;
+using Zentrix.Models;
+using Zentrix.Services;
+
+namespace Zentrix.Checks;
+
+/// <summary>
+/// "Nieuw" is wat je nog niet bekeek, niet wat de laatste beurt nieuw vond. Tot september
+/// 2026 was het dat laatste: de planner vond om 12:07 48 nieuwe bij "Cd speler", een druk
+/// op het driehoekje 26 seconden later zette de teller op 0, en de 48 waren nergens meer
+/// als nieuw terug te vinden.
+/// </summary>
+public static class NieuwChecks
+{
+    public static async Task RunAsync()
+    {
+        // ---------------------------------------------------------------------------
+        Check.Groep("Nieuw: de regel zelf (IsUnviewed)");
+        {
+            var t = new DateTimeOffset(2026, 9, 19, 12, 0, 0, TimeSpan.FromHours(2));
+            var nooit = new SavedSearch();
+            var geopend = new SavedSearch { LastViewed = t };
+
+            Check.Dat(nooit.IsUnviewed(t), "nog nooit geopend: alles is nieuw");
+            Check.Dat(geopend.IsUnviewed(null), "nog nooit gezien: nieuw");
+            Check.Dat(geopend.IsUnviewed(t.AddSeconds(1)) && !geopend.IsUnviewed(t.AddSeconds(-1)),
+                "opgedoken na het openen: nieuw; ervoor: bekeken");
+            Check.Dat(!geopend.IsUnviewed(t), "precies op het moment van openen: bekeken");
+            Check.Dat(!geopend.IsUnviewed(t.ToUniversalTime().AddSeconds(-1)),
+                "een tijdstip in een andere tijdzone telt als hetzelfde moment");
+        }
+
+        using var site = new Proefsite();
+        var store = new SiteStore();
+        store.Load();
+        store.Add(site.Site("NieuwSite"));
+        var history = new HistoryStore();
+        var runner = new SearchRunner(store, history);
+
+        SavedSearch Zoekopdracht()
+        {
+            var s = new SavedSearch
+            {
+                Query = "cd",
+                SiteSettings = { new SiteSetting { Site = "NieuwSite", Enabled = true } },
+                Schedule = new SearchSchedule { Mode = ScheduleMode.Interval, NotifyOnNew = false }
+            };
+            s.Id = history.Add(s);
+            return s;
+        }
+
+        int TellerInDatabank(int id) => history.GetAll().Single(s => s.Id == id).NewCount;
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Nieuw blijft nieuw tot je de zoekopdracht opent");
+        {
+            site.PerPagina.Clear();
+            site.PerPagina[1] = 5;
+            var z = Zoekopdracht();
+
+            var o1 = await runner.RunAsync(z);
+            Check.Dat(o1.New.Count == 5 && z.NewCount == 5 && o1.All.All(l => l.IsNew),
+                $"eerste beurt: alle 5 nieuw (melding over {o1.New.Count}, teller {z.NewCount})");
+
+            var o2 = await runner.RunAsync(z);
+            Check.Dat(o2.New.Count == 0, "tweede beurt zonder te kijken: geen tweede melding over dezelfde 5");
+            Check.Dat(z.NewCount == 5 && o2.All.Count(l => l.IsNew) == 5 && TellerInDatabank(z.Id) == 5,
+                $"... maar de 5 blijven nieuw, met het label en in de teller ({z.NewCount}; vroeger 0)");
+
+            history.SetViewed(z.Id, DateTimeOffset.Now);
+            Check.Dat(TellerInDatabank(z.Id) == 0 && history.GetLastViewed(z.Id) is not null,
+                "geopend: teller op 0, tijdstip bewaard");
+
+            site.PerPagina[1] = 7;
+            var o3 = await runner.RunAsync(z);
+            var nieuw = o3.All.Where(l => l.IsNew).Select(l => l.Title).OrderBy(u => u).ToList();
+            Check.Dat(o3.New.Count == 2 && z.NewCount == 2 && nieuw.SequenceEqual(new[] { "Zoekertje 1-5", "Zoekertje 1-6" }),
+                $"daarna enkel wat er bijkwam: {string.Join(", ", nieuw)}");
+
+            // Opent iemand de zoekopdracht terwijl een beurt loopt, dan zag hij de nieuwe van
+            // daarvoor al. De beurt telt ze op het einde niet opnieuw mee.
+            site.PerPagina[1] = 8;
+            var o4 = await runner.RunAsync(z, delivered: _ => history.SetViewed(z.Id, DateTimeOffset.Now));
+            var nieuw4 = o4.All.Where(l => l.IsNew).Select(l => l.Title).ToList();
+            Check.Dat(z.NewCount == 1 && TellerInDatabank(z.Id) == 1 && nieuw4.SequenceEqual(new[] { "Zoekertje 1-7" }),
+                $"geopend tijdens een beurt: enkel wat die beurt voor het eerst zag ({string.Join(", ", nieuw4)})");
+
+            // Een beurt die niet kan draaien, maakt niets minder nieuw.
+            z.SiteSettings[0].Enabled = false;
+            var o5 = await runner.RunAsync(z);
+            Check.Dat(o5.NotRunReason is not null && z.NewCount == 1 && TellerInDatabank(z.Id) == 1,
+                "een beurt die niet draaide, laat de teller staan (vroeger 0)");
+            z.SiteSettings[0].Enabled = true;
+
+            // Een site die één beurt niets gaf: wat terugkomt en je nog niet bekeek, is nog nieuw.
+            site.PerPagina[1] = 0;
+            await runner.RunAsync(z);
+            site.PerPagina[1] = 8;
+            var o6 = await runner.RunAsync(z);
+            Check.Dat(o6.All.Where(l => l.IsNew).Select(l => l.Title).SequenceEqual(new[] { "Zoekertje 1-7" }) && o6.New.Count == 0,
+                "een zoekertje dat één beurt ontbrak, komt terug als nieuw, zonder tweede melding");
+        }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Nieuw: de overstap van een bestaande databank (StartpuntBekeken)");
+        {
+            // Zoals de oude code het achterliet: twee gekend, één nieuw bij de laatste beurt.
+            var oud = Zoekopdracht();
+            history.MarkSeen(oud.Id, new[] { "A:1", "A:2" });
+            await Task.Delay(30);
+            history.MarkSeen(oud.Id, new[] { "A:3" });
+            history.SaveOutcome(oud.Id, new[]
+            {
+                new Listing { Source = "A", ExternalId = "1", Title = "een" },
+                new Listing { Source = "A", ExternalId = "2", Title = "twee" },
+                new Listing { Source = "A", ExternalId = "3", Title = "drie", IsNew = true }
+            });
+            history.SetLastRun(oud.Id, DateTime.Now, 1);
+
+            // De eerste beurt ooit: alles nieuw.
+            var eerste = Zoekopdracht();
+            history.MarkSeen(eerste.Id, new[] { "A:1", "A:2" });
+            history.SaveOutcome(eerste.Id, new[]
+            {
+                new Listing { Source = "A", ExternalId = "1", Title = "een", IsNew = true },
+                new Listing { Source = "A", ExternalId = "2", Title = "twee", IsNew = true }
+            });
+            history.SetLastRun(eerste.Id, DateTime.Now, 2);
+
+            var nooit = Zoekopdracht();
+
+            // De kolom weghalen, zodat de volgende start doet alsof ze er net bijkomt.
+            using (var verbinding = new SqliteConnection($"Data Source={AppPaths.DatabaseFile}"))
+            {
+                verbinding.Open();
+                using var weg = verbinding.CreateCommand();
+                weg.CommandText = "ALTER TABLE searches DROP COLUMN lastViewed";
+                weg.ExecuteNonQuery();
+            }
+
+            var opnieuw = new HistoryStore();
+            var alle = opnieuw.GetAll();
+            var o = alle.Single(s => s.Id == oud.Id);
+            var e = alle.Single(s => s.Id == eerste.Id);
+            var n = alle.Single(s => s.Id == nooit.Id);
+            var gezien = opnieuw.GetSeen(oud.Id);
+
+            Check.Dat(o.NewCount == 1 && o.LastViewed == gezien["A:2"],
+                $"de teller blijft 1, bekeken tot het laatste wat al gekend was ({o.NewCount})");
+            Check.Dat(!o.IsUnviewed(gezien["A:1"]) && o.IsUnviewed(gezien["A:3"]), "... en enkel A:3 is nieuw");
+            Check.Dat(e.NewCount == 2 && e.IsUnviewed(opnieuw.GetSeen(eerste.Id)["A:1"]),
+                "na enkel een eerste beurt: alles blijft nieuw");
+            Check.Dat(n.LastViewed is null, "nog nooit gedraaid: geen startpunt, alles wordt nieuw");
+
+            var nogEens = new HistoryStore().GetAll().Single(s => s.Id == oud.Id);
+            Check.Dat(nogEens.LastViewed == o.LastViewed, "een volgende start verzet het startpunt niet meer");
+        }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("E-mail: hoogstens 50 zoekertjes, en zeggen dat er meer is");
+        {
+            var z = new SavedSearch { Query = "cd speler" };
+            List<Listing> Lijst(int n) => Enumerable.Range(1, n)
+                .Select(i => new Listing { Source = "2dehands", Title = $"Speler {i}", Url = $"https://x/{i}" }).ToList();
+
+            var veel = Notifier.MailTekst(z, Lijst(1700));
+            Check.Dat(System.Text.RegularExpressions.Regex.Matches(veel, "<li>").Count == Notifier.MailMaximum,
+                $"1700 nieuwe: er staan er {Notifier.MailMaximum} in de mail");
+            Check.Dat(veel.Contains("En nog 1650 meer") && veel.Contains("Cd speler"),
+                "met eronder hoeveel er nog zijn en waar je ze vindt");
+
+            var weinig = Notifier.MailTekst(z, Lijst(12));
+            Check.Dat(System.Text.RegularExpressions.Regex.Matches(weinig, "<li>").Count == 12 && !weinig.Contains("En nog"),
+                "12 nieuwe: alle 12, zonder 'en nog'");
+        }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Een zoekopdracht verwijderen ruimt alles op");
+        {
+            var weg = Zoekopdracht();
+            history.MarkSeen(weg.Id, new[] { "A:1" });
+            history.SaveOutcome(weg.Id, new[] { new Listing { Source = "A", ExternalId = "1", Title = "een" } });
+
+            history.Delete(weg.Id);
+            Check.Dat(history.GetAll().All(s => s.Id != weg.Id) && history.GetSeen(weg.Id).Count == 0 &&
+                      history.GetOutcome(weg.Id).Count == 0,
+                "de zoekopdracht, wat al gezien was, en de bewaarde resultaten (die bleven vroeger achter)");
+        }
+    }
+}

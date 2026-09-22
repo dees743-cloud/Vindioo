@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Globalization;
+using System.IO;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using Zentrix.Models;
@@ -22,11 +23,15 @@ public class HistoryStore
         Directory.CreateDirectory(AppPaths.Folder);
         _connectionString = $"Data Source={AppPaths.DatabaseFile}";
 
-        Initialize();
+        if (Initialize()) StartpuntBekeken();
     }
 
-    /// <summary>Maakt de tabellen aan als ze nog niet bestaan.</summary>
-    private void Initialize()
+    /// <summary>
+    /// Maakt de tabellen aan als ze nog niet bestaan. Geeft true terug wanneer de kolom
+    /// <c>lastViewed</c> er net bijkwam: dan moeten de bestaande zoekopdrachten nog een
+    /// startpunt krijgen (zie <see cref="StartpuntBekeken"/>).
+    /// </summary>
+    private bool Initialize()
     {
         using var connection = Open();
         using var command = connection.CreateCommand();
@@ -100,24 +105,88 @@ public class HistoryStore
         // instelling opnieuw een migratie vraagt; zo blijft de tabel stabiel.
         AddColumn(connection, "searches", "config", "TEXT NOT NULL DEFAULT ''");
         AddColumn(connection, "searches", "newCount", "INTEGER NOT NULL DEFAULT 0");
+
+        // Wanneer je de zoekopdracht laatst opende; zie SavedSearch.LastViewed.
+        return AddColumn(connection, "searches", "lastViewed", "TEXT");
     }
 
     /// <summary>
     /// Voegt een kolom toe wanneer die er nog niet staat. SQLite kent geen
     /// "ADD COLUMN IF NOT EXISTS", dus we kijken eerst in de tabelbeschrijving.
+    /// Geeft true terug als de kolom er net bijkwam.
     /// </summary>
-    private static void AddColumn(SqliteConnection connection, string table, string column, string type)
+    private static bool AddColumn(SqliteConnection connection, string table, string column, string type)
     {
         using var check = connection.CreateCommand();
         check.CommandText = $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = $name";
         check.Parameters.AddWithValue("$name", column);
 
-        if (Convert.ToInt32(check.ExecuteScalar()) > 0) return;
+        if (Convert.ToInt32(check.ExecuteScalar()) > 0) return false;
 
         using var add = connection.CreateCommand();
         add.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {type}";
         add.ExecuteNonQuery();
+        return true;
     }
+
+    /// <summary>
+    /// Eén keer, wanneer de kolom <c>lastViewed</c> er net bijkwam: geeft elke zoekopdracht die
+    /// al gedraaid heeft een tijdstip "laatst bekeken" dat haar teller laat staan. Zonder
+    /// startpunt zou alles wat ooit gezien werd als nieuw tellen: bij "Computer" 427
+    /// zoekertjes in plaats van 64.
+    ///
+    /// Het startpunt komt uit de bewaarde resultaten van de laatste beurt: het laatste
+    /// "eerst gezien" van wat toen al bekend was. Wat daarna opdook, is precies wat die
+    /// beurt nieuw vond. Een zoekopdracht die nog nooit draaide, blijft leeg: voor haar is
+    /// alles nieuw, zoals altijd bij de eerste beurt.
+    /// </summary>
+    private void StartpuntBekeken()
+    {
+        var zoekopdrachten = new List<(int Id, string? LastRun)>();
+
+        using (var connection = Open())
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "SELECT id, lastRun FROM searches WHERE lastRun IS NOT NULL";
+            using var reader = command.ExecuteReader();
+            while (reader.Read()) zoekopdrachten.Add((reader.GetInt32(0), reader.GetString(1)));
+        }
+
+        foreach (var (id, lastRun) in zoekopdrachten)
+        {
+            var gezien = GetSeen(id);
+            var resultaten = GetOutcome(id);
+
+            DateTimeOffset? EerstGezien(Listing l) =>
+                gezien.TryGetValue(l.Key, out var t) ? t : null;
+
+            var gekend = resultaten.Where(l => !l.IsNew).Select(EerstGezien).Where(t => t is not null).ToList();
+            var nieuw = resultaten.Where(l => l.IsNew).Select(EerstGezien).Where(t => t is not null).ToList();
+
+            // Wat toen al bekend was, geldt als bekeken. Was alles nieuw (de eerste beurt),
+            // dan net voor het eerste. Zonder bewaarde resultaten: het tijdstip van de beurt.
+            var startpunt = gekend.Count > 0 ? gekend.Max()!.Value
+                : nieuw.Count > 0 ? nieuw.Min()!.Value.AddTicks(-1)
+                : LeesTijdstip(lastRun) ?? DateTimeOffset.Now;
+
+            // De teller opnieuw tellen met dat startpunt, zodat ze klopt met wat de lijst toont.
+            var nogNiet = resultaten.Count(l => EerstGezien(l) is not { } t || t > startpunt);
+
+            using var connection = Open();
+            using var update = connection.CreateCommand();
+            update.CommandText = "UPDATE searches SET lastViewed = $viewed, newCount = $new WHERE id = $id";
+            update.Parameters.AddWithValue("$viewed", startpunt.ToString("o"));
+            update.Parameters.AddWithValue("$new", nogNiet);
+            update.Parameters.AddWithValue("$id", id);
+            update.ExecuteNonQuery();
+
+            Log.Write($"zoekopdracht {id}: laatst bekeken op {startpunt:dd/MM HH:mm:ss} gezet, {nogNiet} nog niet bekeken");
+        }
+    }
+
+    /// <summary>Een tijdstip zoals het in de databank staat ("o"-formaat, met de tijdzone erbij).</summary>
+    private static DateTimeOffset? LeesTijdstip(string? tekst) =>
+        DateTimeOffset.TryParse(tekst, CultureInfo.InvariantCulture, DateTimeStyles.None, out var t) ? t : null;
 
     private SqliteConnection Open()
     {
@@ -135,7 +204,7 @@ public class HistoryStore
         using var connection = Open();
         using var command = connection.CreateCommand();
         command.CommandText =
-            "SELECT id, name, query, sites, minPrice, maxPrice, lastRun, config, newCount " +
+            "SELECT id, name, query, sites, minPrice, maxPrice, lastRun, config, newCount, lastViewed " +
             "FROM searches ORDER BY name";
 
         using var reader = command.ExecuteReader();
@@ -152,7 +221,8 @@ public class HistoryStore
                 MinPrice = reader.IsDBNull(4) ? null : (decimal)reader.GetDouble(4),
                 MaxPrice = reader.IsDBNull(5) ? null : (decimal)reader.GetDouble(5),
                 LastRun = reader.IsDBNull(6) ? null : DateTime.Parse(reader.GetString(6)),
-                NewCount = reader.GetInt32(8)
+                NewCount = reader.GetInt32(8),
+                LastViewed = reader.IsDBNull(9) ? null : LeesTijdstip(reader.GetString(9))
             };
 
             ReadConfig(search, reader.GetString(7));
@@ -430,11 +500,44 @@ public class HistoryStore
         command.ExecuteNonQuery();
     }
 
+    /// <summary>
+    /// Je opende de zoekopdracht: wat er nu in staat, is bekeken, en de teller gaat naar nul.
+    /// Enkel deze twee kolommen - niet het JSON-blokje, dat een lopende beurt ook schrijft.
+    /// </summary>
+    public void SetViewed(int searchId, DateTimeOffset when)
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+
+        command.CommandText = "UPDATE searches SET lastViewed = $viewed, newCount = 0 WHERE id = $id";
+        command.Parameters.AddWithValue("$viewed", when.ToString("o"));
+        command.Parameters.AddWithValue("$id", searchId);
+
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Wanneer de zoekopdracht laatst geopend werd, zoals het nu in de databank staat. Een
+    /// beurt vraagt het op het einde opnieuw: wie opende terwijl ze liep, heeft de nieuwe van
+    /// daarvoor al gezien.
+    /// </summary>
+    public DateTimeOffset? GetLastViewed(int searchId)
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT lastViewed FROM searches WHERE id = $id";
+        command.Parameters.AddWithValue("$id", searchId);
+
+        return LeesTijdstip(command.ExecuteScalar() as string);
+    }
+
     public void Delete(int id)
     {
         using var connection = Open();
         using var command = connection.CreateCommand();
-        command.CommandText = "DELETE FROM searches WHERE id = $id; DELETE FROM seen WHERE searchId = $id;";
+        // De bewaarde resultaten ook: die bleven vroeger achter, zonder zoekopdracht om ze te tonen.
+        command.CommandText = "DELETE FROM searches WHERE id = $id; DELETE FROM seen WHERE searchId = $id; " +
+                              "DELETE FROM outcome WHERE searchId = $id;";
         command.Parameters.AddWithValue("$id", id);
         command.ExecuteNonQuery();
     }
@@ -455,6 +558,30 @@ public class HistoryStore
         while (reader.Read()) keys.Add(reader.GetString(0));
 
         return keys;
+    }
+
+    /// <summary>
+    /// Alles wat voor deze zoekopdracht al gezien is, met wanneer het voor het eerst opdook.
+    /// Dat tijdstip, naast <see cref="SavedSearch.LastViewed"/>, zegt of je het al bekeken hebt.
+    /// </summary>
+    public Dictionary<string, DateTimeOffset> GetSeen(int searchId)
+    {
+        var gezien = new Dictionary<string, DateTimeOffset>();
+
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT key, firstSeen FROM seen WHERE searchId = $id";
+        command.Parameters.AddWithValue("$id", searchId);
+
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            // Een onleesbaar tijdstip telt als "lang geleden": liever een nieuwe te weinig
+            // dan een oude die telkens terugkomt.
+            gezien[reader.GetString(0)] = LeesTijdstip(reader.GetString(1)) ?? DateTimeOffset.MinValue;
+        }
+
+        return gezien;
     }
 
     /// <summary>Markeert resultaten als gezien en zet de laatste zoekdatum.</summary>

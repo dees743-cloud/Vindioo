@@ -7,9 +7,16 @@ using Zentrix.Sources;
 namespace Zentrix.Services;
 
 /// <summary>
-/// Haalt aan wat niet op de zoekpagina van een site staat, maar wel op de pagina van het
-/// zoekertje zelf. Vandaag is dat één ding: de sluitingsdatum van een veiling
-/// (<see cref="SiteDefinition.DetailEndDateSelector"/>).
+/// Haalt aan wat niet op de zoekpagina van een site staat. Vandaag is dat één ding: de
+/// sluitingsdatum van een veiling, langs twee wegen:
+/// <list type="bullet">
+/// <item><see cref="FillAsync"/>: de pagina van elk kavel apart
+/// (<see cref="SiteDefinition.DetailEndDateSelector"/>, AlleVeilingen);</item>
+/// <item><see cref="FillFromApiAsync"/>: een API die veel kavels tegelijk beantwoordt
+/// (<see cref="SiteDefinition.EndTimeApi"/>, Catawiki: één verzoek per 24 kavels).</item>
+/// </list>
+/// Wat hieronder over "enkel wat je ziet" staat, geldt voor de eerste weg. De tweede is zo
+/// goedkoop dat ze altijd voor alle zoekertjes van die site gaat.
 ///
 /// Waarom dit bestaat: AlleVeilingen zet op zijn kaarten wel het huidige bod en het aantal
 /// biedingen, maar niet wanneer de veiling sluit — en juist dat wil je weten. Op de pagina
@@ -22,6 +29,12 @@ namespace Zentrix.Services;
 /// tegelijk, en wat één keer opgehaald is blijft onthouden zolang de app draait. Zo koste
 /// het bij een pagina van vijftig kavels ongeveer twee seconden, op de achtergrond, terwijl
 /// de resultaten al te zien zijn.
+///
+/// Eén uitzondering, zo gekozen door de eigenaar: bij de volgorde "Veiling die het eerst
+/// afloopt" gaat het over álle zoekertjes in de lijst. Die volgorde heeft het einde van elk
+/// kavel nodig; anders belanden de kavels zonder datum achteraan, komen ze nooit in beeld en
+/// krijgen ze dus ook nooit een datum. Bij AlleVeilingen is dat meestal 60 tot 100 verzoeken
+/// per zoekopdracht, hoogstens 300.
 /// </summary>
 public static class DetailFetcher
 {
@@ -60,11 +73,14 @@ public static class DetailFetcher
     /// Vult de sluitingsdatum aan van de zoekertjes die meegegeven worden, voor zover hun
     /// site er een selector voor heeft en ze die datum nog niet hebben. Werkt door tot alles
     /// binnen is of tot er geannuleerd wordt; een fout bij één zoekertje raakt de rest niet.
+    /// Geeft terug hoeveel zoekertjes er een datum bijkregen: bij "loopt het eerst af" moet
+    /// de lijst dan opnieuw op volgorde, en anders niet.
     /// </summary>
-    public static async Task FillAsync(IEnumerable<Listing> listings, IReadOnlyList<SiteDefinition> sites,
-                                       CancellationToken ct = default)
+    public static async Task<int> FillAsync(IEnumerable<Listing> listings, IReadOnlyList<SiteDefinition> sites,
+                                            CancellationToken ct = default)
     {
         var werk = new List<(Listing Listing, string Selector)>();
+        var aangevuld = 0;
 
         foreach (var listing in listings)
         {
@@ -80,14 +96,18 @@ public static class DetailFetcher
             // pagina en terug kost zo niets.
             if (Onthouden.TryGetValue(listing.Key, out var bekend))
             {
-                if (bekend is not null) Zet(listing, bekend);
+                if (bekend is not null)
+                {
+                    Zet(listing, bekend);
+                    aangevuld++;
+                }
                 continue;
             }
 
             werk.Add((listing, def.DetailEndDateSelector));
         }
 
-        if (werk.Count == 0) return;
+        if (werk.Count == 0) return aangevuld;
 
         var mislukt = 0;
 
@@ -100,7 +120,11 @@ public static class DetailFetcher
                 var datum = await HaalAsync(paar.Listing.Url, paar.Selector, ct);
                 Onthouden[paar.Listing.Key] = datum;
 
-                if (datum is not null) Zet(paar.Listing, datum);
+                if (datum is not null)
+                {
+                    Zet(paar.Listing, datum);
+                    Interlocked.Increment(ref aangevuld);
+                }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -120,6 +144,144 @@ public static class DetailFetcher
 
         if (mislukt > 0)
             Log.Write($"einddatum: {mislukt} van de {werk.Count} kavelpagina's gaven niets");
+
+        return aangevuld;
+    }
+
+    /// <summary>
+    /// Vult het exacte sluitingstijdstip aan via de API van een site
+    /// (<see cref="SiteDefinition.EndTimeApi"/>), voor álle meegegeven zoekertjes van die site:
+    /// het is één verzoek per reeks van <see cref="EndTimeApiOptions.BatchSize"/>, dus bij
+    /// Catawiki één tot zes per zoekopdracht. Langs de weg van de site zelf: via de brug als de
+    /// site die gebruikt, en dan enkel als de extensie zich net nog meldde - hiervoor start de
+    /// app geen Chrome. Geeft terug hoeveel zoekertjes er een datum bijkregen.
+    /// </summary>
+    public static async Task<int> FillFromApiAsync(IEnumerable<Listing> listings, IReadOnlyList<SiteDefinition> sites,
+                                                   CancellationToken ct = default)
+    {
+        var aangevuld = 0;
+        var reeksen = new List<(SiteDefinition Def, EndTimeApiOptions Api, Listing[] Reeks)>();
+
+        foreach (var groep in listings.Where(l => l.EndsAt is null && !string.IsNullOrWhiteSpace(l.ExternalId))
+                                      .GroupBy(l => l.Source, StringComparer.OrdinalIgnoreCase))
+        {
+            var def = sites.FirstOrDefault(s => string.Equals(s.Name, groep.Key, StringComparison.OrdinalIgnoreCase));
+            var api = def?.EndTimeApi;
+
+            if (def is null || api is null ||
+                string.IsNullOrWhiteSpace(api.UrlTemplate) || string.IsNullOrWhiteSpace(api.EndPath)) continue;
+
+            if (def.UseBridge && !BridgeServer.Instance.ExtensionAlive) continue;
+
+            var nieuw = new List<Listing>();
+
+            foreach (var listing in groep)
+            {
+                if (Onthouden.TryGetValue(listing.Key, out var bekend))
+                {
+                    if (bekend is not null)
+                    {
+                        Zet(listing, bekend);
+                        aangevuld++;
+                    }
+                    continue;
+                }
+
+                nieuw.Add(listing);
+            }
+
+            foreach (var reeks in nieuw.Chunk(Math.Max(1, api.BatchSize)))
+                reeksen.Add((def, api, reeks));
+        }
+
+        if (reeksen.Count == 0) return aangevuld;
+
+        await Task.WhenAll(reeksen.Select(async r =>
+        {
+            await Poort.WaitAsync(ct);
+
+            try
+            {
+                Interlocked.Add(ref aangevuld, await HaalReeksAsync(r.Def, r.Api, r.Reeks, ct));
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                // Nieuwe zoekopdracht of andere pagina: gewoon stoppen.
+            }
+            catch (Exception ex)
+            {
+                // Een reeks die niet lukt, houdt de rest niet tegen; de timer toont dan de
+                // tekst van de site, zoals zonder API.
+                Log.Write($"einddatum via de API van {r.Def.Name} mislukt - {ex.Message}");
+            }
+            finally
+            {
+                Poort.Release();
+            }
+        }));
+
+        return aangevuld;
+    }
+
+    /// <summary>Eén verzoek aan de API, voor één reeks zoekertjes van dezelfde site.</summary>
+    private static async Task<int> HaalReeksAsync(SiteDefinition def, EndTimeApiOptions api, Listing[] reeks,
+                                                  CancellationToken ct)
+    {
+        var ids = string.Join(",", reeks.Select(l => l.ExternalId));
+        var url = api.UrlTemplate.Replace("{ids}", Uri.EscapeDataString(ids));
+
+        string json;
+
+        if (def.UseBridge)
+        {
+            // Dezelfde soort opdracht als bij Discogs: de extensie haalt de API op vanuit een
+            // pagina van die site, zodat het de echte Chrome van de gebruiker is die vraagt.
+            json = await BridgeServer.Instance.FetchAsync(url, ct, headers: def.Headers, rawText: true);
+        }
+        else
+        {
+            using var verzoek = new HttpRequestMessage(HttpMethod.Get, url);
+            verzoek.Headers.Accept.ParseAdd("application/json");
+
+            foreach (var (naam, waarde) in def.Headers ?? new Dictionary<string, string>())
+                verzoek.Headers.TryAddWithoutValidation(naam, waarde);
+
+            using var antwoord = await Http.SendAsync(verzoek, ct);
+            antwoord.EnsureSuccessStatusCode();
+            json = await antwoord.Content.ReadAsStringAsync(ct);
+        }
+
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+
+        var lijst = doc.RootElement;
+        if (!string.IsNullOrWhiteSpace(api.ListPath) && !GenericSource.TryWalk(doc.RootElement, api.ListPath, out lijst))
+            return 0;
+        if (lijst.ValueKind != System.Text.Json.JsonValueKind.Array) return 0;
+
+        // Eenzelfde id kan twee keer in de lijst staan (dezelfde kavel onder twee zoektermen).
+        var perId = reeks.GroupBy(l => l.ExternalId).ToDictionary(g => g.Key, g => g.ToList());
+        var gevonden = 0;
+
+        foreach (var element in lijst.EnumerateArray())
+        {
+            if (!GenericSource.TryWalk(element, api.IdPath, out var idWaarde) ||
+                !GenericSource.TryWalk(element, api.EndPath, out var eindWaarde)) continue;
+
+            var id = idWaarde.ValueKind == System.Text.Json.JsonValueKind.String ? idWaarde.GetString() : idWaarde.ToString();
+            var einde = LeesDatum(eindWaarde.ValueKind == System.Text.Json.JsonValueKind.String
+                ? eindWaarde.GetString() ?? "" : eindWaarde.ToString());
+
+            if (id is null || einde is null || !perId.TryGetValue(id, out var zoekertjes)) continue;
+
+            foreach (var listing in zoekertjes)
+            {
+                Onthouden[listing.Key] = einde;
+                Zet(listing, einde);
+                gevonden++;
+            }
+        }
+
+        return gevonden;
     }
 
     /// <summary>Haalt één pagina op en leest er de datum uit.</summary>

@@ -423,6 +423,130 @@ public static class SitesChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("Volgorde: de veiling die het eerst afloopt");
+        {
+            var nu = new DateTime(2026, 9, 18, 12, 0, 0);
+
+            // De vormen zoals Catawiki en eBay ze op 17 en 18 september 2026 schreven.
+            Check.Dat(Listing.SchatEinde("Nog 3 dagen", nu) == nu.AddDays(3) &&
+                      Listing.SchatEinde("Nog 1 dag", nu) == nu.AddDays(1) &&
+                      Listing.SchatEinde("Nog 21 uur", nu) == nu.AddHours(21),
+                "Catawiki: dagen, een dag, uren");
+            Check.Dat(Listing.SchatEinde("Nog 9d 12u", nu) == nu.AddDays(9).AddHours(12) &&
+                      Listing.SchatEinde("Nog 45 min", nu) == nu.AddMinutes(45) &&
+                      Listing.SchatEinde("Nog 2u 10m", nu) == nu.AddHours(2).AddMinutes(10),
+                "eBay: dagen en uren samen, minuten");
+            Check.Dat(Listing.SchatEinde("01:23:45", nu) == nu + new TimeSpan(1, 23, 45),
+                "een aftelklok met seconden");
+            Check.Dat(Listing.SchatEinde("Afgelopen", nu) is null && Listing.SchatEinde("Om 19:30", nu) is null &&
+                      Listing.SchatEinde("", nu) is null,
+                "geen resterende tijd, of een klokuur: niets");
+
+            var eerder = new Listing { Source = "S", ExternalId = "1", EndsAt = DateTime.Now.AddHours(5) };
+            eerder.TimeLeft = "Nog 3 dagen";
+            Check.Dat(eerder.EndsAtOrEstimate == eerder.EndsAt,
+                "een echte datum wint van een schatting uit de tekst");
+
+            Listing Zoekertje(string id, string tijd = "", DateTime? einde = null) =>
+                new() { Source = "S", ExternalId = id, Title = id, TimeLeft = tijd, EndsAt = einde };
+
+            var lijst = new List<Listing>
+            {
+                Zoekertje("gewoon"),
+                Zoekertje("drie-dagen", "Nog 3 dagen"),
+                Zoekertje("voorbij", einde: DateTime.Now.AddHours(-1)),
+                Zoekertje("kavelpagina", einde: DateTime.Now.AddHours(5)),
+                Zoekertje("twee-uur", "Nog 2 uur"),
+                Zoekertje("ebay", "Nog 1d 3u")
+            };
+
+            var comparer = new ListingComparer(ListingSort.EndingSoonest);
+            lijst.Sort((a, b) => comparer.Compare(a, b));
+            var volgorde = string.Join(" ", lijst.Select(l => l.ExternalId));
+
+            Check.Dat(volgorde.StartsWith("twee-uur kavelpagina ebay drie-dagen"),
+                $"eerst wat het eerst afloopt, over de sites heen ({volgorde})");
+            Check.Dat(volgorde.EndsWith("gewoon voorbij"),
+                "een gewoon zoekertje en een veiling die al voorbij is: achteraan");
+        }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Timer rechtsonder: wat hij toont en wanneer hij aftelt");
+        {
+            var nu = new DateTime(2026, 9, 18, 12, 0, 0);
+
+            Check.Dat(Listing.TimerTekst(nu.AddDays(3).AddHours(4).AddMinutes(10), "", nu) == "3d 04u" &&
+                      Listing.TimerTekst(nu.AddHours(4).AddMinutes(12), "", nu) == "4u 12m" &&
+                      Listing.TimerTekst(nu.AddMinutes(12).AddSeconds(34), "", nu) == "12m 34s",
+                "dagen en uren, uren en minuten, en in het laatste uur per seconde");
+            Check.Dat(Listing.TimerTekst(nu.AddSeconds(-1), "", nu) == "Afgelopen", "voorbij");
+            Check.Dat(Listing.TimerTekst(null, "Nog 3 dagen", nu) == "3 dagen" && Listing.TimerTekst(null, "", nu) == "",
+                "zonder exact tijdstip de tekst van de site, zonder 'Nog'; een gewoon zoekertje niets");
+            Check.Dat(Listing.IsDringend(nu.AddMinutes(59), nu) && !Listing.IsDringend(nu.AddMinutes(61), nu) &&
+                      !Listing.IsDringend(nu.AddMinutes(-1), nu),
+                "dringend: enkel het laatste uur, en niet meer als het voorbij is");
+
+            // Aftellen vanaf "Nog 3 dagen" zou een precisie tonen die er niet is. eBay schrijft
+            // zijn klok fijner naarmate het einde nadert ("Nog 6s", gemeten 18 september 2026).
+            Check.Dat(new Listing { TimeLeft = "Nog 3 dagen" }.TimerEinde is null &&
+                      new Listing { TimeLeft = "Nog 9d 12u" }.TimerEinde is null,
+                "een schatting op de dag of het uur: de timer telt niet af");
+            Check.Dat(new Listing { TimeLeft = "Nog 6s" }.TimerEinde is not null &&
+                      new Listing { TimeLeft = "Nog 3u 20m" }.TimerEinde is not null,
+                "een schatting op de minuut of de seconde: wel");
+
+            var exact = new Listing { TimeLeft = "Nog 3 dagen", EndsAt = DateTime.Now.AddDays(3) };
+            Check.Dat(exact.TimerEinde == exact.EndsAt, "een exact tijdstip wint altijd");
+        }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Exacte sluiting via de API van een site (EndTimeApi)");
+        {
+            DetailFetcher.Vergeet();
+
+            var gevraagd = new List<string>();
+            using var site = new Proefsite
+            {
+                Antwoord = adres =>
+                {
+                    lock (gevraagd) gevraagd.Add(adres);
+
+                    // Zoals Catawiki antwoordt: het id als getal, het tijdstip in UTC.
+                    var ids = Regex.Match(adres, @"ids=([^&]*)").Groups[1].Value.Split(',');
+                    var lots = ids.Select(id => $"{{\"id\":{id},\"bidding_end_time\":\"2026-09-21T18:45:00Z\",\"closed\":false}}");
+                    return "{\"lots\":[" + string.Join(",", lots) + "],\"meta\":{}}";
+                }
+            };
+
+            var veiling = site.Site("Proefveiling");   // rechtstreeks; Catawiki zelf loopt via de brug
+            veiling.EndTimeApi = new EndTimeApiOptions
+            {
+                UrlTemplate = $"http://127.0.0.1:{site.Poort}/api?ids={{ids}}",
+                BatchSize = 24, ListPath = "lots", IdPath = "id", EndPath = "bidding_end_time"
+            };
+
+            var kavels = Enumerable.Range(1, 30)
+                .Select(i => new Listing { Source = "Proefveiling", ExternalId = (1000 + i).ToString(),
+                                           Title = "Kavel " + i, TimeLeft = "Nog 3 dagen" })
+                .ToList();
+            var gewoon = new Listing { Source = "Gewone site", ExternalId = "9", Title = "Gewoon" };
+
+            var aangevuld = await DetailFetcher.FillFromApiAsync(kavels.Append(gewoon), new[] { veiling });
+            var verwacht = new DateTime(2026, 9, 21, 18, 45, 0, DateTimeKind.Utc).ToLocalTime();
+
+            Check.Dat(aangevuld == 30 && kavels.All(k => k.EndsAt == verwacht),
+                $"alle 30 kavels het exacte tijdstip, in onze tijd ({aangevuld}, {kavels[0].EndsAt:dd/MM HH:mm})");
+            Check.Dat(gevraagd.Count == 2, $"30 kavels in reeksen van 24: twee verzoeken ({gevraagd.Count})");
+            Check.Dat(gewoon.EndsAt is null, "een site zonder API: niets");
+            Check.Dat(kavels[0].TimerEinde == verwacht,
+                "de timer telt nu echt af, ook al zegt de site enkel 'Nog 3 dagen'");
+
+            var opnieuw = kavels.Select(k => new Listing { Source = k.Source, ExternalId = k.ExternalId }).ToList();
+            var tweede = await DetailFetcher.FillFromApiAsync(opnieuw, new[] { veiling });
+            Check.Dat(gevraagd.Count == 2 && tweede == 30, "een tweede keer: uit het geheugen, zonder verzoek");
+        }
+
+        // ---------------------------------------------------------------------------
         Check.Groep("Einddatum: de kavelpagina ophalen (DetailFetcher)");
         {
             DetailFetcher.Vergeet();

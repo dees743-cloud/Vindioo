@@ -73,6 +73,58 @@
             </Setter>
         </Style>
 
+        <!-- De teller bij een zoekopdracht: een klikbaar bolletje in het accent, dat bij
+             de muis erop het verloop krijgt van wat actief staat. -->
+        <Style x:Key="NewBadgeButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Back" CornerRadius="10" Padding="8,2"
+                                Background="{StaticResource NewBadgeBrush}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Back" Property="Background"
+                                        Value="{StaticResource AccentGradientBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- De schakelaar "Enkel nieuwe" boven de resultaten. Uit: een randje zoals het
+             sitechipje. Aan: het accentverloop, want dan filtert hij wat je ziet. -->
+        <Style x:Key="NewOnlyChip" TargetType="ToggleButton">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="Margin" Value="0,0,12,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Back" Background="Transparent" BorderThickness="1.5"
+                                BorderBrush="{StaticResource SurfaceBorderBrush}"
+                                CornerRadius="13" Padding="14,7" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Back" Property="Background"
+                                        Value="{StaticResource SurfaceHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Back" Property="Background"
+                                        Value="{StaticResource AccentGradientBrush}" />
+                                <Setter TargetName="Back" Property="BorderBrush" Value="Transparent" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Sterretje en dergelijke, boven op een foto. -->
         <Style x:Key="OverlayButton" TargetType="Button">
             <Setter Property="Cursor" Value="Hand" />
@@ -247,6 +299,11 @@
                         </StackPanel>
                     </Grid>
 
+                    <!-- De timer van een veiling, rechtsonder op de kaart. Bij een gewoon
+                         zoekertje is hij er niet (zie CountdownBadge). -->
+                    <controls:CountdownBadge Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                             EndsAt="{Binding TimerEinde}" SiteText="{Binding TimeLeft}" FontSize="12" />
+
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="15"
                                    Foreground="{StaticResource CardTextBrush}"
@@ -346,7 +403,14 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
+
+                        <!-- De timer van een veiling: de onderste regel is hier ook de rechterbenedenhoek
+                             van de kaart. De plaats ervoor krijgt wat overblijft, en schuift als het
+                             niet past. -->
+                        <controls:CountdownBadge Grid.Column="2" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                 EndsAt="{Binding TimerEinde}" SiteText="{Binding TimeLeft}" FontSize="11" />
 
                         <TextBlock Grid.Column="0" Text="{Binding Price, Converter={StaticResource PriceText}}"
                                    FontWeight="Bold" FontSize="15"
@@ -622,7 +686,11 @@
                                  stonden "Cards" (het enige Engelse woord), "Sitemap" (in webtaal
                                  een XML-bestand), "Brug-code" (de extensie zegt "koppelcode") en
                                  twee keer hetzelfde oogje. -->
-                            <MenuItem x:Name="CardsMenu" Header="Sites beheren" Icon="{ui:SymbolIcon Globe24}" />
+                            <!-- Rechtstreeks het venster, zonder submenu met elke site ernaast: daar
+                                 staan de sites toch al als tabs, en een lijst die meegroeit met het
+                                 aantal sites was een extra stap voor niets. -->
+                            <MenuItem Header="Sites beheren" Icon="{ui:SymbolIcon Globe24}"
+                                      Click="ManageSitesMenu_Click" />
                             <MenuItem Header="Site toevoegen" Icon="{ui:SymbolIcon Add24}"
                                       Click="AddSiteMenu_Click" />
                             <MenuItem Header="Sites importeren uit map" Icon="{ui:SymbolIcon ArrowImport24}"
@@ -798,6 +866,16 @@
                         <StackPanel x:Name="Pager" Orientation="Horizontal"
                                     VerticalAlignment="Center" Margin="0,0,18,0"
                                     Visibility="Collapsed" />
+
+                        <!-- Enkel wat je nog niet bekeek, bij een bewaarde zoekopdracht. Staat er
+                             enkel als er iets nieuws is (of als hij aan staat); het getal telt de
+                             nieuwe op deze tab. Zie UpdateNieuwSchakelaar. -->
+                        <ToggleButton x:Name="NewOnlyButton" Style="{StaticResource NewOnlyChip}"
+                                      VerticalAlignment="Center" Visibility="Collapsed"
+                                      Click="NewOnlyButton_Click"
+                                      ToolTip="Enkel tonen wat je nog niet bekeek bij deze zoekopdracht">
+                            <TextBlock x:Name="NewOnlyText" FontSize="13.5" />
+                        </ToggleButton>
 
                         <!-- ShowOnDisabled: een gedimde knop legt in zijn tooltip uit waarom
                              hij uit staat ("kies eerst een site"). Zonder deze regel toont WPF
@@ -986,8 +1064,10 @@
                                          Content="Prijs: hoog naar laag" Checked="Sort_Checked" />
                             <RadioButton x:Name="SortNewest" GroupName="Volgorde" Margin="0,4"
                                          Content="Nieuwste eerst" Checked="Sort_Checked" />
+                            <RadioButton x:Name="SortEnding" GroupName="Volgorde" Margin="0,4"
+                                         Content="Veiling die het eerst afloopt" Checked="Sort_Checked" />
 
-                            <TextBlock Text="Zoekertjes zonder prijs of zonder datum komen achteraan."
+                            <TextBlock Text="Zoekertjes zonder prijs, zonder datum of zonder einde komen achteraan."
                                        TextWrapping="Wrap" Margin="0,10,0,0" FontSize="11"
                                        Foreground="{StaticResource TextSubtleBrush}" />
                         </StackPanel>
@@ -1170,45 +1250,43 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <Grid Grid.Row="0" Margin="0,0,0,12">
-                    <StackPanel VerticalAlignment="Center">
+                <!-- De knoppen staan vlak naast de titel, boven de kaarten waar ze over gaan.
+                     Ze stonden eerst helemaal rechts, een schermbreedte van de lijst vandaan.
+                     Verwijderen staat niet meer hier maar als vuilbakje op elke kaart: dan hoef
+                     je niet eerst een regel te selecteren. -->
+                <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                    <WrapPanel>
                         <TextBlock Text="Zoekopdrachten" FontSize="18" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" Margin="0,0,20,0"
                                    Foreground="{StaticResource TextPrimaryBrush}" />
-                        <TextBlock x:Name="SchedulerHint" FontSize="12"
-                                   Foreground="{StaticResource TextSubtleBrush}" />
-                    </StackPanel>
-
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
-                                VerticalAlignment="Center">
                         <Button Content="Nieuwe" Click="NewSavedButton_Click" Cursor="Hand"
                                 Padding="12,6" Margin="0,0,8,0" BorderThickness="0" Foreground="White"
+                                VerticalAlignment="Center"
                                 Background="{StaticResource AccentGradientBrush}" />
                         <Button Content="Huidige vastzetten" Click="PinButton_Click" Cursor="Hand"
-                                Padding="12,6" Margin="0,0,8,0" BorderThickness="1"
+                                Padding="12,6" BorderThickness="1" VerticalAlignment="Center"
                                 Background="Transparent"
                                 BorderBrush="{StaticResource SurfaceBorderBrush}"
                                 Foreground="{StaticResource TextPrimaryBrush}" />
-                        <Button x:Name="DeleteSavedButton" Content="Verwijderen" Click="DeleteSavedButton_Click"
-                                Cursor="Hand" Padding="12,6" IsEnabled="False" BorderThickness="1"
-                                BorderBrush="{StaticResource SurfaceBorderBrush}"
-                                Background="Transparent" />
-                    </StackPanel>
-                </Grid>
+                    </WrapPanel>
+                    <TextBlock x:Name="SchedulerHint" FontSize="12" Margin="0,4,0,0"
+                               Foreground="{StaticResource TextSubtleBrush}" />
+                </StackPanel>
 
                 <ui:ListView Grid.Row="1" x:Name="SavedList" Background="Transparent" BorderThickness="0"
                              HorizontalContentAlignment="Stretch"
-                             SelectionChanged="SavedList_SelectionChanged"
                              MouseDoubleClick="SavedList_MouseDoubleClick"
                              KeyDown="SavedList_KeyDown">
                     <ui:ListView.ItemTemplate>
                         <DataTemplate>
                             <!-- Niet over de volle breedte: met een kaart die het
                                  scherm vult staan de knoppen aan de overkant van
-                                 het zoekwoord. -->
+                                 het zoekwoord. 474 en niet 440 sinds het vuilbakje erbij
+                                 kwam, zodat het schema evenveel plaats houdt. -->
                             <Border Background="{StaticResource CardBrush}" CornerRadius="12"
                                     BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1"
                                     Padding="14,12" Margin="0,0,0,8"
-                                    Width="440" HorizontalAlignment="Left">
+                                    Width="474" HorizontalAlignment="Left">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
@@ -1256,18 +1334,28 @@
 
                                     <StackPanel Grid.Column="2" Orientation="Horizontal"
                                                 VerticalAlignment="Center">
-                                        <Border CornerRadius="10" Padding="8,2" Margin="0,0,8,0"
-                                                Background="{StaticResource NewBadgeBrush}"
-                                                VerticalAlignment="Center"
+                                        <!-- Hoeveel je nog niet bekeek. Klikken opent de zoekopdracht
+                                             met enkel die; dubbelklikken op de regel toont alles. -->
+                                        <Button Style="{StaticResource NewBadgeButton}" Margin="0,0,8,0"
+                                                VerticalAlignment="Center" Click="NewBadge_Click" Tag="{Binding}"
+                                                ToolTip="Toon enkel wat je nog niet bekeek"
                                                 Visibility="{Binding NewCount, Converter={StaticResource CountToVisibility}}">
                                             <TextBlock Text="{Binding NewCount}" FontSize="11" FontWeight="Bold"
                                                        Foreground="White" />
-                                        </Border>
+                                        </Button>
 
                                         <Button Click="RunSavedButton_Click" Cursor="Hand"
                                                 ToolTip="Nu uitvoeren" Tag="{Binding}"
                                                 Style="{StaticResource CardIconButton}">
                                             <ui:SymbolIcon Symbol="Play24" FontSize="16" />
+                                        </Button>
+
+                                        <!-- Verwijderen, met een vraag vooraf (DeleteSaved_Click). -->
+                                        <Button Click="DeleteSaved_Click" Cursor="Hand"
+                                                ToolTip="Zoekopdracht verwijderen" Tag="{Binding}"
+                                                AutomationProperties.Name="Zoekopdracht verwijderen"
+                                                Style="{StaticResource CardIconButton}">
+                                            <ui:SymbolIcon Symbol="Delete24" FontSize="16" />
                                         </Button>
 
                                         <Button Click="EditSavedButton_Click" Cursor="Hand"

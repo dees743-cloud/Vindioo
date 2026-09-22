@@ -31,8 +31,14 @@ public class BrowserFetcher : IAsyncDisposable
     /// staat er na drie seconden nog niets, dan is de pagina leeg en wachten we niet
     /// verder. Vroeger wachtte zo'n lege pagina acht seconden plus nog vier aan pauzes.
     /// </param>
+    /// <param name="scrollTot">
+    /// Voor een site zonder pagina's, die bijlaadt terwijl je naar beneden scrolt (Facebook):
+    /// blijf scrollen tot er zoveel zoekertjes staan, of tot er niets meer bijkomt. 0 is één
+    /// keer scrollen, zoals bij elke andere site. Zie <see cref="ScrolTotAsync"/>.
+    /// </param>
     public async Task<string> GetHtmlAsync(string url, string? waitSelector = null,
-                                           CancellationToken ct = default, bool vervolgpagina = false)
+                                           CancellationToken ct = default, bool vervolgpagina = false,
+                                           int scrollTot = 0)
     {
         // Waar de seconden blijven. Een browserbron is met afstand de traagste weg,
         // en zonder deze tussenstanden is niet te zien of dat aan het starten van
@@ -112,7 +118,12 @@ public class BrowserFetcher : IAsyncDisposable
             // Stonden de zoekertjes er al, dan wachten we tot er geen meer bijkomen in
             // plaats van een vaste halve seconde (die kostte gemeten 526 ms per pagina,
             // ook bij sites waar niets bijkwam). Een lege vervolgpagina slaat dit over.
-            if (gevonden)
+            if (gevonden && scrollTot > 0)
+            {
+                var (aantal, rondes) = await ScrolTotAsync(page, waitSelector!, scrollTot, ct);
+                stap.Append($" ({aantal} zoekertjes na {rondes} keer scrollen)");
+            }
+            else if (gevonden)
             {
                 await page.Mouse.WheelAsync(0, 2000);
                 await WachtTotStabielAsync(page, waitSelector!);
@@ -134,6 +145,89 @@ public class BrowserFetcher : IAsyncDisposable
         {
             await page.CloseAsync();
         }
+    }
+
+    /// <summary>
+    /// Scrolt telkens tot het laatste zoekertje en wacht tot er nieuwe bijkomen, tot er
+    /// <paramref name="doel"/> staan. Voor Facebook: dat heeft geen pagina's, maar laadt
+    /// bij terwijl je naar beneden gaat. Met één keer scrollen bleven er 25 over.
+    ///
+    /// Drie dingen die daarbij horen:
+    /// - **Het laatste zoekertje in beeld brengen**, en niet het muiswiel draaien. Het wiel
+    ///   werkt op wat er onder de muis staat, en een pagina als Facebook heeft meer dan één
+    ///   deel dat schuift. Het laatste zoekertje zit altijd in het deel met de resultaten.
+    /// - **Stoppen zodra een ronde niets bracht.** Dan heeft Facebook niets meer binnen je
+    ///   regio en straal, of weigert het verder te laden; blijven proberen kost enkel tijd.
+    /// - **Hoogstens <see cref="MaxScrollRondes"/> rondes**, ook als er telkens een paar
+    ///   bijkomen. Dit gebeurt met je eigen, aangemelde account, en eindeloos scrollen is
+    ///   precies wat Facebook als een robot ziet.
+    /// </summary>
+    private static async Task<(int Aantal, int Rondes)> ScrolTotAsync(IPage page, string selector, int doel,
+                                                                     CancellationToken ct)
+    {
+        var zoekertjes = page.Locator(selector);
+        var aantal = await zoekertjes.CountAsync();
+        var rondes = 0;
+
+        while (aantal < doel && rondes < MaxScrollRondes && !ct.IsCancellationRequested)
+        {
+            rondes++;
+
+            try
+            {
+                await zoekertjes.Last.ScrollIntoViewIfNeededAsync(new LocatorScrollIntoViewIfNeededOptions { Timeout = 3000 });
+            }
+            catch (Exception)
+            {
+                break;   // pagina weg of het zoekertje niet meer te vinden: uitlezen wat er is
+            }
+
+            var nieuw = await WachtOpMeerAsync(page, selector, aantal);
+            if (nieuw <= aantal) break;   // niets bijgekomen: dit is alles
+
+            aantal = nieuw;
+        }
+
+        return (aantal, rondes);
+    }
+
+    /// <summary>
+    /// Zoveel keer scrollen, hoogstens. Facebook laadt zo'n 20 à 25 zoekertjes per keer, dus
+    /// 300 zoekertjes vragen er een twaalftal; dit laat marge voor rondes die er minder brengen.
+    /// </summary>
+    private const int MaxScrollRondes = 20;
+
+    /// <summary>
+    /// Wacht na het scrollen tot er zoekertjes bijkomen en daarna niets meer (twee keer
+    /// hetzelfde aantal, om de 150 ms). Komt er binnen 3 seconden niets bij, dan geeft het
+    /// het oude aantal terug: dan is er niets meer te laden.
+    /// </summary>
+    private static async Task<int> WachtOpMeerAsync(IPage page, string selector, int vorige)
+    {
+        var tot = DateTime.Now.AddMilliseconds(3000);
+        var laatste = vorige;
+        var gelijk = 0;
+
+        while (DateTime.Now < tot)
+        {
+            await page.WaitForTimeoutAsync(150);
+
+            int aantal;
+            try { aantal = await page.Locator(selector).CountAsync(); }
+            catch { return laatste; }
+
+            if (aantal > vorige && aantal == laatste)
+            {
+                if (++gelijk >= 2) return aantal;   // er kwam iets bij, en nu staat het stil
+            }
+            else
+            {
+                gelijk = 0;
+                laatste = aantal;
+            }
+        }
+
+        return laatste;
     }
 
     /// <summary>

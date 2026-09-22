@@ -76,13 +76,37 @@ public class SavedSearch : ObservableObject
         }
     }
 
-    /// <summary>Aantal resultaten dat bij de laatste zoekopdracht nieuw was.</summary>
+    /// <summary>
+    /// Hoeveel zoekertjes van de laatste beurt je nog niet bekeken hebt: de teller in de
+    /// lijst met zoekopdrachten. Dat is niet hetzelfde als "nieuw bij de laatste beurt".
+    /// Tot september 2026 was het dat wel, en dan wiste elke volgende beurt de vorige
+    /// nieuwe: de planner om 8u vond er 48, jij drukte op het driehoekje, en de teller
+    /// stond op 0 zonder dat je er één gezien had. Zie <see cref="IsUnviewed"/>.
+    /// </summary>
     private int _newCount;
     public int NewCount
     {
         get => _newCount;
         set => SetProperty(ref _newCount, value);
     }
+
+    /// <summary>
+    /// Wanneer je deze zoekopdracht laatst opende (dubbelklik, Enter of de teller). Leeg:
+    /// nog nooit, en dan is alles nieuw. Staat in een eigen kolom en niet in het JSON-blokje
+    /// <c>config</c>: dat blokje schrijft ook een beurt die al liep voor je keek, en die zou
+    /// het tijdstip anders terugzetten.
+    /// </summary>
+    public DateTimeOffset? LastViewed { get; set; }
+
+    /// <summary>
+    /// Heb je een zoekertje nog niet bekeken? Ja als het nooit eerder gezien werd
+    /// (<paramref name="firstSeen"/> leeg), of voor het eerst opdook nadat je de
+    /// zoekopdracht laatst opende. Zo stapelen de nieuwe op over de beurten heen, tot je
+    /// kijkt - en een zoekertje dat één beurt ontbrak (een site die mislukte) is nog
+    /// altijd nieuw wanneer het terugkomt.
+    /// </summary>
+    public bool IsUnviewed(DateTimeOffset? firstSeen) =>
+        firstSeen is null || LastViewed is null || firstSeen > LastViewed;
 
     /// <summary>Draait deze zoekopdracht op dit moment?</summary>
     private bool _isRunning;
@@ -253,7 +277,6 @@ public class SavedSearch : ObservableObject
     public decimal? MaxPrice { get; set; }
     public string Postcode { get; set; } = "";
     public int RadiusKm { get; set; }
-    public int MaxPerSite { get; set; } = 100;
 
     /// <summary>
     /// Zet een zoekopdracht uit het oude formaat om: één gedeelde prijs en een
@@ -270,8 +293,7 @@ public class SavedSearch : ObservableObject
             PriceMin = MinPrice,
             PriceMax = MaxPrice,
             Postcode = Postcode,
-            RadiusKm = RadiusKm,
-            MaxResults = MaxPerSite
+            RadiusKm = RadiusKm
         }).ToList();
     }
 }

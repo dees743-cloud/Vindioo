@@ -174,6 +174,12 @@ public class SiteDefinition
     /// </summary>
     public string DetailEndDateSelector { get; set; } = "";
 
+    /// <summary>
+    /// Een API die het exacte sluitingstijdstip voor veel zoekertjes tegelijk geeft. Zie
+    /// <see cref="EndTimeApiOptions"/>. Leeg bij de meeste sites.
+    /// </summary>
+    public EndTimeApiOptions? EndTimeApi { get; set; }
+
     /// <summary>Wanneer de prijs in centen staat in plaats van euro (zoals bij 2dehands).</summary>
     public bool PriceInCents { get; set; }
 
@@ -252,6 +258,50 @@ public class SiteDefinition
     /// De tweede pagina wordt dan dit getal plus één.
     /// </summary>
     public int FirstPage { get; set; } = 1;
+
+    /// <summary>
+    /// Hoeveel zoekertjes er op één pagina staan, voor sites die hun pagina's niet nummeren
+    /// maar zeggen vanaf het hoeveelste zoekertje ze beginnen: <c>{offset}</c> in de zoek-URL
+    /// of in <see cref="PageTemplate"/> wordt (pagina - 1) maal dit getal. Bij 2dehands 100,
+    /// net als de <c>limit=100</c> in zijn zoek-URL: dat is het meeste wat zijn API per keer
+    /// geeft (limit=200 gaf een 400). Leeg (0) bij sites met {page}.
+    /// </summary>
+    public int PageSize { get; set; }
+
+    // ---------- hoeveel de app van een site ophaalt ----------
+
+    /// <summary>
+    /// Antwoordt deze site rechtstreeks, zonder browser of brug? Zo'n site is snel - bij
+    /// 2dehands 0,3 tot 0,8 seconde voor honderd zoekertjes - en mag dus meer leveren.
+    /// Methodes en geen eigenschappen: die zouden mee in het sitebestand belanden.
+    /// </summary>
+    public bool AnswersDirectly() => Engine == SiteEngine.Generic && !NeedsBrowser && !UseBridge;
+
+    /// <summary>
+    /// Hoeveel zoekertjes de app hoogstens van deze site ophaalt, per zoekopdracht. Een rem
+    /// die de app zelf kiest, geen grens van de site. Tot 22 september 2026 was het 500 voor
+    /// elke site, en elke bewaarde zoekopdracht onthield er zelf een (100 of 500, uit het veld
+    /// "Max. resultaten"). Toen bleek dat 2dehands voor "cd speler" 3961 zoekertjes heeft, en
+    /// dat er ook vanaf het 2000e nog de helft echte cd-spelers zijn. Zo koos de eigenaar het:
+    /// <list type="bullet">
+    /// <item>2000 bij een site die rechtstreeks antwoordt;</item>
+    /// <item>300 bij de linkmotor (Facebook): die heeft geen pagina's maar scrolt, ongeveer
+    /// een seconde per twintig zoekertjes, als jouw aangemelde account;</item>
+    /// <item>500 bij een site via de browser of de brug, zoals voordien: daar kost een pagina
+    /// 2 tot 8 seconden, en veel pagina's na elkaar valt een robotbeveiliging op.</item>
+    /// </list>
+    /// </summary>
+    public int ResultLimit() =>
+        Engine == SiteEngine.LinkText ? 300 : AnswersDirectly() ? 2000 : 500;
+
+    /// <summary>
+    /// Veiligheidsrem op het aantal pagina's per zoekopdracht, voor een site die blijft
+    /// antwoorden. 20 voor een site die rechtstreeks antwoordt (2dehands: 20 x 100 = 2000),
+    /// anders 10. Een site met kleine pagina's haalt de 2000 dus niet: Kleinanzeigen geeft
+    /// er een dertigtal per pagina. Tachtig verzoeken na elkaar aan dezelfde site is precies
+    /// wat een robotbeveiliging opvalt.
+    /// </summary>
+    public int PageLimit() => AnswersDirectly() ? 20 : 10;
 
     /// <summary>
     /// Filters die alleen op deze site bestaan: brandstof, kilometerstand,

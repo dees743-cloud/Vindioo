@@ -189,6 +189,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             ListingSort.PriceAscending => SortPriceUp,
             ListingSort.PriceDescending => SortPriceDown,
             ListingSort.Newest => SortNewest,
+            ListingSort.EndingSoonest => SortEnding,
             _ => SortDefault
         }).IsChecked = true;
 
@@ -217,6 +218,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         SizeChanged += (_, _) =>
             Logo.Visibility = ActualWidth < 1040 ? Visibility.Collapsed : Visibility.Visible;
 
+        // In het logboek: wanneer het venster getoond wordt en of het daarna echt tekent.
+        DisplayDiagnostics.VolgVenster(this, "hoofdvenster");
+
         Log.Write("hoofdscherm opgebouwd");
     }
 
@@ -234,23 +238,53 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     // ==================== op de achtergrond draaien ====================
 
     /// <summary>
-    /// Pas wanneer het venster echt staat: het pictogram in het systeemvak, de
-    /// planner, en wat er bij het opstarten moet draaien. Dit in de constructor
-    /// doen zou betekenen dat je bij het starten naar een bevroren app kijkt.
+    /// Een gewone start: het venster staat er, en dan pas het pictogram in het systeemvak en
+    /// de planner (zie <see cref="StartAchtergrondAsync"/>).
     /// </summary>
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         // Meteen kunnen typen: de zoekbalk had bij het opstarten geen focus.
         QueryBox.Focus();
 
+        await StartAchtergrondAsync();
+    }
+
+    /// <summary>
+    /// Een start door Windows (<c>--systeemvak</c>, of de instelling "meteen in het
+    /// systeemvak"): het pictogram en de planner, zonder het venster ooit te tonen. Dat wordt
+    /// pas gemaakt en getekend wanneer je het opent.
+    ///
+    /// Waarom: bij het opstarten van de pc bleef het venster soms spierwit, tot je Zentrix
+    /// herstartte (22 september 2026). De app zelf liep gewoon - de planner zocht en stuurde
+    /// een melding - enkel het tekenen faalde. Tot dan werd het venster ook bij een start door
+    /// Windows eerst getoond en meteen weer verborgen, een minuut na het aanmelden, terwijl
+    /// Windows en de grafische kaart nog aan het opstarten waren. Het vlak waarop de kaart
+    /// tekent, werd dus op dat moment gemaakt. Nu bestaat dat vlak pas wanneer je kijkt.
+    /// Een start via het systeemvak zonder pc-start gaf dat witte venster nooit.
+    /// </summary>
+    public async void StartOpAchtergrond()
+    {
+        Log.Write("gestart in het systeemvak, zonder venster: dat wordt pas getekend als je het opent");
+        await StartAchtergrondAsync();
+    }
+
+    /// <summary>
+    /// Zijn het pictogram in het systeemvak en de planner al gestart? Dat mag maar één keer:
+    /// bij een start door Windows gebeurt het zonder venster, en wanneer je het venster daarna
+    /// voor het eerst opent, komt <see cref="MainWindow_Loaded"/> alsnog.
+    /// </summary>
+    public bool AchtergrondGestart { get; private set; }
+
+    /// <summary>
+    /// Het pictogram in het systeemvak, de planner, en wat er bij het opstarten moet draaien.
+    /// Niet in de constructor: dan zou je bij het starten naar een bevroren app kijken.
+    /// </summary>
+    private async Task StartAchtergrondAsync()
+    {
+        if (AchtergrondGestart) return;
+        AchtergrondGestart = true;
+
         _tray = new TrayIcon(this) { SearchNowRequested = TraySearchNow };
-
-        // Door Windows gestart, of zo ingesteld: meteen naar het systeemvak.
-        var stilStarten = AppSettings.Current.StartMinimized ||
-                          Environment.GetCommandLineArgs().Any(
-                              a => string.Equals(a, "--systeemvak", StringComparison.OrdinalIgnoreCase));
-
-        if (stilStarten) _tray.HideToTray();
 
         _scheduler.Start();
         UpdateSchedulerHint();
@@ -387,6 +421,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         _plannerOpScherm = search.Id;
         _plannerNieuwBovenaan = 0;
         _heeftGezocht = true;
+        _enkelNieuw = false;
 
         ToonPagina();
         UpdateEmptyHints();
@@ -568,8 +603,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         var restored = previous is null ? null : _tabs.FirstOrDefault(t => t.Def?.Id == previous);
         SetActiveTab(restored ?? _tabs.FirstOrDefault());
-
-        BuildCardsMenu();
     }
 
     /// <summary>Opent het tabblad van één site en toont enkel zijn resultaten.</summary>
@@ -954,7 +987,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         // moet de app opnieuw gaan zoeken en niet enkel de lijst herschikken.
         var eigen = string.Join(",", f.Custom.OrderBy(p => p.Key).Select(p => $"{p.Key}={p.Value}"));
 
-        return string.Join("|", f.Postcode, f.RadiusKm, _active.MaxResults, eigen);
+        return string.Join("|", f.Postcode, f.RadiusKm, eigen);
     }
 
     /// <summary>Hoe die filters stonden toen de popup openging.</summary>
@@ -1010,6 +1043,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         _sort = ReferenceEquals(sender, SortPriceUp) ? ListingSort.PriceAscending
               : ReferenceEquals(sender, SortPriceDown) ? ListingSort.PriceDescending
               : ReferenceEquals(sender, SortNewest) ? ListingSort.Newest
+              : ReferenceEquals(sender, SortEnding) ? ListingSort.EndingSoonest
               : ListingSort.Default;
 
         AppSettings.Current.Sort = (int)_sort;
@@ -1209,6 +1243,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         if (_active is { IsAll: false, HasError: true })
             return $"{_active.Name} mislukte: {_active.ErrorText}";
 
+        // De schakelaar staat aan, en op deze tab is er niets wat je nog niet bekeek.
+        if (_enkelNieuw)
+            return (_active.IsAll ? "Niets nieuws." : $"Niets nieuws op {_active.Name}.") +
+                   " Zet 'Enkel nieuwe' uit om alles te zien.";
+
         var gevonden = _results.Count(r => _active.IsAll || r.Source == _active.Name);
 
         // Op "Alles" stond hier "Niets gevonden.", ook als een site mislukte: de reden stond
@@ -1318,30 +1357,47 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         foreach (var search in _history.GetAll()) _saved.Add(search);
     }
 
-    private void SavedList_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
-        DeleteSavedButton.IsEnabled = SavedList.SelectedItem is SavedSearch;
-
     /// <summary>
     /// Zet de zoekterm en de filters van deze zoekopdracht klaar en toont zijn
     /// resultaten. Heeft de planner die net nog opgehaald, dan tonen we díe in
     /// plaats van opnieuw te gaan zoeken — bij sites via de brug scheelt dat al
     /// gauw een halve minuut wachten.
     /// </summary>
-    private void SavedList_MouseDoubleClick(object sender, MouseButtonEventArgs e) => OpenSaved();
-
-    /// <summary>Enter doet hetzelfde als dubbelklikken.</summary>
-    private void SavedList_KeyDown(object sender, KeyEventArgs e)
+    private void SavedList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (e.Key != Key.Enter) return;
-
-        OpenSaved();
-        e.Handled = true;
+        if (SavedList.SelectedItem is SavedSearch search) OpenSaved(search, enkelNieuw: false);
     }
 
-    private void OpenSaved()
+    /// <summary>
+    /// Enter doet hetzelfde als dubbelklikken; Delete hetzelfde als het vuilbakje. Zo kan je
+    /// ook zonder muis verwijderen, nu de knop "Verwijderen" bovenaan weg is.
+    /// </summary>
+    private void SavedList_KeyDown(object sender, KeyEventArgs e)
     {
         if (SavedList.SelectedItem is not SavedSearch search) return;
 
+        if (e.Key == Key.Enter) OpenSaved(search, enkelNieuw: false);
+        else if (e.Key == Key.Delete) DeleteSaved(search);
+        else return;
+
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// De teller bij een zoekopdracht: opent haar met enkel wat je nog niet bekeek. Met de
+    /// schakelaar "Enkel nieuwe" boven de resultaten zie je daarna alles.
+    /// </summary>
+    private void NewBadge_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not SavedSearch search) return;
+
+        SavedList.SelectedItem = search;
+        OpenSaved(search, enkelNieuw: true);
+    }
+
+    /// <param name="enkelNieuw">Enkel tonen wat je nog niet bekeek (de schakelaar "Enkel nieuwe" aan).</param>
+    private void OpenSaved(SavedSearch search, bool enkelNieuw)
+    {
         _activeSearch = search;
         QueryBox.Text = search.Query;
         PasToe(search);
@@ -1356,13 +1412,29 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             ? uitGeheugen
             : _history.GetOutcome(search.Id);
 
-        if (bewaard.Count > 0)
+        if (bewaard.Count == 0)
         {
-            ToonBewaard(search, bewaard);
+            _ = RunSearchAsync();
             return;
         }
 
-        _ = RunSearchAsync();
+        // Wat nieuw is, opnieuw bepalen in plaats van de vlag van die beurt te geloven: die
+        // zei "nog niet bekeken" op het moment van de beurt, en misschien heb je de lijst
+        // intussen al geopend.
+        var gezien = _history.GetSeen(search.Id);
+        search.LastViewed = _history.GetLastViewed(search.Id);
+
+        foreach (var listing in bewaard)
+            listing.IsNew = search.IsUnviewed(gezien.TryGetValue(listing.Key, out var eerst) ? eerst : null);
+
+        _enkelNieuw = enkelNieuw && bewaard.Any(l => l.IsNew);
+        ToonBewaard(search, bewaard);
+
+        // Nu heb je ze gezien. Het NIEUW-label blijft staan zolang deze lijst op het scherm
+        // staat; pas bij de volgende keer openen tellen ze als bekeken.
+        search.LastViewed = DateTimeOffset.Now;
+        search.NewCount = 0;
+        _history.SetViewed(search.Id, search.LastViewed.Value);
     }
 
     /// <summary>Zet de resultaten van een eerdere beurt in de lijst.</summary>
@@ -1415,9 +1487,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         var nieuw = resultaten.Count(l => l.IsNew);
 
-        StatusText.Text = $"'{search.Name}': {resultaten.Count} resultaten {wanneer}"
-                          + (nieuw > 0 ? $", waarvan {nieuw} nieuw" : "")
-                          + ". Klik op het vergrootglas om opnieuw te zoeken.";
+        StatusText.Text = _enkelNieuw
+            ? $"'{search.Name}': de {nieuw} die je nog niet zag, van {resultaten.Count} resultaten {wanneer}. " +
+              "Zet 'Enkel nieuwe' uit om alles te zien."
+            : $"'{search.Name}': {resultaten.Count} resultaten {wanneer}"
+              + (nieuw > 0 ? $", waarvan {nieuw} nieuw" : "")
+              + ". Klik op het vergrootglas om opnieuw te zoeken.";
     }
 
     private void PinButton_Click(object sender, RoutedEventArgs e)
@@ -1448,9 +1523,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         search.Id = _history.Add(search);
 
-        // Wat nu op het scherm staat, geldt als gezien: pas morgen is er iets nieuw.
+        // Wat nu op het scherm staat, geldt als gezien én bekeken: pas morgen is er iets
+        // nieuw. Bekeken na het markeren, anders telt wat net gemarkeerd werd als nieuwer.
         if (_results.Count > 0)
             _history.MarkSeen(search.Id, _results.Select(r => r.Key));
+
+        search.LastViewed = DateTimeOffset.Now;
+        _history.SetViewed(search.Id, search.LastViewed.Value);
 
         LoadSavedSearches();
         UpdateEmptyHints();
@@ -1470,7 +1549,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
             // Met alle sites erin, uitgevinkt: dan staat de keuze er al klaar.
             SiteSettings = _tabs.Where(t => !t.IsAll)
-                                .Select(t => new SiteSetting { Site = t.Name, MaxResults = 500 }).ToList()
+                                .Select(t => new SiteSetting { Site = t.Name }).ToList()
         };
 
         OpenSearchSettings(nieuw);
@@ -1545,12 +1624,17 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         UpdateFilterAvailability();
     }
 
-    private void DeleteSavedButton_Click(object sender, RoutedEventArgs e)
+    /// <summary>Het vuilbakje op de kaart van een zoekopdracht.</summary>
+    private void DeleteSaved_Click(object sender, RoutedEventArgs e)
     {
-        if (SavedList.SelectedItem is not SavedSearch search) return;
+        if ((sender as FrameworkElement)?.Tag is SavedSearch search) DeleteSaved(search);
+    }
 
+    private void DeleteSaved(SavedSearch search)
+    {
         // Eerst vragen. Een site verwijderen deed dat al; een zoekopdracht niet, terwijl
-        // daar het schema en de hele "al gezien"-geschiedenis mee weggaan.
+        // daar het schema en de hele "al gezien"-geschiedenis mee weggaan. Nu het vuilbakje
+        // op elke kaart staat, naast het driehoekje, is die vraag er zeker nodig.
         var bevestig = MessageBox.Show(this,
             $"Zoekopdracht '{search.Name}' verwijderen? Het schema en wat al gezien is, gaan ook weg.",
             "Zoekopdracht verwijderen", MessageBoxButton.YesNo, MessageBoxImage.Question);
@@ -1558,11 +1642,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         if (bevestig != MessageBoxResult.Yes) return;
 
         _history.Delete(search.Id);
+        _lastOutcomes.Remove(search.Id);
         if (_activeSearch?.Id == search.Id) _activeSearch = null;
 
         LoadSavedSearches();
         UpdateEmptyHints();
-        DeleteSavedButton.IsEnabled = false;
+        UpdateSchedulerHint();
         StatusText.Text = $"'{search.Name}' verwijderd.";
     }
 
@@ -1580,31 +1665,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         SearchSettingsButton_Click(sender, e);
 
     /// <summary>
-    /// Vult "Sites beheren" met een regel per site. Het menu wordt telkens opnieuw
-    /// opgebouwd samen met de tabs, zodat een toegevoegde of verwijderde site
-    /// er meteen in staat.
+    /// Tandwiel > Sites beheren: meteen het venster met een tab per site, open op de site
+    /// waarvan de tab nu openstaat (op "Alles": de eerste). Tot september 2026 hing hier een
+    /// submenu met elke site apart, dat meegroeide met het aantal sites; in het venster
+    /// staan ze toch al als tabs.
     /// </summary>
-    private void BuildCardsMenu()
-    {
-        CardsMenu.Items.Clear();
-
-        if (_store.Sites.Count == 0)
-        {
-            CardsMenu.Items.Add(new MenuItem { Header = "Nog geen sites", IsEnabled = false });
-            return;
-        }
-
-        foreach (var site in _store.Sites)
-        {
-            // De naam apart bijhouden: de lus-variabele mag niet in de klik terechtkomen.
-            var name = site.Name;
-
-            var item = new MenuItem { Header = name };
-            item.Click += (_, _) => OpenSettings(name);
-
-            CardsMenu.Items.Add(item);
-        }
-    }
+    private void ManageSitesMenu_Click(object sender, RoutedEventArgs e) => OpenSettings(_active?.Name);
 
     private void CardButton_Click(object sender, RoutedEventArgs e) => OpenSettings(_active?.Name);
 
@@ -1968,14 +2034,41 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         while (_zichtbaar.Count > schijf.Count) _zichtbaar.RemoveAt(_zichtbaar.Count - 1);
 
         BouwPager(paginas);
+        UpdateNieuwSchakelaar();
         VulEinddatumsAan();
+    }
+
+    /// <summary>
+    /// De schakelaar "Enkel nieuwe": zichtbaar zodra er op deze tab iets staat wat je nog niet
+    /// bekeek, of zolang hij aan staat - anders kan je hem niet meer uitzetten op een tab
+    /// zonder nieuwe. Het getal telt binnen de tab en de prijs, net als de lijst eronder.
+    /// </summary>
+    private void UpdateNieuwSchakelaar()
+    {
+        var aantal = _results.Count(l => l.IsNew && HoortInHuidigeTab(l));
+
+        NewOnlyButton.Visibility = aantal > 0 || _enkelNieuw ? Visibility.Visible : Visibility.Collapsed;
+        NewOnlyButton.IsChecked = _enkelNieuw;
+        NewOnlyText.Text = $"Enkel nieuwe ({aantal})";
+    }
+
+    /// <summary>De schakelaar "Enkel nieuwe" aan- of uitgezet: opnieuw filteren, vanaf pagina één.</summary>
+    private void NewOnlyButton_Click(object sender, RoutedEventArgs e)
+    {
+        _enkelNieuw = NewOnlyButton.IsChecked == true;
+        _pagina = 0;
+
+        _resultsView.Refresh();
+        ToonPagina();
+        UpdateEmptyHints();
     }
 
     /// <summary>
     /// Haalt op de achtergrond de sluitingsdatum op van de veilingkavels die nu op het
     /// scherm staan. Enkel van wat je ziet: die datum staat bij AlleVeilingen op de pagina
     /// van het kavel zelf, dus het is één verzoek per kavel. Voor alle vijfhonderd
-    /// zoekertjes van een zoekopdracht zou dat vijfhonderd verzoeken zijn.
+    /// zoekertjes van een zoekopdracht zou dat vijfhonderd verzoeken zijn. Behalve bij de
+    /// volgorde "Veiling die het eerst afloopt": die kan niet zonder het einde van elk kavel.
     ///
     /// Wat al opgehaald is, onthoudt <see cref="DetailFetcher"/>, dus heen en weer bladeren
     /// kost niets. Bij elke nieuwe pagina wordt het vorige stilgelegd: die kavels staan dan
@@ -1988,13 +2081,43 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         _einddatums = new CancellationTokenSource();
 
         var token = _einddatums.Token;
-        var kavels = _zichtbaar.ToList();
+        var sites = _store.Sites;
+
+        // Bij "Veiling die het eerst afloopt" heeft de volgorde het einde van élk kavel in
+        // de lijst nodig, niet enkel van wat nu in beeld staat. Anders komen de kavels zonder
+        // datum achteraan, raken ze nooit in beeld, en krijgen ze dus nooit een datum.
+        var opEinde = _sort == ListingSort.EndingSoonest;
+        var alles = _resultsView.Cast<Listing>().ToList();
+        var kavels = opEinde ? alles : _zichtbaar.ToList();
+
+        // De API van een site (Catawiki: één verzoek per 24 kavels) is goedkoop genoeg voor
+        // álle zoekertjes, maar ze loopt via de brug. Zolang er gezocht wordt, heeft de
+        // zoekopdracht die brug nodig; na het zoeken komt hier vanzelf nog een beurt
+        // (ToonPagina in RunSearchAsync), en dan is de slotbeurt vrij.
+        var apiMag = SearchRunner.Gate.CurrentCount > 0;
 
         _ = Task.Run(async () =>
         {
             try
             {
-                await DetailFetcher.FillAsync(kavels, _store.Sites, token);
+                var api = apiMag ? DetailFetcher.FillFromApiAsync(alles, sites, token) : Task.FromResult(0);
+                var paginas = DetailFetcher.FillAsync(kavels, sites, token);
+                var aangevuld = (await Task.WhenAll(api, paginas)).Sum();
+
+                // Zijn er datums bijgekomen, dan staan die kavels nog op de verkeerde plaats:
+                // één keer opnieuw op volgorde, als alles binnen is, en niet bij elke datum -
+                // anders springt de lijst voortdurend. De volgende ronde vindt alles in het
+                // geheugen en vult niets meer aan, dus dit loopt niet rond.
+                if (opEinde && aangevuld > 0 && !token.IsCancellationRequested)
+                {
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        if (_sort != ListingSort.EndingSoonest) return;
+
+                        PasSorteringToe();   // een nieuwe vergelijking, met het uur van nu
+                        ToonPagina();
+                    });
+                }
             }
             catch (OperationCanceledException)
             {
@@ -2085,9 +2208,23 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     /// binnen de prijsgrenzen van díe tab. Zo werkt de prijsfilter meteen op wat
     /// er al staat: niets wordt weggegooid, het wordt enkel niet getoond.
     /// </summary>
-    private bool ZichtbaarInHuidigeTab(object item)
+    private bool ZichtbaarInHuidigeTab(object item) =>
+        item is Listing listing && HoortInHuidigeTab(listing) && (!_enkelNieuw || listing.IsNew);
+
+    /// <summary>
+    /// Staat de schakelaar "Enkel nieuwe" aan? Dan toont de lijst enkel wat je nog niet
+    /// bekeek (<see cref="Listing.IsNew"/>). Aan na een klik op de teller van een
+    /// zoekopdracht, uit bij elke nieuwe zoekopdracht.
+    /// </summary>
+    private bool _enkelNieuw;
+
+    /// <summary>
+    /// De tab en de prijs, zonder de schakelaar "Enkel nieuwe": daarmee telt de
+    /// schakelaar hoeveel nieuwe er op deze tab staan.
+    /// </summary>
+    private bool HoortInHuidigeTab(Listing listing)
     {
-        if (item is not Listing listing || _active is null) return false;
+        if (_active is null) return false;
 
         // Op "Alles" tellen alle sites mee; op een sitetab enkel die ene.
         if (!_active.IsAll && listing.Source != _active.Name) return false;
@@ -2196,6 +2333,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             }
         }
 
+        // Een nieuwe zoekopdracht toont alles, ook als je daarnet enkel de nieuwe bekeek.
+        _enkelNieuw = false;
+
         _results.Clear();
         _zichtbaar.Clear();
         _pagina = 0;
@@ -2222,9 +2362,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         try
         {
-            // Bij een bewaarde zoekopdracht één keer ophalen wat we al gezien hebben.
-            HashSet<string>? seen = _activeSearch is not null
-                ? _history.GetSeenKeys(_activeSearch.Id)
+            // Bij een bewaarde zoekopdracht één keer ophalen wat we al gezien hebben, en
+            // wanneer. Nieuw is wat je nog niet bekeek, net als bij de planner.
+            Dictionary<string, DateTimeOffset>? seen = _activeSearch is not null
+                ? _history.GetSeen(_activeSearch.Id)
                 : null;
 
             var newCount = 0;
@@ -2265,7 +2406,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
                     if (seen is not null && _activeSearch is not null)
                     {
-                        listing.IsNew = !seen.Contains(listing.Key);
+                        listing.IsNew = _activeSearch.IsUnviewed(
+                            seen.TryGetValue(listing.Key, out var eerst) ? eerst : null);
                         if (listing.IsNew) newCount++;
                     }
 
@@ -2309,8 +2451,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                     // melder, zodat de juiste filters meegaan.
                     var progress = new Progress<List<Listing>>(list => AddBatch(list, tab));
 
+                    // Hoeveel de site mag leveren, hangt af van hoe ze binnenkomt: zie
+                    // SiteDefinition.ResultLimit (2000 rechtstreeks, 300 Facebook, anders 500).
                     var fromSource = await tab.Source!.SearchAsync(
-                        query, tab.MaxResults, tab.Filters, progress);
+                        query, tab.Def!.ResultLimit(), tab.Filters, progress);
 
                     var seconds = (DateTime.Now - start).TotalSeconds;
 

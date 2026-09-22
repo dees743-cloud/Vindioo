@@ -9,7 +9,11 @@ public class SearchOutcome
     /// <summary>Alles wat er gevonden is, na de filters en de verfijning.</summary>
     public List<Listing> All { get; } = new();
 
-    /// <summary>Wat er bij deze beurt voor het eerst bij was.</summary>
+    /// <summary>
+    /// Wat er bij deze beurt voor het eerst bij was: daarover gaat de melding. Niet hetzelfde
+    /// als <see cref="Listing.IsNew"/>, dat zegt of je het al bekeken hebt - dat kan ook iets
+    /// zijn wat een vorige beurt vond.
+    /// </summary>
     public List<Listing> New { get; } = new();
 
     /// <summary>Wat er misliep, als één regel per probleem: "site: melding".</summary>
@@ -141,9 +145,10 @@ public class SearchRunner
         // proefbeurt, en die verzet het schema niet.
         if (markSeen)
         {
-            _history.SetLastRun(search.Id, DateTime.Now, 0);
+            // De teller blijft staan: wat je nog niet bekeek, is door deze mislukte beurt
+            // niet minder nieuw geworden.
+            _history.SetLastRun(search.Id, DateTime.Now, search.NewCount);
             search.LastRun = DateTime.Now;
-            search.NewCount = 0;
 
             // Verdwenen sites tellen als mislukte beurt: zo komt er na twee keer een melding.
             if (verdwenen is { Count: > 0 })
@@ -252,7 +257,11 @@ public class SearchRunner
 
             // Vooraf ophalen en niet pas op het einde: elke site geeft zijn
             // zoekertjes meteen door, en dan moet al vaststaan wat nieuw is.
-            var eerderGezien = _history.GetSeenKeys(search.Id);
+            var eerderGezien = _history.GetSeen(search.Id);
+            search.LastViewed = _history.GetLastViewed(search.Id);
+
+            DateTimeOffset? EerstGezien(Listing l) =>
+                eerderGezien.TryGetValue(l.Key, out var t) ? t : null;
 
             var uitTeVoeren = werk
                 .Where(p => outcome.Bridge == BridgeStatus.Ready || !p.Def.UseBridge)
@@ -271,7 +280,7 @@ public class SearchRunner
                     var start = DateTime.Now;
 
                     var resultaten = await bron.SearchAsync(
-                        search.Query, setting.MaxResults, setting.ToFilters(), null, ct);
+                        search.Query, def.ResultLimit(), setting.ToFilters(), null, ct);
 
                     lock (outcome) outcome.SiteCounts[setting.Site] = resultaten.Count;
 
@@ -310,7 +319,7 @@ public class SearchRunner
                         // te laat — dan verschijnt het NIEUW-label nooit.
                         foreach (var listing in vers)
                         {
-                            listing.IsNew = !eerderGezien.Contains(listing.Key) &&
+                            listing.IsNew = search.IsUnviewed(EerstGezien(listing)) &&
                                             search.Matches(listing) &&
                                             BinnenPrijs(search, listing);
                         }
@@ -347,12 +356,12 @@ public class SearchRunner
                 outcome.All.Add(listing);
             }
 
+            // Twee soorten nieuw. Voor de melding: wat deze beurt voor het eerst zag, zodat je
+            // niet elk uur een melding krijgt over dezelfde zoekertjes. Voor de teller en het
+            // NIEUW-label: wat je nog niet bekeek, ook als een vorige beurt het al vond.
             foreach (var listing in outcome.All)
             {
-                if (eerderGezien.Contains(listing.Key)) continue;
-
-                listing.IsNew = true;
-                outcome.New.Add(listing);
+                if (!eerderGezien.ContainsKey(listing.Key)) outcome.New.Add(listing);
             }
 
             if (markSeen)
@@ -360,10 +369,21 @@ public class SearchRunner
                 if (outcome.All.Count > 0)
                     _history.MarkSeen(search.Id, outcome.All.Select(l => l.Key));
 
-                _history.SetLastRun(search.Id, DateTime.Now, outcome.New.Count);
+                // Nu pas vastleggen wat je nog niet bekeek, met het tijdstip van nú. Wie de
+                // zoekopdracht opende terwijl deze beurt liep, zag de nieuwe van daarvoor al;
+                // met het tijdstip van bij de start telden die anders opnieuw mee.
+                search.LastViewed = _history.GetLastViewed(search.Id);
+            }
+
+            foreach (var listing in outcome.All)
+                listing.IsNew = search.IsUnviewed(EerstGezien(listing));
+
+            if (markSeen)
+            {
+                search.NewCount = outcome.All.Count(l => l.IsNew);
+                _history.SetLastRun(search.Id, DateTime.Now, search.NewCount);
 
                 search.LastRun = DateTime.Now;
-                search.NewCount = outcome.New.Count;
 
                 // Wat er misliep bij de zoekopdracht zelf bijhouden: de lijst toont het,
                 // en na twee mislukte beurten op rij komt er een melding (zie SearchScheduler).
@@ -375,7 +395,8 @@ public class SearchRunner
             }
 
             Log.Write($"planner: '{search.Name}' klaar — {outcome.All.Count} resultaten, " +
-                      $"{outcome.New.Count} nieuw, {outcome.SiteErrors.Count} site(s) mislukt");
+                      $"{outcome.New.Count} nieuw, {outcome.All.Count(l => l.IsNew)} nog niet bekeken, " +
+                      $"{outcome.SiteErrors.Count} site(s) mislukt");
 
             return outcome;
         }

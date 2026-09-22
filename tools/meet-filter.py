@@ -86,7 +86,10 @@ def bouw_url(d, zoekwoord):
     else:
         waarde = urllib.parse.quote(zoekwoord, safe="")
 
-    url = sjabloon.replace("{query}", waarde)
+    # De eerste pagina: {page} is de eerste paginanummer, {offset} begint bij 0.
+    url = (sjabloon.replace("{query}", waarde)
+                   .replace("{page}", str(d.get("FirstPage", 1)))
+                   .replace("{offset}", "0"))
 
     # Enkel de vaste fragmenten (sortering en dergelijke); filterwaarden laten we
     # met opzet weg, want die willen we hier juist zelf sturen.

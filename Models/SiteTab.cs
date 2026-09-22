@@ -66,22 +66,6 @@ public class SiteTab : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Hoeveel zoekertjes deze site hoogstens mag opleveren.
-    ///
-    /// Stond op honderd zolang dat ook het aantal op het scherm was. Sinds de
-    /// resultaten over pagina's verdeeld worden, is dat geen goede rem meer: dan
-    /// zou je nooit verder komen dan één pagina per site. Vijfhonderd is ruim
-    /// genoeg om door te bladeren en houdt het ophalen binnen de perken; de echte
-    /// veiligheidsgrens blijft het maximum aantal pagina's per site.
-    /// </summary>
-    private int _maxResults = 500;
-    public int MaxResults
-    {
-        get => _maxResults;
-        set => SetProperty(ref _maxResults, value);
-    }
-
     /// <summary>Zoekt deze site mee? Dat is het vinkje naast de naam.</summary>
     private bool _isEnabled = true;
     public bool IsEnabled

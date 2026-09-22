@@ -80,13 +80,6 @@ public class SiteEditor : ObservableObject
         set => SetProperty(ref _radius, value);
     }
 
-    private string _maxResults = "100";
-    public string MaxResults
-    {
-        get => _maxResults;
-        set => SetProperty(ref _maxResults, value);
-    }
-
     /// <summary>
     /// De waarden van de filters die enkel op deze site bestaan, met als sleutel
     /// <see cref="CustomFilter.Key"/>. Het venster bouwt de invoer ervoor in code op,
@@ -111,7 +104,6 @@ public class SiteEditor : ObservableObject
         PriceMax = setting.PriceMax?.ToString("0.##", CultureInfo.InvariantCulture) ?? "";
         Postcode = setting.Postcode;
         Radius = setting.RadiusKm.ToString(CultureInfo.InvariantCulture);
-        MaxResults = setting.MaxResults.ToString(CultureInfo.InvariantCulture);
 
         foreach (var (sleutel, waarde) in setting.Custom) Custom[sleutel] = waarde;
     }
@@ -125,7 +117,6 @@ public class SiteEditor : ObservableObject
         PriceMax = Getal(PriceMax),
         Postcode = ToonPostcode ? Postcode.Trim() : "",
         RadiusKm = ToonStraal && int.TryParse(Radius, out var km) ? km : 0,
-        MaxResults = int.TryParse(MaxResults, out var max) && max > 0 ? max : 100,
         Custom = new Dictionary<string, string>(Custom)
     };
 

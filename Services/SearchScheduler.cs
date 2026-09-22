@@ -116,9 +116,15 @@ public class SearchScheduler
                 var n => $" {n} sites mislukten; zie de zoekopdracht."
             };
 
+            // Nieuw bij deze beurt, en daarnaast wat vorige beurten vonden en je nog niet
+            // bekeek. Zonder dat tweede stond er "niets nieuws" terwijl de teller 48 zei.
+            var nogNiet = search.NewCount - outcome.New.Count;
+            var ookNog = nogNiet > 0 ? $" Nog {nogNiet} van eerder niet bekeken; klik op de teller." : "";
+
             Status?.Invoke((outcome.New.Count > 0
                 ? $"'{search.Name}': {outcome.New.Count} nieuw van {outcome.All.Count}."
-                : $"'{search.Name}': niets nieuws ({outcome.All.Count} resultaten).") + mislukt +
+                : $"'{search.Name}': niets nieuws sinds de vorige beurt ({outcome.All.Count} resultaten).") +
+                ookNog + mislukt +
                 (meldingOk ? "" : " De melding kon nergens verstuurd worden; zie Meldingen en achtergrond."));
         }
         catch (Exception ex)

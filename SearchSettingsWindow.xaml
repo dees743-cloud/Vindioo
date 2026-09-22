@@ -128,7 +128,9 @@
                                         </Expander.Header>
 
                                         <StackPanel Margin="28,10,0,10">
-                                            <!-- prijs en aantal -->
+                                            <!-- prijs. "Max. resultaten" stond hier ook, tot 22 september
+                                                 2026: hoeveel een site mag leveren, hangt nu af van de site
+                                                 zelf (SiteDefinition.ResultLimit), niet van de zoekopdracht. -->
                                             <StackPanel Orientation="Horizontal">
                                                 <StackPanel Width="110" Margin="0,0,12,0">
                                                     <TextBlock Text="Prijs van (€)" Style="{StaticResource FieldLabel}" />
@@ -136,16 +138,10 @@
                                                              Text="{Binding PriceMin, UpdateSourceTrigger=PropertyChanged}" />
                                                 </StackPanel>
 
-                                                <StackPanel Width="110" Margin="0,0,12,0">
+                                                <StackPanel Width="110">
                                                     <TextBlock Text="tot (€)" Style="{StaticResource FieldLabel}" />
                                                     <TextBox
                                                              Text="{Binding PriceMax, UpdateSourceTrigger=PropertyChanged}" />
-                                                </StackPanel>
-
-                                                <StackPanel Width="110">
-                                                    <TextBlock Text="Max. resultaten" Style="{StaticResource FieldLabel}" />
-                                                    <TextBox
-                                                             Text="{Binding MaxResults, UpdateSourceTrigger=PropertyChanged}" />
                                                 </StackPanel>
                                             </StackPanel>
 

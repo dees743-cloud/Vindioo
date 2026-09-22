@@ -42,6 +42,7 @@ await PaginaChecks.RunAsync();
 await StilFalenChecks.RunAsync();
 await SitesChecks.RunAsync();
 await PrijsChecks.RunAsync();
+await NieuwChecks.RunAsync();
 BrowserChecks.Run();
 await BrugChecks.RunAsync();
 

@@ -50,9 +50,12 @@ public class LinkTextSource : ISearchSource
         var url = SearchUrlBuilder.Build(_def, query, filters);
 
         // De gedeelde browser van deze zoekopdracht; niet zelf afsluiten. Er wordt
-        // gewacht op de eerste link naar een zoekertje: dat is het enige vaste.
+        // gewacht op de eerste link naar een zoekertje: dat is het enige vaste. Pagina's
+        // zijn er niet: de site laadt bij terwijl je scrolt, dus scrollen we tot er zoveel
+        // staan als gevraagd (bij een zoekopdracht 300, zie SiteDefinition.ResultLimit;
+        // bij Testen in Sites beheren 20, en dan is één keer scrollen al genoeg).
         var browser = BrowserPool.Get();
-        var html = await browser.GetHtmlAsync(url, _def.ItemSelector, ct);
+        var html = await browser.GetHtmlAsync(url, _def.ItemSelector, ct, scrollTot: maxResults);
 
         if (_options.LoginMarkers.Any(m => html.Contains(m, StringComparison.OrdinalIgnoreCase)))
         {

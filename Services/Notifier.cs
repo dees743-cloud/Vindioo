@@ -181,12 +181,21 @@ public static class Notifier
         return sb.ToString();
     }
 
-    private static string MailTekst(SavedSearch search, IReadOnlyList<Listing> nieuwe)
+    /// <summary>
+    /// Zoveel zoekertjes staan er hoogstens in een e-mail. Vroeger stonden ze er allemaal in,
+    /// en dat kon: een site gaf er hoogstens 500. Sinds 22 september 2026 halen 2dehands en
+    /// Marktplaats er tot 2000 op, en de eerste beurt daarna vond bij "Cd speler" zo'n 1700
+    /// die nog nooit gezien waren - een mail van een paar honderd kilobyte om door te scrollen.
+    /// De rest staat in Zentrix, achter de teller van de zoekopdracht.
+    /// </summary>
+    internal const int MailMaximum = 50;
+
+    internal static string MailTekst(SavedSearch search, IReadOnlyList<Listing> nieuwe)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"<p>Nieuwe resultaten voor <b>{Escape(search.Name)}</b>:</p><ul>");
 
-        foreach (var l in nieuwe)
+        foreach (var l in nieuwe.Take(MailMaximum))
         {
             var prijs = l.Price is { } p ? $"€{p:0.##}" : (l.PriceLabel.Length > 0 ? l.PriceLabel : "prijs onbekend");
             var plaats = l.Location.Length > 0 ? $" &middot; {Escape(l.Location)}" : "";
@@ -196,6 +205,12 @@ public static class Notifier
         }
 
         sb.AppendLine("</ul>");
+
+        // Zeggen dat er meer is, en waar: anders lijkt de lijst volledig.
+        if (nieuwe.Count > MailMaximum)
+            sb.AppendLine($"<p><i>En nog {nieuwe.Count - MailMaximum} meer. Open Zentrix en klik bij " +
+                          $"Zoekopdrachten op de teller van '{Escape(search.Name)}' om ze allemaal te zien.</i></p>");
+
         return sb.ToString();
     }
 

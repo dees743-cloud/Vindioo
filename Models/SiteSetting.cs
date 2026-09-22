@@ -14,6 +14,12 @@ namespace Zentrix.Models;
 /// Oude zoekopdrachten hebben nog de velden "Provinces" en "AuctionHouses" in hun
 /// JSON. Die worden bij het inlezen gewoon overgeslagen; ze waren bij geen enkele
 /// bewaarde zoekopdracht ingevuld toen ze verdwenen.
+///
+/// Hetzelfde geldt voor "MaxResults", het veld "Max. resultaten" uit het venster van een
+/// zoekopdracht. Tot 22 september 2026 onthield elke zoekopdracht per site hoeveel die mocht
+/// leveren: 100 bij de oudste, 500 bij de rest. Nu hangt dat af van de site zelf
+/// (<see cref="SiteDefinition.ResultLimit"/>); met het oude getal was de hogere rem voor snelle
+/// sites nooit bij "Computer" of "Commodore" aangekomen.
 /// </summary>
 public class SiteSetting
 {
@@ -28,9 +34,6 @@ public class SiteSetting
 
     public string Postcode { get; set; } = "";
     public int RadiusKm { get; set; }
-
-    /// <summary>Maximum aantal resultaten dat deze site mag opleveren.</summary>
-    public int MaxResults { get; set; } = 500;
 
     /// <summary>
     /// De sitegebonden filters, met als sleutel de <see cref="CustomFilter.Key"/>
@@ -68,7 +71,6 @@ public class SiteSetting
         PriceMax = tab.Filters.PriceMax,
         Postcode = tab.Filters.Postcode,
         RadiusKm = tab.Filters.RadiusKm,
-        MaxResults = tab.MaxResults,
         Custom = new Dictionary<string, string>(tab.Filters.Custom)
     };
 
@@ -76,7 +78,6 @@ public class SiteSetting
     public void ApplyTo(SiteTab tab)
     {
         tab.IsEnabled = Enabled;
-        tab.MaxResults = MaxResults;
 
         tab.Filters.PriceMin = PriceMin;
         tab.Filters.PriceMax = PriceMax;

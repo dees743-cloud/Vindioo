@@ -69,6 +69,10 @@ def build(d, query, page=1):
         url += frag.replace("{value}", urllib.parse.quote(v, safe=""))
     if page > 1 and d.get("PageTemplate"):
         url += d["PageTemplate"].replace("{page}", str(d.get("FirstPage", 1) + page - 1))
+    # {page} in de zoek-URL zelf, en {offset}: vanaf het hoeveelste zoekertje een pagina
+    # begint (2dehands, Marktplaats), zoals SearchUrlBuilder.Offset in de app.
+    url = (url.replace("{page}", str(d.get("FirstPage", 1) + page - 1))
+              .replace("{offset}", str((page - 1) * (d.get("PageSize") or 0))))
     # Sites die hun filters in een blok zetten ({filters}); hier zonder filters.
     return url.replace('{filters}', '')
 

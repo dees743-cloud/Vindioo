@@ -28,10 +28,11 @@ public static class SearchUrlBuilder
     /// <summary>
     /// Kan deze site meer dan één pagina aanleveren? Dat kan op twee manieren: een
     /// stukje dat achteraan komt (<see cref="SiteDefinition.PageTemplate"/>), of het
-    /// paginanummer rechtstreeks in de zoek-URL met {page}.
+    /// paginanummer rechtstreeks in de zoek-URL met {page} of {offset}.
     /// </summary>
     public static bool SupportsPaging(SiteDefinition def) =>
         def.SearchUrlTemplate.Contains(PaginaPlaatshouder, StringComparison.Ordinal) ||
+        (def.SearchUrlTemplate.Contains(OffsetPlaatshouder, StringComparison.Ordinal) && def.PageSize > 0) ||
         !string.IsNullOrWhiteSpace(def.PageTemplate);
 
     /// <summary>
@@ -72,6 +73,22 @@ public static class SearchUrlBuilder
 
     private static string PageNumber(SiteDefinition def, int page) =>
         (def.FirstPage + page - 1).ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// Vanaf het hoeveelste zoekertje een pagina begint, voor sites die zo pagineren in plaats
+    /// van met een paginanummer. De API van 2dehands en Marktplaats vraagt
+    /// <c>limit=100&amp;offset=200</c> voor de derde pagina. Tot september 2026 kende de app enkel
+    /// {page}, en haalde ze bij 2dehands daardoor nooit meer dan de eerste honderd op.
+    /// </summary>
+    private const string OffsetPlaatshouder = "{offset}";
+
+    private static string Offset(SiteDefinition def, int page) =>
+        ((page - 1) * Math.Max(0, def.PageSize)).ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>Vult {page} en {offset} in.</summary>
+    private static string Pagina(string tekst, SiteDefinition def, int page) =>
+        tekst.Replace(PaginaPlaatshouder, PageNumber(def, page))
+             .Replace(OffsetPlaatshouder, Offset(def, page));
 
     private static string Lijm(SiteDefinition def) =>
         string.IsNullOrEmpty(def.FilterJoin) ? "," : def.FilterJoin;
@@ -196,11 +213,11 @@ public static class SearchUrlBuilder
             ? url.Replace(FilterPlaatshouder, string.Join(Lijm(def), stukken))
             : url + string.Concat(stukken);
 
-        url = url.Replace(PaginaPlaatshouder, PageNumber(def, page));
+        url = Pagina(url, def, page);
 
         // De eerste pagina is gewoon de zoek-URL; pas daarna nummeren we.
         if (page > 1 && !string.IsNullOrWhiteSpace(def.PageTemplate))
-            url += def.PageTemplate.Replace(PaginaPlaatshouder, PageNumber(def, page));
+            url += Pagina(def.PageTemplate, def, page);
 
         return url;
     }

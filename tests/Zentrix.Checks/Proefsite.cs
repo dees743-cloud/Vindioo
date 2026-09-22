@@ -24,6 +24,9 @@ public sealed class Proefsite : IDisposable
     /// <summary>Neemt de verbinding aan en antwoordt nooit.</summary>
     public bool Zwijgt { get; init; }
 
+    /// <summary>Hoeveel zoekertjes één stap van <c>offset=N</c> overslaat: offset 30 is pagina 2.</summary>
+    public int OffsetPerPagina { get; set; } = 30;
+
     /// <summary>Wat er in plaats van de gewone pagina komt, bv. een controlepagina.</summary>
     public string? VasteInhoud { get; set; }
 
@@ -72,8 +75,13 @@ public sealed class Proefsite : IDisposable
                     return;
                 }
 
+                // Een paginanummer (page=3), of vanaf het hoeveelste zoekertje (offset=60), zoals de
+                // API van 2dehands: met OffsetPerPagina 30 is offset 60 de derde pagina.
                 var m = Regex.Match(regel, @"[?&]page=(\d+)");
-                var pagina = m.Success ? int.Parse(m.Groups[1].Value) : 1;
+                var o = Regex.Match(regel, @"[?&]offset=(\d+)");
+                var pagina = m.Success ? int.Parse(m.Groups[1].Value)
+                    : o.Success ? int.Parse(o.Groups[1].Value) / OffsetPerPagina + 1
+                    : 1;
                 lock (Gevraagd) Gevraagd.Add(pagina);
 
                 var adres = Uri.UnescapeDataString(regel.Split(' ') is { Length: > 1 } delen ? delen[1] : "");

@@ -98,7 +98,10 @@ namespace Zentrix
                 // het hoofdvenster, dan werkt de app verder en zegt ze het. Gebeurt het al bij
                 // het opstarten, dan stopt ze wel - een onzichtbare app die het slot van
                 // "Zentrix draait al" vasthoudt, is erger - maar eerst met een melding.
-                var draait = MainWindow is { IsLoaded: true };
+                // "Draait": het venster staat, of de app draait zonder venster in het
+                // systeemvak (een start door Windows). Vroeger enkel het eerste; zonder het
+                // tweede zou een fout in het systeemvak de hele app laten stoppen.
+                var draait = MainWindow is { IsLoaded: true } or Zentrix.MainWindow { AchtergrondGestart: true };
                 if (draait) args.Handled = true;
 
                 if (DateTime.Now - _laatsteFoutmelding < TimeSpan.FromMinutes(1)) return;
@@ -136,6 +139,24 @@ namespace Zentrix
             // de systeemkleur van de gebruiker tussen onze eigen kleuren.
             var accent = (Color)Current.Resources["AccentColor"];
             ApplicationAccentColorManager.Apply(accent, ApplicationTheme.Dark);
+
+            // Wat er aan het tekenen en aan het scherm gebeurt, in het logboek. Zie
+            // Services.DisplayDiagnostics: zo is een wit venster na te gaan.
+            Services.DisplayDiagnostics.Start();
+
+            // Het hoofdvenster. Dat stond vroeger als StartupUri in App.xaml, en dan toont WPF
+            // het altijd, ook bij een start door Windows. Daar werd het meteen weer verborgen,
+            // maar het vlak waarop de grafische kaart tekent, was dan al gemaakt - een minuut na
+            // het aanmelden, terwijl Windows nog opstartte - en bleef soms wit. Nu wordt het bij
+            // zo'n start niet getoond, en pas getekend wanneer je het opent (MainWindow.StartOpAchtergrond).
+            var stil = Services.AppSettings.Current.StartMinimized ||
+                       e.Args.Any(a => string.Equals(a, "--systeemvak", StringComparison.OrdinalIgnoreCase));
+
+            var venster = new MainWindow();
+            MainWindow = venster;
+
+            if (stil) venster.StartOpAchtergrond();
+            else venster.Show();
         }
     }
 }

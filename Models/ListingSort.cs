@@ -12,10 +12,17 @@ public enum ListingSort
     PriceDescending = 2,
 
     /// <summary>
-    /// Eerst wat sinds de vorige beurt bijkwam, daarna nieuwste eerst (of bij een
+    /// Eerst wat je nog niet bekeek, daarna nieuwste eerst (of bij een
     /// veiling wat het eerst sluit).
     /// </summary>
-    Newest = 3
+    Newest = 3,
+
+    /// <summary>
+    /// De veiling die het eerst afloopt bovenaan. Achteraan: gewone zoekertjes (die
+    /// lopen niet af) en veilingen die al voorbij zijn (daar kan je niet meer op bieden).
+    /// Achteraan toegevoegd, want de keuze wordt als getal bewaard in de instellingen.
+    /// </summary>
+    EndingSoonest = 4
 }
 
 /// <summary>
@@ -28,7 +35,17 @@ public class ListingComparer : IComparer
 {
     private readonly ListingSort _sort;
 
-    public ListingComparer(ListingSort sort) => _sort = sort;
+    /// <summary>
+    /// Het moment waarop gesorteerd wordt. Eén vast moment voor de hele beurt: anders kan
+    /// een veiling halverwege het sorteren "voorbij" worden, en dan klopt de volgorde niet.
+    /// </summary>
+    private readonly DateTime _nu;
+
+    public ListingComparer(ListingSort sort, DateTime? nu = null)
+    {
+        _sort = sort;
+        _nu = nu ?? DateTime.Now;
+    }
 
     public int Compare(object? x, object? y)
     {
@@ -39,8 +56,27 @@ public class ListingComparer : IComparer
             ListingSort.PriceAscending => OpPrijs(a, b, omgekeerd: false),
             ListingSort.PriceDescending => OpPrijs(a, b, omgekeerd: true),
             ListingSort.Newest => OpDatum(a, b),
+            ListingSort.EndingSoonest => OpAfloop(a, b),
             _ => 0
         };
+    }
+
+    /// <summary>Wanneer dit zoekertje afloopt, als het nog loopt. Anders niets.</summary>
+    private DateTime? LooptAf(Listing l) =>
+        l.EndsAtOrEstimate is { } einde && einde > _nu ? einde : null;
+
+    private int OpAfloop(Listing a, Listing b)
+    {
+        var ea = LooptAf(a);
+        var eb = LooptAf(b);
+
+        // Geen veiling, of al voorbij: achteraan, net als een zoekertje zonder prijs.
+        if (ea is null && eb is null) return Terugval(a, b);
+        if (ea is null) return 1;
+        if (eb is null) return -1;
+
+        var uitkomst = ea.Value.CompareTo(eb.Value);   // wat het eerst afloopt, eerst
+        return uitkomst != 0 ? uitkomst : Terugval(a, b);
     }
 
     /// <summary>
@@ -68,7 +104,7 @@ public class ListingComparer : IComparer
 
     private static int OpDatum(Listing a, Listing b)
     {
-        // Wat je nog niet gezien hebt, staat vooraan. Wie een zoekopdracht opvolgt,
+        // Wat je nog niet bekeken hebt, staat vooraan. Wie een zoekopdracht opvolgt,
         // bedoelt met "nieuwste" in de eerste plaats dát. Zonder deze regel
         // belandden de nieuwe kavels van Catawiki — die geen datum hebben —
         // helemaal achteraan, onder alles met een datum.

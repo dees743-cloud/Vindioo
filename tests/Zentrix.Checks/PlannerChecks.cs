@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using Zentrix.Models;
 using Zentrix.Services;
@@ -29,7 +29,7 @@ public static class PlannerChecks
             var s = new SavedSearch
             {
                 Query = term,
-                SiteSettings = sites.Select(n => new SiteSetting { Site = n, Enabled = true, MaxResults = 20 }).ToList(),
+                SiteSettings = sites.Select(n => new SiteSetting { Site = n, Enabled = true }).ToList(),
                 Schedule = new SearchSchedule { Mode = ScheduleMode.Interval, IntervalMinutes = 60, NotifyOnNew = false }
             };
             s.Id = history.Add(s);

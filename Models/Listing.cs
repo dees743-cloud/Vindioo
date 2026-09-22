@@ -1,4 +1,5 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿using System.Text.RegularExpressions;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace Zentrix.Models;
 
@@ -31,7 +32,97 @@ public class Listing : ObservableObject
     /// favoriet of bij de resultaten van een vorige beurt: dat zou een oude tekst zijn
     /// die nergens meer op slaat.
     /// </summary>
-    public string TimeLeft { get; set; } = "";
+    public string TimeLeft
+    {
+        get => _timeLeft;
+        set
+        {
+            _timeLeft = value ?? "";
+
+            // Meteen omrekenen naar een tijdstip, op het moment dat de site het schreef:
+            // "Nog 3 dagen" is over drie dagen vanaf nu, niet vanaf het moment waarop
+            // iemand later op de knop "volgorde" drukt.
+            (_geschatEinde, _schattingOpMinuut) = Schat(_timeLeft, DateTime.Now);
+        }
+    }
+
+    private string _timeLeft = "";
+    private DateTime? _geschatEinde;
+    private bool _schattingOpMinuut;
+
+    /// <summary>
+    /// Het tijdstip waarvan de timer rechtsonder echt aftelt: het exacte (AlleVeilingen,
+    /// Catawiki via zijn API), of een schatting die tot op de minuut klopt. eBay schrijft zijn
+    /// aftelklok steeds fijner naarmate het einde nadert - "Nog 9d 12u", en in de laatste
+    /// minuut "Nog 6s" - dus daar telt de timer af zodra het ertoe doet. Een schatting op de
+    /// dag of het uur ("Nog 3 dagen") telt niet af: dan toont de timer de tekst van de site.
+    /// </summary>
+    public DateTime? TimerEinde => EndsAt ?? (_schattingOpMinuut ? _geschatEinde : null);
+
+    /// <summary>
+    /// Wanneer de veiling sluit, zo goed als we het weten: de echte datum als die er is
+    /// (AlleVeilingen, van de kavelpagina), en anders geschat uit de tekst van de site
+    /// ("Nog 9d 12u" is over negen dagen en twaalf uur). Daarop sorteert "Loopt het eerst
+    /// af". Leeg bij een gewoon zoekertje.
+    /// </summary>
+    public DateTime? EndsAtOrEstimate => EndsAt ?? _geschatEinde;
+
+    private static readonly Regex Duur = new(
+        @"(\d+)\s*(dagen|dag|d|uren|uur|u|h|minuten|minuut|min|m|seconden|sec|s)(?![\p{L}])",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex Aftelklok = new(@"\b(\d{1,2}):(\d{2}):(\d{2})\b", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Rekent een aftelklok zoals de veilingsites ze schrijven om naar een tijdstip:
+    /// "Nog 3 dagen", "Nog 1 dag", "Nog 21 uur" (Catawiki), "Nog 9d 12u" (eBay), "Nog 45 min",
+    /// en een aftelklok "01:23:45". Wat daar niet op lijkt ("Afgelopen", "Morgen"), geeft niets.
+    ///
+    /// "Nog 3 dagen" is tussen drie en vier dagen; het is een schatting om op te sorteren,
+    /// niet om de minuut te weten. Een klokuur als "19:30" telt bewust niet: dat is een
+    /// tijdstip en geen resterende tijd, en zonder seconden is het niet van elkaar te
+    /// onderscheiden.
+    /// </summary>
+    public static DateTime? SchatEinde(string tekst, DateTime nu) => Schat(tekst, nu).Einde;
+
+    /// <summary>
+    /// Zie <see cref="SchatEinde"/>, en daarbij of de tekst tot op de minuut gaat: minuten,
+    /// seconden of een aftelklok. Enkel dan mag de timer ervan aftellen.
+    /// </summary>
+    private static (DateTime? Einde, bool OpMinuut) Schat(string tekst, DateTime nu)
+    {
+        if (string.IsNullOrWhiteSpace(tekst)) return (null, false);
+
+        var klok = Aftelklok.Match(tekst);
+        if (klok.Success)
+            return (nu + new TimeSpan(int.Parse(klok.Groups[1].Value),
+                                      int.Parse(klok.Groups[2].Value),
+                                      int.Parse(klok.Groups[3].Value)), true);
+
+        var totaal = TimeSpan.Zero;
+        var gevonden = false;
+        var opMinuut = false;
+
+        foreach (Match deel in Duur.Matches(tekst))
+        {
+            var getal = int.Parse(deel.Groups[1].Value);
+            var eenheid = deel.Groups[2].Value.ToLowerInvariant();
+
+            totaal += eenheid switch
+            {
+                "dagen" or "dag" or "d" => TimeSpan.FromDays(getal),
+                "uren" or "uur" or "u" or "h" => TimeSpan.FromHours(getal),
+                "minuten" or "minuut" or "min" or "m" => TimeSpan.FromMinutes(getal),
+                _ => TimeSpan.FromSeconds(getal)
+            };
+            gevonden = true;
+
+            if (eenheid is "minuten" or "minuut" or "min" or "m" or "seconden" or "sec" or "s")
+                opMinuut = true;
+        }
+
+        return gevonden ? (nu + totaal, opMinuut) : (null, false);
+    }
 
     /// <summary>
     /// Wanneer de veiling sluit, als dat ergens te vinden was. AlleVeilingen zet die datum
@@ -58,9 +149,41 @@ public class Listing : ObservableObject
     public void MeldTijdGewijzigd()
     {
         OnPropertyChanged(nameof(EndsAt));
+        OnPropertyChanged(nameof(TimerEinde));
         OnPropertyChanged(nameof(TimeLeftText));
         OnPropertyChanged(nameof(PlaceLine));
     }
+
+    /// <summary>
+    /// Wat de timer rechtsonder op de kaart toont (<c>CountdownBadge</c>). Met een exact
+    /// sluitingstijdstip telt hij echt af: "3d 04u", "4u 12m", "12m 34s", "Afgelopen". Zonder
+    /// exact tijdstip - Catawiki voor zijn API geantwoord heeft - de tekst van de site zonder
+    /// "Nog" ervoor ("3 dagen"): aftellen vanaf "Nog 3 dagen" zou een precisie tonen die er
+    /// niet is, want de echte sluiting kan evengoed 23 uur later zijn. Leeg bij een gewoon
+    /// zoekertje.
+    /// </summary>
+    public static string TimerTekst(DateTime? exactEinde, string siteTekst, DateTime nu)
+    {
+        if (exactEinde is { } einde)
+        {
+            var over = einde - nu;
+
+            if (over <= TimeSpan.Zero) return "Afgelopen";
+            if (over.TotalDays >= 1) return $"{(int)over.TotalDays}d {over.Hours:00}u";
+            if (over.TotalHours >= 1) return $"{(int)over.TotalHours}u {over.Minutes:00}m";
+
+            return $"{over.Minutes}m {over.Seconds:00}s";
+        }
+
+        if (string.IsNullOrWhiteSpace(siteTekst)) return "";
+
+        var tekst = siteTekst.Trim();
+        return tekst.StartsWith("Nog ", StringComparison.OrdinalIgnoreCase) ? tekst[4..] : tekst;
+    }
+
+    /// <summary>Het laatste uur: dan kleurt de timer, want dan moet je beslissen.</summary>
+    public static bool IsDringend(DateTime? exactEinde, DateTime nu) =>
+        exactEinde is { } einde && einde > nu && einde - nu < TimeSpan.FromHours(1);
 
     /// <summary>
     /// Hoelang het nog duurt, in dezelfde stijl als de veilingsites het zelf schrijven.
@@ -110,8 +233,11 @@ public class Listing : ObservableObject
     /// <summary>Uitleg van de AI: waarom is dit interessant of net niet.</summary>
     public string Reason { get; set; } = "";
 
-    /// <summary>Sleutel voor de "al gezien"-tabel in SQLite.</summary>
-    /// <summary>Nog niet eerder gezien bij deze bewaarde zoekopdracht.</summary>
+    /// <summary>
+    /// Nog niet bekeken bij deze bewaarde zoekopdracht: opgedoken nadat je haar laatst opende
+    /// (zie <see cref="SavedSearch.IsUnviewed"/>). Daaraan hangen het NIEUW-label en de
+    /// schakelaar "Enkel nieuwe".
+    /// </summary>
     public bool IsNew { get; set; }
     /// <summary>Eerste foto, of leeg wanneer er geen is. Voor de miniatuur in de lijst.</summary>
     public string Thumbnail => ImageUrls.Count > 0 ? ImageUrls[0] : "";
@@ -136,6 +262,7 @@ public class Listing : ObservableObject
         set => SetProperty(ref _isFavorite, value);
     }
 
+    /// <summary>Sleutel voor de "al gezien"-tabel in SQLite.</summary>
     public string Key => $"{Source}:{ExternalId}";
 
     /// <summary>
@@ -181,6 +308,7 @@ public class Listing : ObservableObject
         {
             TimeLeft = later.TimeLeft;
             OnPropertyChanged(nameof(TimeLeft));
+            OnPropertyChanged(nameof(TimerEinde));
             OnPropertyChanged(nameof(PlaceLine));
             aangevuld = true;
         }
@@ -196,6 +324,7 @@ public class Listing : ObservableObject
         {
             EndsAt = later.EndsAt;
             OnPropertyChanged(nameof(EndsAt));
+            OnPropertyChanged(nameof(TimerEinde));
             OnPropertyChanged(nameof(PlaceLine));
             aangevuld = true;
         }

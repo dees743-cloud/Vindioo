@@ -96,7 +96,11 @@ public class GenericSource : ISearchSource
         // veel minder is de laatste; zie de stopregel verderop.
         var eerstePagina = 0;
 
-        for (var page = 1; page <= MaxPages; page++)
+        // Veiligheidsrem: nooit meer pagina's dan dit, ook niet bij een site die blijft
+        // antwoorden. 20 bij een site die rechtstreeks antwoordt, anders 10.
+        var maxPages = _def.PageLimit();
+
+        for (var page = 1; page <= maxPages; page++)
         {
             var url = SearchUrlBuilder.Build(_def, query, filters, page);
 
@@ -171,7 +175,7 @@ public class GenericSource : ISearchSource
                 // leboncoin gaf de kale schatting 97 van de 100. Die extra pagina
                 // gaat toch in dezelfde ronde mee en kost dus geen tijd.
                 var nog = (int)Math.Ceiling((maxResults - all.Count) / (double)fresh.Count) + 1;
-                var laatste = Math.Min(MaxPages, 1 + nog);
+                var laatste = Math.Min(maxPages, 1 + nog);
 
                 // In golven van drie - zoveel neemt de extensie er tegelijk aan - en na elke
                 // golf dezelfde stopregel als hierboven: een lege of korte pagina is de
@@ -258,9 +262,6 @@ public class GenericSource : ISearchSource
             return new List<Listing>();
         }
     }
-
-    /// <summary>Veiligheidsrem: nooit meer dan dit aantal pagina's per zoekopdracht.</summary>
-    private const int MaxPages = 10;
 
     /// <summary>Kleiner dan dit, en zonder één zoekertje, is geen echte resultatenpagina.</summary>
     internal const int KleinstePagina = 20_000;
@@ -755,7 +756,7 @@ public class GenericSource : ISearchSource
     }
 
     /// <summary>Volgt een pad als "priceInfo.priceCents" door de JSON heen.</summary>
-    private static bool TryWalk(JsonElement start, string path, out JsonElement result)
+    internal static bool TryWalk(JsonElement start, string path, out JsonElement result)
     {
         result = start;
         if (string.IsNullOrWhiteSpace(path)) return false;
