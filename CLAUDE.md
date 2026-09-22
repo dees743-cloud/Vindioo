@@ -2209,7 +2209,7 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel` en Zentrix dicht waren dat er 229 op 22 september 2026. Draait Zentrix zelf, dan is de
+`--snel` en Zentrix dicht waren dat er 233 op 22 september 2026. Draait Zentrix zelf, dan is de
 poort van de brug bezet en vallen de controles van de brug weg. Drie
 regels waar het aan vastzit:
 

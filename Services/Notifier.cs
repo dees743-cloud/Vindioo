@@ -162,7 +162,7 @@ public static class Notifier
     /// Telegram in HTML-modus. Enkel de titel wordt een link: de volledige URL
     /// erbij zetten maakt het bericht op een telefoon onleesbaar lang.
     /// </summary>
-    private static string TelegramTekst(IReadOnlyList<Listing> nieuwe)
+    internal static string TelegramTekst(IReadOnlyList<Listing> nieuwe)
     {
         var sb = new StringBuilder();
 
@@ -214,8 +214,16 @@ public static class Notifier
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Maakt tekst veilig voor HTML, zowel tussen tags als binnen een attribuut als
+    /// <c>href="..."</c>. Het aanhalingsteken kwam er pas op 22 september 2026 bij: zonder
+    /// sloot een <c>"</c> in een link het attribuut af, en Telegram weigert dan het héle
+    /// bericht ("can't parse entities"), niet enkel die ene link. <c>&amp;quot;</c> is een van
+    /// de vier namen die Telegram kent, naast <c>&amp;amp;</c>, <c>&amp;lt;</c> en <c>&amp;gt;</c>.
+    /// De <c>&amp;</c> gaat eerst, anders wordt de <c>&amp;</c> van de andere nog eens vervangen.
+    /// </summary>
     private static string Escape(string tekst) =>
-        tekst.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+        tekst.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
 
     // ---------- Telegram ----------
 
@@ -298,7 +306,7 @@ public static class Notifier
     }
 
     /// <summary>Het bijschrift onder een foto. Telegram staat 1024 tekens toe.</summary>
-    private static string Bijschrift(Listing listing)
+    internal static string Bijschrift(Listing listing)
     {
         var prijs = listing.Price is { } p ? $"€{p:0.##}"
                   : listing.PriceLabel.Length > 0 ? listing.PriceLabel

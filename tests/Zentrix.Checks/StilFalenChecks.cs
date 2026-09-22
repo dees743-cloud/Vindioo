@@ -211,6 +211,32 @@ public static class StilFalenChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("Meldingen: een link met een aanhalingsteken blijft heel");
+        {
+            // Een " sloot vroeger het href-attribuut af, en dan weigert Telegram het hele
+            // bericht. Nagekeken zoals een lezer het doet: de HTML ontleden en de link
+            // teruglezen. Met de oude Escape kwam er "https://x/zoek?q=" terug.
+            const string url = "https://x/zoek?q=\"12 inch\"&p=2";
+            var plaat = new Listing { Source = "Proefsite", Title = "12\" plaat <nieuw>", Url = url };
+            var parser = new AngleSharp.Html.Parser.HtmlParser();
+
+            foreach (var (naam, html) in new[]
+            {
+                ("e-mail", Notifier.MailTekst(new SavedSearch { Query = "plaat" }, new[] { plaat })),
+                ("Telegram", Notifier.TelegramTekst(new[] { plaat })),
+                ("bijschrift bij een foto", Notifier.Bijschrift(plaat))
+            })
+            {
+                var a = parser.ParseDocument(html).QuerySelector("a");
+                Check.Dat(a?.GetAttribute("href") == url && a.Attributes.Length == 1,
+                    $"{naam}: de link komt ongeschonden terug, zonder losse stukken als attribuut");
+            }
+
+            var titel = parser.ParseDocument(Notifier.TelegramTekst(new[] { plaat })).QuerySelector("a")?.TextContent;
+            Check.Dat(titel == plaat.Title, "Telegram: de titel met \" en < erin ook");
+        }
+
+        // ---------------------------------------------------------------------------
         Check.Groep("Sites importeren: zeggen welke vervangen werden");
         {
             var map = Path.Combine(AppPaths.Folder, "import-proef");
