@@ -73,6 +73,71 @@ public static class BrugChecks
         Check.Dat(ping.Contains("\"ok\":true") && brug.ExtensionAlive, "extensie met de juiste code: /ping klopt");
 
         // ---------------------------------------------------------------------------
+        Check.Groep("Brug: grenzen aan wat ze aanneemt");
+        {
+            // Telkens enkel de kop, zonder de aangekondigde body. De oude brug reserveerde dan
+            // die maat en bleef op de body wachten, en deze verzoeken liepen af zonder antwoord.
+            var groot = await RauwAsync($"POST /result?token={brug.Token} HTTP/1.1\r\nContent-Length: 1500000000\r\n\r\n");
+            Check.Dat(groot.Antwoord.StartsWith("HTTP/1.1 413"),
+                $"juiste code, 1,5 GB aangekondigd: meteen geweigerd ({Eerste(groot.Antwoord)})");
+
+            var ruim = await RauwAsync($"POST /result?token={brug.Token} HTTP/1.1\r\nContent-Length: 99999999999\r\n\r\n");
+            Check.Dat(ruim.Antwoord.StartsWith("HTTP/1.1 413"), "een maat voorbij de 2 GB: ook geweigerd, niet als 0 gelezen");
+
+            var vreemd = await RauwAsync("POST /result?token=verzonnen HTTP/1.1\r\nContent-Length: 50000000\r\n\r\n");
+            Check.Dat(vreemd.Antwoord.Contains("verkeerde koppelcode"),
+                "verzonnen code, 50 MB aangekondigd: meteen geweigerd, de body wordt niet gelezen");
+
+            // Een kop zonder einde. Het antwoord kan verloren gaan als de brug sluit terwijl er nog
+            // iets onderweg is (dan komt er een reset); wat telt, is dat ze sluit.
+            var lang = await RauwAsync("GET /job?token=" + new string('x', 100_000) + " HTTP/1.1\r\n");
+            Check.Dat(lang.Gesloten, $"een kop van 100 kB zonder einde: afgebroken ({Eerste(lang.Antwoord)})");
+
+            var gewoon = await RauwAsync($"POST /result?token={brug.Token} HTTP/1.1\r\nContent-Length: 2\r\n\r\n{{}}");
+            Check.Dat(gewoon.Antwoord.StartsWith("HTTP/1.1 200"), "een gewone levering gaat nog door");
+
+            var vroeger = BridgeServer.ReadTimeout;
+            try
+            {
+                BridgeServer.ReadTimeout = TimeSpan.FromSeconds(1);
+                var stil = await RauwAsync("", TimeSpan.FromSeconds(5));
+                Check.Dat(stil.Gesloten && stil.Duur < TimeSpan.FromSeconds(4),
+                    $"een verbinding die zwijgt: na de wachttijd gesloten ({stil.Duur.TotalSeconds:F1} s)");
+
+                // Evenveel zwijgers als er plaatsen zijn: een volgende past er niet meer bij, en
+                // zodra hun wachttijd om is, wel weer.
+                BridgeServer.ReadTimeout = TimeSpan.FromSeconds(2);
+                var zwijgers = new List<TcpClient>();
+                try
+                {
+                    for (var i = 0; i < BridgeServer.MaxConnections; i++)
+                    {
+                        var zwijger = new TcpClient();
+                        await zwijger.ConnectAsync("127.0.0.1", BridgeServer.Port);
+                        zwijgers.Add(zwijger);
+                    }
+
+                    await Task.Delay(300);
+                    var teVeel = await RauwAsync($"GET /ping?token={brug.Token} HTTP/1.1\r\n\r\n");
+                    Check.Dat(teVeel.Gesloten && teVeel.Antwoord.Length == 0,
+                        $"{BridgeServer.MaxConnections} verbindingen open: een volgende wordt meteen gesloten");
+
+                    await Task.Delay(2500);
+                    var weer = await RauwAsync($"GET /ping?token={brug.Token} HTTP/1.1\r\n\r\n");
+                    Check.Dat(weer.Antwoord.Contains("\"ok\":true"), "na hun wachttijd is er weer plaats");
+                }
+                finally
+                {
+                    foreach (var zwijger in zwijgers) zwijger.Dispose();
+                }
+            }
+            finally
+            {
+                BridgeServer.ReadTimeout = vroeger;
+            }
+        }
+
+        // ---------------------------------------------------------------------------
         Check.Groep("Brug: streamen enkel als iemand meeleest, vervolgpagina's in golven van drie");
 
         using var site = new Proefsite();
@@ -136,6 +201,49 @@ public static class BrugChecks
             return false;
         }
     }
+
+    /// <summary>
+    /// Stuurt ruwe tekst naar de brug en leest tot ze de verbinding sluit, of tot de wachttijd om
+    /// is. Sluit de brug terwijl er nog iets onderweg was, dan eindigt het met een reset: ook dat
+    /// telt als gesloten.
+    /// </summary>
+    private static async Task<(string Antwoord, bool Gesloten, TimeSpan Duur)> RauwAsync(string verzoek, TimeSpan? wacht = null)
+    {
+        var klok = System.Diagnostics.Stopwatch.StartNew();
+        using var client = new TcpClient();
+        await client.ConnectAsync("127.0.0.1", BridgeServer.Port);
+        var stream = client.GetStream();
+
+        using var tijd = new CancellationTokenSource(wacht ?? TimeSpan.FromSeconds(3));
+        using var ontvangen = new MemoryStream();
+
+        try
+        {
+            if (verzoek.Length > 0) await stream.WriteAsync(Encoding.ASCII.GetBytes(verzoek), tijd.Token);
+
+            var buffer = new byte[8192];
+            while (true)
+            {
+                var n = await stream.ReadAsync(buffer, tijd.Token);
+                if (n <= 0) return (Tekst(), true, klok.Elapsed);
+                ontvangen.Write(buffer, 0, n);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            return (Tekst(), false, klok.Elapsed);
+        }
+        catch (IOException)
+        {
+            return (Tekst(), true, klok.Elapsed);
+        }
+
+        string Tekst() => Encoding.UTF8.GetString(ontvangen.ToArray());
+    }
+
+    /// <summary>De eerste regel van een antwoord, of "geen antwoord".</summary>
+    private static string Eerste(string antwoord) =>
+        antwoord.Length == 0 ? "geen antwoord" : antwoord.Split("\r\n")[0];
 
     private static async Task<string> StuurAsync(string methode, string pad, params string[] kopregels)
     {

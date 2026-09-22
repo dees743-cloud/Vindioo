@@ -58,6 +58,40 @@ public class BridgeServer
     /// <summary>Een verkeerde code komt elke 250 ms binnen; eens per minuut loggen volstaat.</summary>
     private DateTime _wrongCodeLogged = DateTime.MinValue;
 
+    // ---------- grenzen aan wat de brug aanneemt ----------
+    //
+    // Tot 22 september 2026 las de brug elke kop en elke body tot het einde, hoe groot ook,
+    // en reserveerde ze meteen de grootte die een verzoek aankondigde: "Content-Length:
+    // 1500000000" legde 1,5 GB vast nog voor er één byte binnen was, en een verbinding die
+    // zweeg, bleef open tot Zentrix stopte. Elk programma op deze pc kan de brug aanspreken.
+
+    /// <summary>
+    /// Zo groot mag een levering van de extensie zijn. De grootste in het logboek tot dan was
+    /// een zoekpagina van Vinted van 8 miljoen tekens; dit laat daar ruim zestien keer die
+    /// maat boven. Een grotere wordt geweigerd, en dat staat in het logboek.
+    /// </summary>
+    public const int MaxBodyBytes = 128 * 1024 * 1024;
+
+    /// <summary>De kop van de extensie is een paar honderd bytes: het adres met de code, en wat Chrome meestuurt.</summary>
+    public const int MaxHeaderBytes = 64 * 1024;
+
+    /// <summary>
+    /// Zoveel verbindingen tegelijk. De extensie heeft er hoogstens een handvol open: om werk
+    /// vragen, en drie opdrachten die hun pagina terugsturen.
+    /// </summary>
+    public const int MaxConnections = 32;
+
+    /// <summary>
+    /// Zolang mag het duren voor een verzoek volledig binnen is. De extensie stuurt het in één
+    /// keer over de eigen pc, dus dat is een fractie van een seconde. Instelbaar voor de controles.
+    /// </summary>
+    internal static TimeSpan ReadTimeout { get; set; } = TimeSpan.FromSeconds(10);
+
+    private int _open;
+
+    /// <summary>Wat bij drukte of stilte telkens kan terugkomen, staat hoogstens eens per minuut in het logboek.</summary>
+    private DateTime _weigeringGelogd = DateTime.MinValue;
+
     /// <summary>
     /// Eén opdracht voor de extensie. <see cref="OnPartial"/> wordt aangeroepen bij
     /// elke tussentijdse levering, zodat de app al resultaten kan tonen terwijl de
@@ -145,7 +179,22 @@ public class BridgeServer
             try
             {
                 var client = await _listener.AcceptTcpClientAsync();
-                _ = Task.Run(() => HandleClientAsync(client));
+
+                // Meteen tellen, bij het aannemen: pas binnen de taak tellen laat een stortvloed
+                // eerst allemaal binnen.
+                if (Interlocked.Increment(ref _open) > MaxConnections)
+                {
+                    Interlocked.Decrement(ref _open);
+                    client.Dispose();
+                    LogBeperkt($"brug: meer dan {MaxConnections} verbindingen tegelijk; een volgende wordt meteen gesloten");
+                    continue;
+                }
+
+                _ = Task.Run(async () =>
+                {
+                    try { await HandleClientAsync(client); }
+                    finally { Interlocked.Decrement(ref _open); }
+                });
             }
             catch
             {
@@ -202,6 +251,9 @@ public class BridgeServer
     {
         using (client)
         {
+            // Is het verzoek na ReadTimeout nog niet volledig binnen, dan wordt het afgebroken.
+            using var tijd = new CancellationTokenSource(ReadTimeout);
+
             try
             {
                 using var stream = client.GetStream();
@@ -219,11 +271,19 @@ public class BridgeServer
 
                 while (headerEnd < 0)
                 {
-                    var n = await stream.ReadAsync(buffer);
+                    var n = await stream.ReadAsync(buffer, tijd.Token);
                     if (n <= 0) return;
 
                     incoming.Write(buffer, 0, n);
                     headerEnd = FindHeaderEnd(incoming.GetBuffer(), (int)incoming.Length);
+
+                    if (headerEnd < 0 && incoming.Length > MaxHeaderBytes)
+                    {
+                        Log.Write($"brug: verzoek geweigerd, de kop is langer dan {MaxHeaderBytes / 1024} kB");
+                        await WriteAsync(stream, JsonSerializer.Serialize(new { error = "kop te lang" }), null,
+                            "431 Request Header Fields Too Large");
+                        return;
+                    }
                 }
 
                 var received = incoming.GetBuffer();
@@ -237,40 +297,63 @@ public class BridgeServer
                 var method = parts[0];
                 var path = parts[1];
 
-                var contentLength = 0;
+                // Een long: een aangekondigde maat boven de 2 GB moet geweigerd worden, niet als 0 gelezen.
+                var contentLength = 0L;
                 string? origin = null;
                 var vanExtensie = false;
 
                 foreach (var line in lines.Skip(1))
                 {
                     if (line.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase))
-                        int.TryParse(line[15..].Trim(), out contentLength);
+                        long.TryParse(line[15..].Trim(), out contentLength);
                     else if (line.StartsWith("Origin:", StringComparison.OrdinalIgnoreCase))
                         origin = line[7..].Trim();
                     else if (line.StartsWith(ExtensionHeader + ":", StringComparison.OrdinalIgnoreCase))
                         vanExtensie = true;
                 }
 
-                // Wat er na de lege regel al binnen is, hoort bij de body. Meteen op
-                // de juiste maat: een pagina van leboncoin is ruim een miljoen tekens,
-                // en een geheugenstroom die telkens verdubbelt kopieert die meermaals.
-                var bodyStart = headerEnd + 4;
-                using var bodyBytes = new MemoryStream(Math.Max(contentLength, 0));
-                bodyBytes.Write(received, bodyStart, (int)incoming.Length - bodyStart);
+                // De koppelcode staat in het adres, dus die kan nagekeken worden voor er iets van
+                // de body gelezen wordt. Wie de code niet kent - elke webpagina - krijgt zo nooit
+                // een body gelezen, hoe groot die ook zegt te zijn. Handle weigert zo'n verzoek
+                // daarna zoals altijd, met de boekhouding van een verkeerde code.
+                var codeKlopt = GetParam(QueryVan(path), "token") == Token;
 
-                while (bodyBytes.Length < contentLength)
+                if (codeKlopt && contentLength > MaxBodyBytes)
                 {
-                    var n = await stream.ReadAsync(buffer);
-                    if (n <= 0) break;
-                    bodyBytes.Write(buffer, 0, n);
+                    Log.Write($"brug: verzoek van {contentLength / (1024 * 1024)} MB geweigerd, hoogstens {MaxBodyBytes / (1024 * 1024)} MB");
+                    await WriteAsync(stream, JsonSerializer.Serialize(new { error = "te groot" }), origin, "413 Content Too Large");
+                    return;
                 }
 
-                // De JSON rechtstreeks uit de bytes lezen, zonder er eerst een tekst
-                // van te maken: dat scheelt een volledige kopie van de pagina.
-                var body = bodyBytes.GetBuffer().AsMemory(0, (int)bodyBytes.Length);
+                var body = ReadOnlyMemory<byte>.Empty;
+                using var bodyBytes = new MemoryStream(codeKlopt ? (int)Math.Max(contentLength, 0) : 0);
+
+                if (codeKlopt)
+                {
+                    // Wat er na de lege regel al binnen is, hoort bij de body. Meteen op
+                    // de juiste maat: een pagina van leboncoin is ruim een miljoen tekens,
+                    // en een geheugenstroom die telkens verdubbelt kopieert die meermaals.
+                    var bodyStart = headerEnd + 4;
+                    bodyBytes.Write(received, bodyStart, (int)incoming.Length - bodyStart);
+
+                    while (bodyBytes.Length < contentLength)
+                    {
+                        var n = await stream.ReadAsync(buffer, tijd.Token);
+                        if (n <= 0) break;
+                        bodyBytes.Write(buffer, 0, n);
+                    }
+
+                    // De JSON rechtstreeks uit de bytes lezen, zonder er eerst een tekst
+                    // van te maken: dat scheelt een volledige kopie van de pagina.
+                    body = bodyBytes.GetBuffer().AsMemory(0, (int)bodyBytes.Length);
+                }
 
                 var response = Handle(method, path, body, vanExtensie);
                 await WriteAsync(stream, response, origin);
+            }
+            catch (OperationCanceledException) when (tijd.IsCancellationRequested)
+            {
+                LogBeperkt($"brug: verzoek afgebroken, na {ReadTimeout.TotalSeconds:F0} s nog niet volledig binnen");
             }
             catch (Exception ex)
             {
@@ -300,10 +383,9 @@ public class BridgeServer
         // De extensie stuurt eerst een controlevraag; die moet zonder inhoud slagen.
         if (method == "OPTIONS") return "";
 
-        var query = path.Contains('?') ? path[(path.IndexOf('?') + 1)..] : "";
         var route = path.Split('?')[0];
 
-        var token = GetParam(query, "token");
+        var token = GetParam(QueryVan(path), "token");
         if (token != Token)
         {
             // Onthouden, zodat de app "verkeerde code" kan zeggen in plaats van "geen
@@ -439,6 +521,18 @@ public class BridgeServer
         }
     }
 
+    /// <summary>Het stuk van het adres na het vraagteken, of niets.</summary>
+    private static string QueryVan(string path) =>
+        path.Contains('?') ? path[(path.IndexOf('?') + 1)..] : "";
+
+    private void LogBeperkt(string tekst)
+    {
+        if (DateTime.Now - _weigeringGelogd < TimeSpan.FromMinutes(1)) return;
+
+        _weigeringGelogd = DateTime.Now;
+        Log.Write(tekst);
+    }
+
     private static string GetParam(string query, string name)
     {
         foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
@@ -457,8 +551,11 @@ public class BridgeServer
     ///
     /// Een verzoek zonder Origin (zoals de extensie het met haar hostrechten doorgaans
     /// stuurt) valt buiten CORS en heeft die kopregels niet nodig.
+    ///
+    /// Een verkeerde koppelcode krijgt gewoon 200, met de fout in de JSON: zo leest de
+    /// extensie die. Enkel een verzoek dat te groot is, krijgt een foutcode van HTTP.
     /// </summary>
-    private static async Task WriteAsync(NetworkStream stream, string json, string? origin)
+    private static async Task WriteAsync(NetworkStream stream, string json, string? origin, string status = "200 OK")
     {
         var payload = Encoding.UTF8.GetBytes(json);
 
@@ -471,7 +568,7 @@ public class BridgeServer
             : "";
 
         var header =
-            "HTTP/1.1 200 OK\r\n" +
+            $"HTTP/1.1 {status}\r\n" +
             "Content-Type: application/json; charset=utf-8\r\n" +
             $"Content-Length: {payload.Length}\r\n" +
             cors +

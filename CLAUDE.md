@@ -1294,6 +1294,25 @@ en `Access-Control-Allow-Headers: *`. Nagemeten met verzoeken zoals een webpagin
 ze sturen. **Na deze wijziging moet de extensie herladen worden**; een oude extensie werkt
 verder, maar een verkeerde code heet dan weer "de extensie meldt zich niet".
 
+**De brug neemt niet alles aan** (22 september 2026, een tip uit een beoordeling door ChatGPT).
+Tot dan las ze elke kop en elke body tot het einde, en reserveerde ze meteen de maat die een
+verzoek aankondigde: `Content-Length: 1500000000` legde 1,5 GB vast nog voor er één byte binnen
+was, en een verbinding die zweeg, bleef open tot Zentrix stopte. Nu, in `HandleClientAsync`:
+
+- **De koppelcode wordt nagekeken voor de body.** Ze staat in het adres, dus dat kan. Wie de code
+  niet kent - elke webpagina - krijgt nooit een body gelezen, hoe groot die ook zegt te zijn.
+- **Hoogstens 128 MB per levering** (`MaxBodyBytes`), met de juiste code; daarboven een 413 en
+  een regel in het logboek. De grootste levering in het logboek tot dan was een zoekpagina van
+  Vinted van 8 miljoen tekens. Een kop van meer dan 64 kB krijgt een 431.
+- **Tien seconden om een verzoek volledig te sturen** (`ReadTimeout`). De extensie doet het in een
+  fractie van een seconde.
+- **Hoogstens 32 verbindingen tegelijk** (`MaxConnections`), geteld bij het aannemen. De extensie
+  heeft er een handvol open. Drukte en stilte staan hoogstens eens per minuut in het logboek.
+
+De extensie hoeft daarvoor niet herladen te worden: ze leest het antwoord op `/result` niet.
+Nagemeten met ruwe verzoeken in `BrugChecks`, en met de tegenproef: op de oude brug faalden de
+zes grenzen, en een gewone levering ging bij allebei door.
+
 Waarom dit werkt waar Playwright faalt: het is de echte browser van de
 gebruiker, met zijn eigen geschiedenis en cookies, zonder
 automatiseringsprotocol. Voor Datadome is dat niet te onderscheiden van een
@@ -2209,7 +2228,7 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel` en Zentrix dicht waren dat er 233 op 22 september 2026. Draait Zentrix zelf, dan is de
+`--snel` en Zentrix dicht waren dat er 241 op 22 september 2026. Draait Zentrix zelf, dan is de
 poort van de brug bezet en vallen de controles van de brug weg. Drie
 regels waar het aan vastzit:
 
