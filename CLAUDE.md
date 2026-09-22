@@ -515,6 +515,21 @@ erbij van wanneer ze is en hoeveel er nieuw was. Er wordt niet meer op de klok
 gekeken: een lijst van een half uur oud is nog altijd beter dan niets, en wie verse
 resultaten wil klikt op het vergrootglas.
 
+**Het bewaren loopt op een achtergronddraad** (22 september 2026, een tip uit een beoordeling
+door ChatGPT; `MainWindow.BewaarUitkomstAsync`). Sinds de rem op 2000 per site levert "Cd
+speler" zo'n 4000 zoekertjes, en die bewaren kostte op de schermdraad 50 tot 79 ms: een
+hapering precies wanneer de resultaten klaar waren. Gemeten op een kopie van de echte databank.
+Twee dingen:
+
+- `SaveOutcome` gebruikt nu één commando voor alle rijen, zoals `MarkSeen`: 32 ms in plaats van 50.
+- Het hoofdscherm geeft het slot van de zoekopdrachten pas vrij als het bewaren klaar is, zodat
+  de volgende zoekopdracht nooit tegelijk schrijft. De planner wacht niet. Schrijft er intussen
+  toch iets, dan wacht SQLite tot het vorige klaar is in plaats van "database is locked" te geven
+  (nagemeten in `NieuwChecks`).
+
+De rest op het einde van een zoekopdracht (`MarkSeen`, `SetLastRun`, `Update`) kost samen zo'n
+20 ms, en blijft op de schermdraad.
+
 **3c. Wat er misliep, blijft ook bewaard.** Een geplande zoekopdracht faalde vroeger
 zonder dat iemand het zag: de fouten stonden enkel in het logboek. Een verlopen aanmelding
 bij Facebook leek zo wekenlang op "niets nieuws te koop". Nu houdt `SavedSearch` per site
@@ -2246,7 +2261,7 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel` en Zentrix dicht waren dat er 251 op 22 september 2026. Draait Zentrix zelf, dan is de
+`--snel` en Zentrix dicht waren dat er 254 op 22 september 2026. Draait Zentrix zelf, dan is de
 poort van de brug bezet en vallen de controles van de brug weg. Drie
 regels waar het aan vastzit:
 

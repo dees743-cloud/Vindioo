@@ -186,5 +186,63 @@ public static class NieuwChecks
                       history.GetOutcome(weg.Id).Count == 0,
                 "de zoekopdracht, wat al gezien was, en de bewaarde resultaten (die bleven vroeger achter)");
         }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Bewaarde resultaten: alles komt terug, ook vanaf een achtergronddraad");
+        {
+            // Sinds 22 september 2026 één commando voor alle zoekertjes, met enkel nieuwe
+            // waarden per rij. Een waarde die van de vorige rij bleef hangen, zou hier opvallen:
+            // de rijen verschillen in elk veld, en de middelste heeft geen prijs en geen foto.
+            var z = Zoekopdracht();
+            var lijst = new List<Listing>
+            {
+                new() { Source = "A", ExternalId = "1", Title = "Eerste", Price = 12.5m, PriceLabel = "",
+                        Location = "Gent", Url = "https://x/1", LargeImageUrl = "https://x/1-groot.jpg",
+                        ImageUrls = { "https://x/1.jpg" }, IsNew = true },
+                new() { Source = "B", ExternalId = "2", Title = "Tweede", Price = null, PriceLabel = "Bieden",
+                        Location = "", Url = "https://x/2", LargeImageUrl = "", IsNew = false },
+                new() { Source = "A", ExternalId = "3", Title = "Derde", Price = 300m, PriceLabel = "",
+                        Location = "Brugge", Url = "https://x/3", LargeImageUrl = "https://x/3-groot.jpg",
+                        ImageUrls = { "https://x/3.jpg" }, IsNew = false }
+            };
+
+            string Vorm(Listing l) =>
+                $"{l.Source}|{l.ExternalId}|{l.Title}|{l.Price}|{l.PriceLabel}|{l.Location}|{l.Url}|" +
+                $"{string.Join(",", l.ImageUrls)}|{l.LargeImageUrl}|{l.IsNew}";
+
+            history.SaveOutcome(z.Id, lijst);
+            var terug = history.GetOutcome(z.Id);
+            Check.Dat(terug.Select(Vorm).SequenceEqual(lijst.Select(Vorm)),
+                "drie zoekertjes, in dezelfde volgorde, met elk veld (ook een lege prijs en geen foto)");
+
+            history.SaveOutcome(z.Id, lijst.Take(1).ToList());
+            Check.Dat(history.GetOutcome(z.Id).Count == 1, "een volgende beurt vervangt de vorige");
+
+            // Het scherm bewaart op een achtergronddraad, en intussen kan er iets anders schrijven.
+            // Dan hoort SQLite te wachten, niet "database is locked" te geven.
+            using var ander = new SqliteConnection($"Data Source={AppPaths.DatabaseFile}");
+            ander.Open();
+            using var slot = ander.BeginTransaction();
+            using (var schrijf = ander.CreateCommand())
+            {
+                schrijf.Transaction = slot;
+                schrijf.CommandText = "UPDATE searches SET newCount = newCount WHERE id = $id";
+                schrijf.Parameters.AddWithValue("$id", z.Id);
+                schrijf.ExecuteNonQuery();
+            }
+
+            var klok = System.Diagnostics.Stopwatch.StartNew();
+            var bewaren = Task.Run(() => history.SaveOutcome(z.Id, lijst));
+            await Task.Delay(400);
+            var wachtteNog = !bewaren.IsCompleted;
+            slot.Commit();
+
+            Exception? fout = null;
+            try { await bewaren; } catch (Exception ex) { fout = ex; }
+
+            Check.Dat(wachtteNog && fout is null && history.GetOutcome(z.Id).Count == 3,
+                $"terwijl een andere verbinding schrijft: het bewaren wacht en lukt daarna ({klok.ElapsedMilliseconds} ms" +
+                $"{(fout is null ? "" : ", " + fout.Message)})");
+        }
     }
 }

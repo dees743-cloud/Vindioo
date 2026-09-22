@@ -646,6 +646,14 @@ public class HistoryStore
     ///
     /// Het is bewust een kopie, net als bij de favorieten: de site kan een zoekertje
     /// intussen weggehaald hebben.
+    ///
+    /// Eén commando voor alle zoekertjes, met enkel nieuwe waarden per rij, zoals
+    /// <see cref="MarkSeen"/>. Tot 22 september 2026 kreeg elk zoekertje een nieuw commando,
+    /// dat SQLite telkens opnieuw moest ontleden: 4000 zoekertjes - "Cd speler" sinds de rem
+    /// op 2000 per site - kostten 50 tot 79 ms, nu 28 tot 40 ms (gemeten op een kopie van de
+    /// echte databank). Het scherm roept dit op een achtergronddraad aan (zie
+    /// <c>MainWindow.BewaarUitkomstAsync</c>); dat kan, want elke aanroep opent zijn eigen
+    /// verbinding.
     /// </summary>
     public void SaveOutcome(int searchId, IReadOnlyList<Listing> listings)
     {
@@ -659,31 +667,47 @@ public class HistoryStore
             wissen.ExecuteNonQuery();
         }
 
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO outcome
+                (searchId, position, source, externalId, title, price, priceLabel,
+                 location, url, image, largeImage, isNew)
+            VALUES ($id, $pos, $source, $ext, $title, $price, $label,
+                    $loc, $url, $img, $large, $new)
+            """;
+
+        // Zonder vast type: dan bindt elke waarde zoals ze is, net als AddWithValue per rij
+        // vroeger deed. Bij de prijs telt dat, want die is soms leeg.
+        SqliteParameter Veld(string naam) => command.Parameters.AddWithValue(naam, DBNull.Value);
+
+        Veld("$id").Value = searchId;
+        var pos = Veld("$pos");
+        var source = Veld("$source");
+        var ext = Veld("$ext");
+        var title = Veld("$title");
+        var price = Veld("$price");
+        var label = Veld("$label");
+        var loc = Veld("$loc");
+        var url = Veld("$url");
+        var img = Veld("$img");
+        var large = Veld("$large");
+        var nieuw = Veld("$new");
+
         for (var i = 0; i < listings.Count; i++)
         {
             var l = listings[i];
 
-            using var command = connection.CreateCommand();
-            command.CommandText = """
-                INSERT INTO outcome
-                    (searchId, position, source, externalId, title, price, priceLabel,
-                     location, url, image, largeImage, isNew)
-                VALUES ($id, $pos, $source, $ext, $title, $price, $label,
-                        $loc, $url, $img, $large, $new)
-                """;
-
-            command.Parameters.AddWithValue("$id", searchId);
-            command.Parameters.AddWithValue("$pos", i);
-            command.Parameters.AddWithValue("$source", l.Source);
-            command.Parameters.AddWithValue("$ext", l.ExternalId);
-            command.Parameters.AddWithValue("$title", l.Title);
-            command.Parameters.AddWithValue("$price", (object?)l.Price ?? DBNull.Value);
-            command.Parameters.AddWithValue("$label", l.PriceLabel);
-            command.Parameters.AddWithValue("$loc", l.Location);
-            command.Parameters.AddWithValue("$url", l.Url);
-            command.Parameters.AddWithValue("$img", l.ImageUrls.Count > 0 ? l.ImageUrls[0] : "");
-            command.Parameters.AddWithValue("$large", l.LargeImageUrl);
-            command.Parameters.AddWithValue("$new", l.IsNew ? 1 : 0);
+            pos.Value = i;
+            source.Value = l.Source;
+            ext.Value = l.ExternalId;
+            title.Value = l.Title;
+            price.Value = (object?)l.Price ?? DBNull.Value;
+            label.Value = l.PriceLabel;
+            loc.Value = l.Location;
+            url.Value = l.Url;
+            img.Value = l.ImageUrls.Count > 0 ? l.ImageUrls[0] : "";
+            large.Value = l.LargeImageUrl;
+            nieuw.Value = l.IsNew ? 1 : 0;
 
             command.ExecuteNonQuery();
         }

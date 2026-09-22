@@ -458,9 +458,33 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     }
 
     /// <summary>
+    /// Bewaart wat een beurt opleverde, op een achtergronddraad. Op de schermdraad kostte dat
+    /// bij 4000 zoekertjes 50 tot 79 ms (gemeten op 22 september 2026): het scherm haperde
+    /// precies wanneer de resultaten klaar waren, en dat eens per zoekopdracht. De lijst is een
+    /// kopie, dus wat er daarna in de resultaten verandert, raakt ze niet.
+    ///
+    /// Mislukt het, dan staat dat in het logboek. De resultaten staan dan nog in het geheugen
+    /// (<see cref="_lastOutcomes"/>), alleen niet meer na een herstart.
+    /// </summary>
+    private Task BewaarUitkomstAsync(int searchId, List<Listing> lijst) => Task.Run(() =>
+    {
+        try
+        {
+            _history.SaveOutcome(searchId, lijst);
+        }
+        catch (Exception ex)
+        {
+            Log.Write($"de resultaten van zoekopdracht {searchId} konden niet bewaard worden - {ex.Message}");
+        }
+    });
+
+    /// <summary>
     /// De planner is klaar met een zoekopdracht. De resultaten worden altijd
     /// bewaard, ook als niemand keek; stonden ze op het scherm, dan komt er
     /// nog de laatste hand bij.
+    ///
+    /// Het bewaren wacht hier niet: het slot van de planner is al vrij. Schrijft de volgende
+    /// zoekopdracht intussen iets, dan wacht SQLite tot deze klaar is.
     /// </summary>
     private void Scheduler_Completed(SavedSearch search, SearchOutcome outcome)
     {
@@ -472,7 +496,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
             // En op schijf, zodat ze een herstart overleven. Zonder dit krijg je een
             // melding over driehonderd zoekertjes die de app daarna niet meer kan tonen.
-            _history.SaveOutcome(search.Id, outcome.All);
+            _ = BewaarUitkomstAsync(search.Id, outcome.All.ToList());
         }
 
         UpdateSchedulerHint();
@@ -2360,6 +2384,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         // Hoeveel elke site gaf, voor de bewaarde zoekopdracht (zie SavedSearch.LastCounts).
         var tellingen = new Dictionary<string, int>();
 
+        // Het bewaren van de resultaten loopt op de achtergrond; in finally wordt erop gewacht.
+        var bewaren = Task.CompletedTask;
+
         try
         {
             // Bij een bewaarde zoekopdracht één keer ophalen wat we al gezien hebben, en
@@ -2513,7 +2540,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
                 _history.SetLastRun(_activeSearch.Id, DateTime.Now, newCount);
                 _lastOutcomes[_activeSearch.Id] = _results.ToList();
-                _history.SaveOutcome(_activeSearch.Id, _results.ToList());
+                bewaren = BewaarUitkomstAsync(_activeSearch.Id, _results.ToList());
 
                 // Wat er misliep, bij de zoekopdracht bewaren: de lijst met zoekopdrachten
                 // toont het dan ook na een herstart.
@@ -2550,6 +2577,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
         finally
         {
+            // Pas het slot vrijgeven als de resultaten bewaard zijn: zo schrijft de volgende
+            // zoekopdracht nooit tegelijk. Het scherm blijft intussen gewoon reageren, en wat
+            // hierboven nog op _activeSearch werkte, liep al voor deze wachttijd.
+            await bewaren;
             SearchRunner.Gate.Release();
 
             _zoektHandmatig = false;
