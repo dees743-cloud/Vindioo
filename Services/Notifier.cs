@@ -161,22 +161,42 @@ public static class Notifier
     /// <summary>
     /// Telegram in HTML-modus. Enkel de titel wordt een link: de volledige URL
     /// erbij zetten maakt het bericht op een telefoon onleesbaar lang.
+    ///
+    /// Er komen hele zoekertjes in zolang ze binnen <paramref name="ruimte"/> passen, met
+    /// eronder hoeveel er nog zijn. Telegram telt de zichtbare tekst, dus een lange link telt
+    /// enkel met zijn titel (zie <see cref="TelegramBerichtMaximum"/>).
     /// </summary>
-    internal static string TelegramTekst(IReadOnlyList<Listing> nieuwe)
+    /// <param name="ruimte">Wat er overblijft naast de titel van het bericht, in zichtbare tekens.</param>
+    internal static string TelegramTekst(IReadOnlyList<Listing> nieuwe, int ruimte = TelegramBerichtMaximum)
     {
-        var sb = new StringBuilder();
+        const int Hoogstens = 15;
 
-        foreach (var l in nieuwe.Take(15))
+        // Plaats voor de slotregel "en nog 1234...", die er altijd bij moet kunnen.
+        const int Slotregel = 30;
+
+        var sb = new StringBuilder();
+        var zichtbaar = 0;
+        var getoond = 0;
+
+        foreach (var l in nieuwe.Take(Hoogstens))
         {
             var prijs = l.Price is { } p ? $"€{p:0.##}" : (l.PriceLabel.Length > 0 ? l.PriceLabel : "prijs onbekend");
-            var plaats = l.Location.Length > 0 ? $" · {Escape(l.Location)}" : "";
+            var plaats = l.Location.Length > 0 ? $" · {Escape(Kort(l.Location, 100))}" : "";
+            var titel = Escape(Kort(l.Title, TitelMaximum));
 
-            sb.AppendLine(l.Url.Length > 0
-                ? $"• <a href=\"{Escape(l.Url)}\">{Escape(l.Title)}</a> — <b>{Escape(prijs)}</b>{plaats}"
-                : $"• {Escape(l.Title)} — <b>{Escape(prijs)}</b>{plaats}");
+            var regel = l.Url.Length > 0
+                ? $"• <a href=\"{Escape(l.Url)}\">{titel}</a> — <b>{Escape(prijs)}</b>{plaats}"
+                : $"• {titel} — <b>{Escape(prijs)}</b>{plaats}";
+
+            var lengte = ZichtbareLengte(regel) + 1;
+            if (zichtbaar + lengte > ruimte - Slotregel) break;
+
+            sb.Append(regel).Append('\n');
+            zichtbaar += lengte;
+            getoond++;
         }
 
-        if (nieuwe.Count > 15) sb.AppendLine($"<i>en nog {nieuwe.Count - 15}...</i>");
+        if (nieuwe.Count > getoond) sb.Append($"<i>en nog {nieuwe.Count - getoond}...</i>\n");
 
         return sb.ToString();
     }
@@ -228,24 +248,91 @@ public static class Notifier
     // ---------- Telegram ----------
 
     /// <summary>
-    /// Stuurt een gewoon tekstbericht via de bot. Telegram kapt berichten af
-    /// boven 4096 tekens, dus we snijden zelf op een veilige grens.
+    /// Zoveel zichtbare tekens mag een bericht op Telegram tellen; Telegram zelf staat 4096 toe.
+    /// Het telt de tekst zoals je ze te zien krijgt, na het ontleden van de HTML: een link van
+    /// vijfhonderd tekens telt enkel met zijn titel.
+    ///
+    /// Tot 22 september 2026 werd de HTML zelf op 4000 tekens afgeknipt. Met vijftien lange
+    /// links - die van eBay zijn al gauw vijfhonderd tekens - kon die schaar midden in een
+    /// <c>&lt;a href="...</c> vallen, en dan weigert Telegram het héle bericht ("can't parse
+    /// entities"). Nu komen er enkel hele zoekertjes in, en knipt het vangnet enkel tussen regels.
+    /// </summary>
+    internal const int TelegramBerichtMaximum = 4000;
+
+    /// <summary>Hetzelfde voor het bijschrift bij een foto; Telegram staat 1024 toe.</summary>
+    internal const int TelegramBijschriftMaximum = 1000;
+
+    /// <summary>Een titel langer dan dit wordt ingekort: geen site heeft er zo een, tenzij er iets misliep.</summary>
+    private const int TitelMaximum = 200;
+
+    /// <summary>
+    /// Stuurt een gewoon tekstbericht via de bot. Elke regel van <paramref name="body"/> moet op
+    /// zichzelf geldige HTML zijn: het vangnet (<see cref="PastOpTelegram"/>) knipt tussen regels.
     /// </summary>
     public static async Task SendTelegramAsync(NotifySettings settings, string titel, string body)
+    {
+        await TelegramAanroepAsync(settings, "sendMessage", new
+        {
+            chat_id = settings.TelegramChatId,
+            text = TelegramBericht(titel, body),
+            parse_mode = "HTML",
+            disable_web_page_preview = true
+        });
+    }
+
+    /// <summary>Het bericht zoals het naar Telegram gaat: de titel vet, en wat past van de rest.</summary>
+    internal static string TelegramBericht(string titel, string body)
     {
         var tekst = titel.Length > 0 && body.Length > 0 ? $"<b>{Escape(titel)}</b>\n\n{body}"
                   : titel.Length > 0 ? $"<b>{Escape(titel)}</b>"
                   : body;
 
-        if (tekst.Length > 4000) tekst = tekst[..4000] + "\n<i>(afgekapt)</i>";
+        return PastOpTelegram(tekst, TelegramBerichtMaximum);
+    }
 
-        await TelegramAanroepAsync(settings, "sendMessage", new
-        {
-            chat_id = settings.TelegramChatId,
-            text = tekst,
-            parse_mode = "HTML",
-            disable_web_page_preview = true
-        });
+    /// <summary>
+    /// Het vangnet: is de zichtbare tekst te lang, dan vallen er regels van onderen af, en komt
+    /// er "(afgekapt)" onder. Er wordt nooit binnen een regel geknipt, want dan kan de schaar in
+    /// een tag of een <c>&amp;amp;</c> vallen. Is zelfs de eerste regel te lang, dan gaat die als
+    /// gewone tekst, zonder opmaak, ingekort.
+    /// </summary>
+    internal static string PastOpTelegram(string html, int maximum)
+    {
+        if (ZichtbareLengte(html) <= maximum) return html;
+
+        const string Afgekapt = "\n<i>(afgekapt)</i>";
+        var voorAfgekapt = ZichtbareLengte(Afgekapt);
+        var regels = html.Split('\n').ToList();
+
+        while (regels.Count > 1 && ZichtbareLengte(string.Join("\n", regels)) + voorAfgekapt > maximum)
+            regels.RemoveAt(regels.Count - 1);
+
+        var ingekort = string.Join("\n", regels).TrimEnd('\r', '\n');
+        if (ZichtbareLengte(ingekort) + voorAfgekapt <= maximum) return ingekort + Afgekapt;
+
+        return Escape(Kort(Zichtbaar(html), maximum));
+    }
+
+    /// <summary>De tekst zoals Telegram ze toont en telt: zonder tags, met de tekens voluit.</summary>
+    internal static int ZichtbareLengte(string html) => Zichtbaar(html).Length;
+
+    private static string Zichtbaar(string html) =>
+        System.Net.WebUtility.HtmlDecode(System.Text.RegularExpressions.Regex.Replace(html, "<[^>]*>", ""));
+
+    /// <summary>
+    /// Kort een gewone tekst in tot hoogstens <paramref name="maximum"/> tekens, met een
+    /// beletselteken. Altijd vóór het ontsnappen naar HTML, nooit erna. Knipt niet tussen de
+    /// twee helften van een emoji: een halve geeft een ongeldig teken.
+    /// </summary>
+    private static string Kort(string tekst, int maximum)
+    {
+        if (tekst.Length <= maximum) return tekst;
+        if (maximum <= 1) return "…";
+
+        var n = maximum - 1;
+        if (char.IsHighSurrogate(tekst[n - 1])) n--;
+
+        return tekst[..n].TrimEnd() + "…";
     }
 
     /// <summary>
@@ -266,7 +353,8 @@ public static class Notifier
 
         if (!settings.TelegramPhotos)
         {
-            await SendTelegramAsync(settings, titel, TelegramTekst(nieuwe));
+            // De titel staat er vet boven, met een witregel: die ruimte gaat eraf.
+            await SendTelegramAsync(settings, titel, TelegramTekst(nieuwe, TelegramBerichtMaximum - titel.Length - 2));
             return;
         }
 
@@ -305,23 +393,30 @@ public static class Notifier
         if (rest.Count > 0) await SendTelegramAsync(settings, "", TelegramTekst(rest));
     }
 
-    /// <summary>Het bijschrift onder een foto. Telegram staat 1024 tekens toe.</summary>
+    /// <summary>
+    /// Het bijschrift onder een foto (zie <see cref="TelegramBijschriftMaximum"/>). Enkel de
+    /// titel kan echt lang zijn, dus die wordt ingekort, als tekst en voor ze HTML wordt. Tot 22
+    /// september 2026 werd de HTML op 1000 tekens afgeknipt, en met een lange link viel de schaar
+    /// midden in het adres: Telegram weigerde de foto, en het zoekertje belandde bij de rest.
+    /// </summary>
     internal static string Bijschrift(Listing listing)
     {
         var prijs = listing.Price is { } p ? $"€{p:0.##}"
                   : listing.PriceLabel.Length > 0 ? listing.PriceLabel
                   : "prijs onbekend";
 
-        var regel = $"<b>{Escape(listing.Title)}</b>\n{Escape(prijs)}";
+        var onder = $"\n{Escape(prijs)}";
 
-        if (listing.Location.Length > 0) regel += $" · {Escape(listing.Location)}";
+        if (listing.Location.Length > 0) onder += $" · {Escape(Kort(listing.Location, 100))}";
 
-        regel += $" · {Escape(listing.Source)}";
+        onder += $" · {Escape(listing.Source)}";
 
         if (listing.Url.Length > 0)
-            regel += $"\n<a href=\"{Escape(listing.Url)}\">bekijken</a>";
+            onder += $"\n<a href=\"{Escape(listing.Url)}\">bekijken</a>";
 
-        return regel.Length > 1000 ? regel[..1000] : regel;
+        var titel = Kort(listing.Title, Math.Min(TitelMaximum, TelegramBijschriftMaximum - ZichtbareLengte(onder)));
+
+        return PastOpTelegram($"<b>{Escape(titel)}</b>{onder}", TelegramBijschriftMaximum);
     }
 
     /// <summary>Eén aanroep naar de bot-API, met een leesbare fout als het misgaat.</summary>

@@ -698,6 +698,26 @@ met foto), een e-mail 50. Telkens met eronder hoeveel er nog zijn; de e-mail zeg
 teller van die zoekopdracht in Zentrix. Een e-mail zette er tot 22 september 2026 alle nieuwe in,
 en sinds een site tot 2000 zoekertjes levert, kon dat er 1700 zijn.
 
+**Een bericht op Telegram wordt nooit midden in de HTML afgeknipt** (22 september 2026). Telegram
+weigert een bericht met kapotte HTML in zijn geheel ("can't parse entities"), dus een schaar die
+in een `<a href="...` of een `&amp;` valt, kost de hele melding. En dat gebeurde: tot dan werd de
+HTML op 4000 tekens geknipt, en vijftien lange links van eBay zijn al gauw vijfduizend tekens.
+Telegram telt bovendien de **zichtbare** tekst (4096 voor een bericht, 1024 onder een foto): een
+link van vijfhonderd tekens telt enkel met zijn titel. Nu:
+
+- `TelegramTekst` neemt hele zoekertjes zolang ze passen, gemeten in zichtbare tekens
+  (`ZichtbareLengte`), en zegt eerlijk hoeveel er nog zijn. Vroeger stond er "(afgekapt)" zonder
+  te zeggen hoeveel er ontbraken.
+- Een titel boven de 200 tekens wordt ingekort, als tekst en vóór ze HTML wordt (`Kort`, dat ook
+  geen emoji doormidden knipt).
+- Het vangnet (`PastOpTelegram`) laat regels van onderen vallen, en knipt nooit binnen een regel.
+  Daarom moet elke regel van een Telegram-bericht op zichzelf geldige HTML zijn.
+- Het bijschrift bij een foto kort enkel de titel in.
+
+Nagemeten in `StilFalenChecks` met een controle die nabootst wat Telegram aanvaardt: vijftien links
+van duizend tekens gaven 16 807 tekens HTML, en de oude schaar maakte daar een ongeldig bericht van.
+Nu gaan ze er alle vijftien in: zichtbaar zijn dat 744 tekens.
+
 Er komt niets centraal samen. Telegram en e-mail gaan rechtstreeks van deze pc
 naar de dienst die de gebruiker zelf koos.
 
@@ -2261,7 +2281,7 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel` en Zentrix dicht waren dat er 254 op 22 september 2026. Draait Zentrix zelf, dan is de
+`--snel` en Zentrix dicht waren dat er 262 op 22 september 2026. Draait Zentrix zelf, dan is de
 poort van de brug bezet en vallen de controles van de brug weg. Drie
 regels waar het aan vastzit:
 

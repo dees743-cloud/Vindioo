@@ -237,6 +237,84 @@ public static class StilFalenChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("Telegram: een lang bericht wordt nooit midden in de HTML afgeknipt");
+        {
+            // Wat Telegram aanvaardt: enkel <b>, <i> en <a href="...">, elk gesloten, geen losse <,
+            // en enkel de vier namen die Telegram kent. Anders weigert het het hele bericht.
+            static bool Geldig(string html)
+            {
+                var tags = System.Text.RegularExpressions.Regex.Matches(html, "<[^>]*>").Select(m => m.Value).ToList();
+                if (html.Count(c => c == '<') != tags.Count || html.Count(c => c == '>') != tags.Count) return false;
+                if (tags.Any(t => !System.Text.RegularExpressions.Regex.IsMatch(t, "^(</?[bi]>|<a href=\"[^\"]*\">|</a>)$")))
+                    return false;
+
+                foreach (var naam in new[] { "b", "i", "a" })
+                    if (tags.Count(t => t == $"<{naam}>" || t.StartsWith($"<{naam} ")) != tags.Count(t => t == $"</{naam}>"))
+                        return false;
+
+                return !System.Text.RegularExpressions.Regex.IsMatch(html, "&(?!amp;|lt;|gt;|quot;)");
+            }
+
+            var parser = new AngleSharp.Html.Parser.HtmlParser();
+
+            // Vijftien zoekertjes met een link van duizend tekens, zoals een lange link van eBay.
+            var lang ="https://www.ebay.be/itm/1?_skw=cd&hash=" + new string('x', 1000);
+            var lijst = Enumerable.Range(1, 15).Select(i => new Listing
+            {
+                Source = "eBay", Title = $"Marantz CD6006 & afstandsbediening {i}", Price = 100 + i, Url = lang + i
+            }).ToList();
+
+            const string kop = "Zentrix: 15 nieuwe resultaten voor 'Cd speler'";
+            var bericht = Notifier.TelegramBericht(kop, Notifier.TelegramTekst(lijst, Notifier.TelegramBerichtMaximum - kop.Length - 2));
+            var links = parser.ParseDocument(bericht).QuerySelectorAll("a").Select(a => a.GetAttribute("href")).ToList();
+
+            var oud = bericht.Length > 4000 ? bericht[..4000] + "\n<i>(afgekapt)</i>" : bericht;
+            Check.Dat(!Geldig(oud), $"zo knipte het vroeger: op 4000 tekens HTML ({bericht.Length}), en dat weigert Telegram");
+
+            Check.Dat(Geldig(bericht) && links.Count == 15 && links.Select((h, i) => h == lang + (i + 1)).All(x => x),
+                $"nu: alle 15, elke link volledig ({Notifier.ZichtbareLengte(bericht)} zichtbare tekens)");
+            Check.Dat(!bericht.Contains("en nog") && !bericht.Contains("afgekapt"), "... zonder 'en nog' of 'afgekapt'");
+
+            // Titels van 400 tekens: ingekort, als tekst, voor ze HTML worden.
+            var lange = lijst.Select(l => new Listing
+            {
+                Source = l.Source, Title = new string('é', 399) + "&", Price = l.Price, Url = l.Url
+            }).ToList();
+            var ingekort = Notifier.TelegramBericht(kop, Notifier.TelegramTekst(lange));
+            var titels = parser.ParseDocument(ingekort).QuerySelectorAll("a").Select(a => a.TextContent).ToList();
+            Check.Dat(Geldig(ingekort) && titels.Count > 0 && titels.All(t => t.Length <= 200 && t.EndsWith('…')),
+                $"titels van 400 tekens: ingekort tot 200, met een beletselteken ({titels.Count} passen)");
+
+            // Weinig ruimte: hele zoekertjes, en eerlijk hoeveel er nog zijn.
+            var krap = Notifier.TelegramTekst(lijst, 500);
+            var getoond = parser.ParseDocument(krap).QuerySelectorAll("a").Length;
+            Check.Dat(Geldig(krap) && getoond is > 0 and < 15 && krap.Contains($"en nog {15 - getoond}...") &&
+                      Notifier.ZichtbareLengte(krap) <= 500,
+                $"ruimte voor 500 tekens: {getoond} hele zoekertjes en 'en nog {15 - getoond}...'");
+
+            // Het vangnet: honderd regels die elk op zich geldig zijn.
+            var regels = string.Join("\n", Enumerable.Range(1, 100).Select(i => $"• <b>regel {i}</b> " + new string('x', 80) + " &amp; meer"));
+            var geknipt = Notifier.TelegramBericht("Proef", regels);
+            Check.Dat(Geldig(geknipt) && geknipt.EndsWith("<i>(afgekapt)</i>") &&
+                      Notifier.ZichtbareLengte(geknipt) <= Notifier.TelegramBerichtMaximum,
+                $"het vangnet knipt tussen regels ({Notifier.ZichtbareLengte(geknipt)} zichtbare tekens)");
+
+            var eenRegel = Notifier.TelegramBericht("", "<b>" + new string('a', 5000) + "</b>");
+            Check.Dat(Geldig(eenRegel) && Notifier.ZichtbareLengte(eenRegel) <= Notifier.TelegramBerichtMaximum,
+                "één regel die op zich al te lang is: als gewone tekst, ingekort");
+
+            // Het bijschrift bij een foto: een titel van 2000 en een link van 1500 tekens.
+            var foto = new Listing
+            {
+                Source = "eBay", Title = new string('t', 2000), Price = 5, Location = "Gent", Url = lang + new string('y', 500)
+            };
+            var bijschrift = Notifier.Bijschrift(foto);
+            Check.Dat(Geldig(bijschrift) && Notifier.ZichtbareLengte(bijschrift) <= Notifier.TelegramBijschriftMaximum &&
+                      parser.ParseDocument(bijschrift).QuerySelector("a")?.GetAttribute("href") == foto.Url,
+                $"bijschrift: de titel ingekort, de link volledig ({Notifier.ZichtbareLengte(bijschrift)} zichtbare tekens)");
+        }
+
+        // ---------------------------------------------------------------------------
         Check.Groep("Instellingen: wachtwoord en token beschermd door Windows");
         {
             const string wachtwoord = "proef-wachtwoord-123";
