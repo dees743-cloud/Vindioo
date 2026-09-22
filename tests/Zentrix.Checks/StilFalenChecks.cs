@@ -237,6 +237,83 @@ public static class StilFalenChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("Instellingen: wachtwoord en token beschermd door Windows");
+        {
+            const string wachtwoord = "proef-wachtwoord-123";
+            const string token = "1234567:AAproef-token";
+            var pad = AppPaths.SettingsFile;
+            string B64(string t) => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(t));
+            int Beschermd(string inhoud) => System.Text.RegularExpressions.Regex.Matches(inhoud, "\"dpapi:").Count;
+            bool Leesbaar(string inhoud) =>
+                inhoud.Contains(wachtwoord) || inhoud.Contains(B64(wachtwoord)) ||
+                inhoud.Contains(token) || inhoud.Contains(B64(token));
+
+            // Een ander vinkje mag intussen niet veranderen: dat bewijst dat de rest gewoon meegaat.
+            AppSettings.Current.PageSize = 150;
+            AppSettings.Current.Notify.SmtpPassword = wachtwoord;
+            AppSettings.Current.Notify.TelegramToken = token;
+            AppSettings.Current.Save();
+
+            var inhoud = File.ReadAllText(pad);
+            Check.Dat(!Leesbaar(inhoud), "in het bestand staat geen van beide leesbaar, ook niet als base64");
+            Check.Dat(Beschermd(inhoud) == 2, "allebei beschermd door Windows (dpapi:)");
+            Check.Dat(AppSettings.Current.Notify.SmtpPassword == wachtwoord && AppSettings.Current.Notify.TelegramToken == token,
+                "in het geheugen blijven ze bruikbaar na het bewaren");
+
+            AppSettings.Load();
+            Check.Dat(AppSettings.Current.Notify.SmtpPassword == wachtwoord && AppSettings.Current.Notify.TelegramToken == token &&
+                      AppSettings.Current.PageSize == 150,
+                "weer ingelezen: dezelfde waarden, en de rest van de instellingen ook");
+
+            // Een bestand van voor 22 september 2026: het wachtwoord als base64, het token leesbaar.
+            void Zet(string wat, string waarde)
+            {
+                var boom = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(pad))!;
+                boom["Notify"]![wat] = waarde;
+                File.WriteAllText(pad, boom.ToJsonString());
+            }
+
+            Zet("SmtpPassword", "b64:" + B64(wachtwoord));
+            Zet("TelegramToken", token);
+            AppSettings.Load();
+            inhoud = File.ReadAllText(pad);
+            Check.Dat(AppSettings.Current.Notify.SmtpPassword == wachtwoord && AppSettings.Current.Notify.TelegramToken == token,
+                "een oud bestand (b64: en leesbaar) wordt gewoon gelezen");
+            Check.Dat(!Leesbaar(inhoud) && Beschermd(inhoud) == 2, "... en meteen herschreven, beschermd");
+
+            // Een oudere Zentrix las de beschermde vorm als wachtwoord en pakte ze in als b64:.
+            var beschermd = System.Text.Json.Nodes.JsonNode.Parse(inhoud)!["Notify"]!["SmtpPassword"]!.GetValue<string>();
+            Zet("SmtpPassword", "b64:" + B64(beschermd));
+            AppSettings.Load();
+            Check.Dat(AppSettings.Current.Notify.SmtpPassword == wachtwoord && Beschermd(File.ReadAllText(pad)) == 2,
+                "door een oudere Zentrix nog eens ingepakt: toch het juiste wachtwoord, en weer beschermd");
+
+            // Beschermd voor een ander account of een andere pc: niet te openen. Hier nagebootst
+            // met iets wat DPAPI niet herkent; Windows antwoordt daar op dezelfde manier op.
+            var vreemd = "dpapi:" + B64("van een andere pc");
+            Zet("SmtpPassword", vreemd);
+            AppSettings.Load();
+            Check.Dat(AppSettings.Current.Notify.SmtpPassword == "" && AppSettings.Current.Notify.TelegramToken == token,
+                "niet te openen: het wachtwoord is leeg, het token werkt nog");
+
+            AppSettings.Current.PageSize = 200;
+            AppSettings.Current.Save();
+            Check.Dat(File.ReadAllText(pad).Contains(vreemd), "een ander vinkje bewaren wist het onleesbare wachtwoord niet");
+
+            AppSettings.Current.Notify.SmtpPassword = "nieuw-wachtwoord";
+            AppSettings.Current.Save();
+            inhoud = File.ReadAllText(pad);
+            Check.Dat(!inhoud.Contains(vreemd) && Beschermd(inhoud) == 2 && !inhoud.Contains("nieuw-wachtwoord"),
+                "een nieuw ingevuld wachtwoord vervangt het, beschermd");
+
+            // Opruimen: de controles hierna verwachten geen kanalen met geheimen.
+            AppSettings.Current.Notify.SmtpPassword = "";
+            AppSettings.Current.Notify.TelegramToken = "";
+            AppSettings.Current.PageSize = 100;
+            AppSettings.Current.Save();
+        }
+
+        // ---------------------------------------------------------------------------
         Check.Groep("Sites importeren: zeggen welke vervangen werden");
         {
             var map = Path.Combine(AppPaths.Folder, "import-proef");

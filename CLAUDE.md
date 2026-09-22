@@ -655,8 +655,26 @@ Server nakijken zonder de app, en zonder een wachtwoord te gebruiken (vervang
 python -c "import smtplib,ssl; s=smtplib.SMTP('smtp.voorbeeld.be',587); s.ehlo(); s.starttls(context=ssl.create_default_context()); s.ehlo(); print(s.esmtp_features.get('auth'))"
 ```
 
-Bij e-mail wordt het wachtwoord versluierd in `instellingen.json` bewaard — dat is bewust
-geen versleuteling en doet ook niet alsof; het houdt het enkel uit het zicht.
+**Het mailwachtwoord en het Telegram-token staan beschermd door Windows** in `instellingen.json`
+(22 september 2026, een tip uit een beoordeling door ChatGPT). `AppSettings` gebruikt daarvoor DPAPI
+(`ProtectedData`, voor de huidige gebruiker, met het merkteken `dpapi:`): het bestand is enkel
+leesbaar voor jouw Windows-account op deze pc. Een kopie in een back-up, op OneDrive of op een
+andere pc is waardeloos; een programma dat onder jouw account draait, kan het wel lezen. Daarvoor
+stond het wachtwoord er als base64 in (`b64:`), wat geen bescherming is, en het token gewoon
+leesbaar - terwijl wie het token heeft, als jouw bot schrijft en leest wat jij hem stuurt.
+
+- **De omzetting gebeurt bij het inlezen**, en het bestand wordt meteen herschreven.
+- **Niet te openen** (een bestand van een andere pc of een ander account): de waarde is leeg, het
+  logboek zegt waar je ze opnieuw invult, en de beschermde vorm blijft in het bestand staan tot je
+  iets nieuws invult. Een ander vinkje bewaren wist ze dus niet.
+- **Een oudere Zentrix** kent `dpapi:` niet, leest de beschermde vorm als het wachtwoord zelf (de
+  mail mislukt dan) en pakt ze bij het bewaren in als `b64:`. De nieuwe code pakt dat weer uit.
+  Start na de omzetting dus liever geen oude versie meer: publiceer de exe opnieuw.
+- **Bewaren wijzigt het object niet meer.** Vroeger werd het wachtwoord even vervangen door de
+  versluierde vorm en daarna teruggezet; een mail die op dat moment op een andere draad vertrok,
+  meldde zich aan met die vorm. Nu gaat het via een JSON-boom.
+
+Nagemeten in `StilFalenChecks`, met de tegenproef op de oude code.
 Elk kanaal heeft een testknop: wachten tot er 's nachts iets gevonden wordt om te
 ontdekken dat je token niet klopt, is geen manier van werken.
 
@@ -2228,7 +2246,7 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel` en Zentrix dicht waren dat er 241 op 22 september 2026. Draait Zentrix zelf, dan is de
+`--snel` en Zentrix dicht waren dat er 251 op 22 september 2026. Draait Zentrix zelf, dan is de
 poort van de brug bezet en vallen de controles van de brug weg. Drie
 regels waar het aan vastzit:
 

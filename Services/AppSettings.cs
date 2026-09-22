@@ -1,4 +1,6 @@
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -14,7 +16,11 @@ public class NotifySettings
 
     public bool Telegram { get; set; }
 
-    /// <summary>Het token dat @BotFather geeft, in de vorm 1234:AA...</summary>
+    /// <summary>
+    /// Het token dat @BotFather geeft, in de vorm 1234:AA... Evengoed een geheim als een
+    /// wachtwoord: wie het heeft, schrijft als jouw bot en leest wat jij hem stuurt. Staat
+    /// daarom beschermd in het instellingenbestand, net als <see cref="SmtpPassword"/>.
+    /// </summary>
     public string TelegramToken { get; set; } = "";
 
     /// <summary>Het nummer van de chat waar de bot naartoe schrijft.</summary>
@@ -40,9 +46,9 @@ public class NotifySettings
 
     /// <summary>
     /// Het wachtwoord bij de mailserver. Bij Gmail is dat een app-wachtwoord en
-    /// niet het gewone wachtwoord. Staat versluierd in het instellingenbestand
-    /// (zie <see cref="AppSettings"/>); dat is geen echte beveiliging, maar het
-    /// houdt het wel uit het zicht.
+    /// niet het gewone wachtwoord. Staat in het instellingenbestand beschermd door
+    /// Windows, enkel leesbaar voor jouw account op deze pc (zie <see cref="AppSettings"/>).
+    /// In het geheugen staat het gewoon leesbaar: het moet naar de mailserver.
     /// </summary>
     public string SmtpPassword { get; set; } = "";
 
@@ -136,8 +142,18 @@ public class AppSettings
             var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(Path_));
             if (settings is null) return;
 
-            settings.Notify.SmtpPassword = Ontsluier(settings.Notify.SmtpPassword);
+            var oudeVorm = false;
+            settings.Notify.SmtpPassword = Vrijgeven(settings.Notify.SmtpPassword, "het mailwachtwoord",
+                ref oudeVorm, out settings._onleesbaarWachtwoord);
+            settings.Notify.TelegramToken = Vrijgeven(settings.Notify.TelegramToken, "het Telegram-token",
+                ref oudeVorm, out settings._onleesbaarToken);
+
             Current = settings;
+
+            // Meteen herschrijven, en niet pas bij de volgende keer bewaren: anders blijft de
+            // leesbare vorm staan tot je toevallig een instelling wijzigt.
+            if (oudeVorm && settings.Save())
+                Log.Write("instellingen: wachtwoord en token (wat ingevuld was) staan nu beschermd door Windows");
         }
         catch (Exception ex)
         {
@@ -145,51 +161,121 @@ public class AppSettings
         }
     }
 
-    public void Save()
+    /// <returns>Of het bestand geschreven is; wat misliep, staat in het logboek.</returns>
+    public bool Save()
     {
         try
         {
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path_)!);
 
-            // Het wachtwoord versluierd wegschrijven en daarna meteen herstellen,
-            // zodat het in het geheugen gewoon bruikbaar blijft.
-            var klaar = Notify.SmtpPassword;
-            Notify.SmtpPassword = Versluier(klaar);
+            // Eerst naar een JSON-boom, en daarin de twee geheimen vervangen door hun
+            // beschermde vorm. Vroeger werd het wachtwoord even in het object zelf
+            // vervangen en daarna teruggezet; een melding die op dat moment op een andere
+            // draad een mail verstuurde, meldde zich dan aan met de versluierde vorm.
+            var boom = JsonSerializer.SerializeToNode(this, Options)!.AsObject();
+            var melden = boom[nameof(Notify)]!.AsObject();
 
-            File.WriteAllText(Path_, JsonSerializer.Serialize(this, Options));
+            melden[nameof(NotifySettings.SmtpPassword)] = Bescherm(Notify.SmtpPassword, _onleesbaarWachtwoord);
+            melden[nameof(NotifySettings.TelegramToken)] = Bescherm(Notify.TelegramToken, _onleesbaarToken);
 
-            Notify.SmtpPassword = klaar;
+            File.WriteAllText(Path_, boom.ToJsonString(Options));
+
+            // Een nieuw ingevulde waarde vervangt de onleesbare voorgoed: wie ze daarna leegmaakt,
+            // wil ze echt weg.
+            if (Notify.SmtpPassword.Length > 0) _onleesbaarWachtwoord = null;
+            if (Notify.TelegramToken.Length > 0) _onleesbaarToken = null;
+
+            return true;
         }
         catch (Exception ex)
         {
             Log.Write("instellingen konden niet bewaard worden - " + ex.Message);
+            return false;
         }
     }
 
+    // ---------- de geheimen: wachtwoord en token ----------
+    //
+    // Sinds 22 september 2026 beschermd met DPAPI, de bescherming van Windows zelf
+    // (ProtectedData, voor de huidige gebruiker). Het bestand is dan enkel leesbaar voor
+    // jouw Windows-account op deze pc: een kopie in een back-up, op OneDrive of op een
+    // andere pc is waardeloos. Een programma dat onder jouw account draait, kan het wel
+    // lezen - daartegen helpt geen enkele bescherming die Zentrix zelf kan openen.
+    //
+    // Daarvoor stond het wachtwoord er als base64 in ("b64:"), en dat is geen bescherming:
+    // wie het bestand opende, had het wachtwoord. Het token stond er gewoon leesbaar in.
+    // Beide worden bij het inlezen omgezet.
+
+    private const string Merk = "dpapi:";
+    private const string OudMerk = "b64:";
+
     /// <summary>
-    /// Zet het wachtwoord om naar base64 met een merkteken ervoor. Dit is
-    /// bewust geen versleuteling en doet ook niet alsof: het houdt het enkel uit
-    /// het zicht van wie toevallig het bestand openslaat.
+    /// Een vast extraatje bij het beschermen. Een ander programma dat DPAPI gebruikt, kan
+    /// onze waarden zo niet per ongeluk openen. Nooit wijzigen: dan is wat al bewaard staat,
+    /// niet meer te lezen.
     /// </summary>
-    private const string Merk = "b64:";
+    private static readonly byte[] Extra = "Zentrix-instellingen"u8.ToArray();
 
-    private static string Versluier(string tekst) =>
-        string.IsNullOrEmpty(tekst)
-            ? ""
-            : Merk + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(tekst));
+    /// <summary>
+    /// Een beschermde waarde die niet te openen was: een instellingenbestand van een andere
+    /// pc of een ander Windows-account. Die blijft ongewijzigd in het bestand staan zolang je
+    /// niets nieuws invult. Mocht het een tijdelijke hapering van Windows geweest zijn, dan
+    /// lukt het bij de volgende start alsnog, in plaats van dat een ander opgeslagen vinkje
+    /// het wachtwoord gewist heeft.
+    /// </summary>
+    private string? _onleesbaarWachtwoord, _onleesbaarToken;
 
-    private static string Ontsluier(string tekst)
+    private static string Bescherm(string tekst, string? onleesbaar)
     {
-        if (!tekst.StartsWith(Merk, StringComparison.Ordinal)) return tekst;
+        if (string.IsNullOrEmpty(tekst)) return onleesbaar ?? "";
 
+        var bytes = ProtectedData.Protect(Encoding.UTF8.GetBytes(tekst), Extra, DataProtectionScope.CurrentUser);
+        return Merk + Convert.ToBase64String(bytes);
+    }
+
+    /// <param name="naam">Voor het logboek; de waarde zelf komt daar nooit in.</param>
+    /// <param name="oudeVorm">Wordt waar als de waarde nog niet beschermd was.</param>
+    /// <param name="onleesbaar">De beschermde waarde als ze niet te openen was, anders null.</param>
+    private static string Vrijgeven(string tekst, string naam, ref bool oudeVorm, out string? onleesbaar)
+    {
+        onleesbaar = null;
+        if (string.IsNullOrEmpty(tekst)) return "";
+
+        if (tekst.StartsWith(Merk, StringComparison.Ordinal))
+        {
+            try
+            {
+                var bytes = ProtectedData.Unprotect(Convert.FromBase64String(tekst[Merk.Length..]), Extra,
+                    DataProtectionScope.CurrentUser);
+                return Encoding.UTF8.GetString(bytes);
+            }
+            catch (Exception ex) when (ex is CryptographicException or FormatException)
+            {
+                Log.Write($"instellingen: {naam} kon niet gelezen worden. Het is beschermd voor een ander " +
+                          "Windows-account of een andere pc; vul het opnieuw in bij Meldingen en achtergrond.");
+                onleesbaar = tekst;
+                return "";
+            }
+        }
+
+        oudeVorm = true;
+
+        if (!tekst.StartsWith(OudMerk, StringComparison.Ordinal)) return tekst;
+
+        string oud;
         try
         {
-            return System.Text.Encoding.UTF8.GetString(
-                Convert.FromBase64String(tekst[Merk.Length..]));
+            oud = Encoding.UTF8.GetString(Convert.FromBase64String(tekst[OudMerk.Length..]));
         }
-        catch
+        catch (FormatException)
         {
             return "";
         }
+
+        // Een oudere Zentrix kent "dpapi:" niet: ze leest de beschermde vorm als het wachtwoord
+        // zelf en zet er bij het bewaren nog eens "b64:" rond. Dan zit de beschermde vorm erin.
+        return oud.StartsWith(Merk, StringComparison.Ordinal)
+            ? Vrijgeven(oud, naam, ref oudeVorm, out onleesbaar)
+            : oud;
     }
 }
