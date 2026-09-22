@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -2253,21 +2253,36 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         // Op "Alles" tellen alle sites mee; op een sitetab enkel die ene.
         if (!_active.IsAll && listing.Source != _active.Name) return false;
 
+        return HoortBijZoekopdracht(listing);
+    }
+
+    /// <summary>
+    /// Hoort dit zoekertje bij de zoekopdracht zelf: binnen de prijsgrens van zijn eigen site, en
+    /// door de verfijning? Wat hier buiten valt, telt niet mee in de teller, wordt niet bewaard en
+    /// wordt niet als gezien onthouden - precies zoals bij de planner
+    /// (<see cref="SearchRunner.RunAsync"/>, <c>BinnenPrijs</c>).
+    ///
+    /// Tot 22 september 2026 deed het scherm dat anders: het telde en bewaarde ook wat buiten de
+    /// prijs viel, en toonde het enkel niet. Bij Zoekopdrachten stond dan "12 nieuw" terwijl de
+    /// schakelaar erna "Enkel nieuwe (8)" zei, en wat je nooit te zien kreeg, gold toch als
+    /// bekeken. Zo koos de eigenaar het: buiten je prijsgrens bestaat niet voor de zoekopdracht.
+    /// Dit speelt enkel bij sites die zelf niet op prijs filteren (AlleVeilingen, Facebook,
+    /// Kleinanzeigen); bij de rest komt zo'n zoekertje niet eens binnen.
+    ///
+    /// De prijsgrens hoort bij de site die hem opgaf, dus die wordt per zoekertje opgezocht bij
+    /// zijn eigen tab - anders zou een grens van de ene site die van de andere overschrijven.
+    /// </summary>
+    private bool HoortBijZoekopdracht(Listing listing)
+    {
         if (_activeSearch is not null && !_activeSearch.Matches(listing)) return false;
 
-        // De prijsgrens hoort bij de site die hem opgaf. Op "Alles" zoeken we
-        // daarom het tabblad van dít zoekertje op, en niet dat van de weergave —
-        // anders zou een grens van de ene site die van de andere overschrijven.
-        var bron = _active.IsAll
-            ? _tabs.FirstOrDefault(t => !t.IsAll && t.Name == listing.Source)
-            : _active;
-
+        var bron = _tabs.FirstOrDefault(t => !t.IsAll && t.Name == listing.Source);
         if (bron is null) return true;
 
         var filters = bron.Filters;
 
-        // Zonder prijs valt een zoekertje buiten een prijsgrens; zo deed de
-        // oude filter het ook.
+        // Een zoekertje zonder prijs blijft staan: bij 2dehands betekent een lege prijs
+        // "bieden" of "zie beschrijving", en dat sluit je niet uit met een grens.
         if (filters.PriceMin is { } min && listing.Price < min) return false;
         if (filters.PriceMax is { } max && listing.Price > max) return false;
 
@@ -2417,7 +2432,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                 // meer resultaten laat zien in plaats van een nieuwe zoekopdracht
                 // te vragen.
                 var batch = raw;
+
+                // Enkel de sleutels die bij de zoekopdracht horen: wat buiten de prijsgrens valt,
+                // telt niet mee en wordt niet als gezien onthouden (zie HoortBijZoekopdracht).
                 var added = new List<string>();
+                var kaarten = 0;
 
                 foreach (var listing in batch)
                 {
@@ -2431,24 +2450,28 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                     shown[listing.Key] = listing;
                     listing.IsFavorite = _favoriteKeys.Contains(listing.Key);
 
+                    var hoortErbij = HoortBijZoekopdracht(listing);
+
                     if (seen is not null && _activeSearch is not null)
                     {
                         listing.IsNew = _activeSearch.IsUnviewed(
                             seen.TryGetValue(listing.Key, out var eerst) ? eerst : null);
-                        if (listing.IsNew) newCount++;
+                        if (listing.IsNew && hoortErbij) newCount++;
                     }
 
                     if (listing.IsNew) _results.Insert(newTopIndex++, listing);
                     else _results.Add(listing);
 
                     tab.ResultCount++;
-                    added.Add(listing.Key);
+                    kaarten++;
+
+                    if (hoortErbij) added.Add(listing.Key);
                 }
 
                 if (_activeSearch is not null && added.Count > 0)
                     _history.MarkSeen(_activeSearch.Id, added);
 
-                if (added.Count > 0)
+                if (kaarten > 0)
                 {
                     UpdateEmptyHints();
 
@@ -2539,8 +2562,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                 _activeSearch.LastRun = DateTime.Now;
 
                 _history.SetLastRun(_activeSearch.Id, DateTime.Now, newCount);
-                _lastOutcomes[_activeSearch.Id] = _results.ToList();
-                bewaren = BewaarUitkomstAsync(_activeSearch.Id, _results.ToList());
+
+                // Enkel wat bij de zoekopdracht hoort, net als bij de planner. In _results blijft
+                // alles staan: verruim je je prijs, dan zie je meteen weer meer zonder opnieuw
+                // te zoeken. Wat je nooit te zien kreeg, hoort niet in de bewaarde lijst.
+                var uitkomst = _results.Where(HoortBijZoekopdracht).ToList();
+
+                _lastOutcomes[_activeSearch.Id] = uitkomst;
+                bewaren = BewaarUitkomstAsync(_activeSearch.Id, uitkomst.ToList());
 
                 // Wat er misliep, bij de zoekopdracht bewaren: de lijst met zoekopdrachten
                 // toont het dan ook na een herstart.

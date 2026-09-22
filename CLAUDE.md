@@ -1421,6 +1421,23 @@ hoeveel er wegvielen. In *Sites beheren* staat het veld als "Veilinghuizen overs
   filter in twee richtingen — een ruimere prijs toont meteen weer meer, zonder
   opnieuw te zoeken. Vroeger werd er gefilterd bij het toevoegen, en dan was wat
   buiten de grens viel gewoon weg.
+
+  **Maar buiten je prijsgrens bestaat niet voor de zoekopdracht** (22 september 2026,
+  `MainWindow.HoortBijZoekopdracht`): het telt niet mee in de teller "nieuw", het wordt niet
+  bewaard bij de resultaten en het geldt niet als gezien. Zo koos de eigenaar het, en zo deed
+  de planner het al (`SearchRunner.BinnenPrijs`). Het scherm deed het anders, en dat was te
+  zien: bij Zoekopdrachten stond "12 nieuw" terwijl de schakelaar erna "Enkel nieuwe (8)" zei,
+  en wat je nooit te zien kreeg, gold toch als bekeken - verruimde je later je prijs, dan was
+  het niet meer nieuw. In het geheugen blijft alles staan, dus een ruimere prijs toont nog
+  altijd meteen meer.
+
+  Dit speelt enkel bij sites die zelf niet op prijs filteren: AlleVeilingen, Facebook en
+  Kleinanzeigen. Bij de rest staat de grens in de zoek-URL en komt zo'n zoekertje niet binnen.
+
+  Nagemeten met het hoofdscherm buiten beeld, op een proefsite met prijzen van € 1 tot € 20 en
+  een grens van € 10: 20 gevonden, 10 in beeld, teller 10, bewaard 10, gezien 10, en met de
+  grens weg weer 20 in beeld zonder opnieuw te zoeken. Op de oude code: teller 20, bewaard 20,
+  gezien 20.
 - **Locatie, straal, provincie en het maximum** kan alleen de site zelf: die
   waarden zitten in de zoek-URL. Sluit je zo'n popup nadat je er iets aan
   gewijzigd hebt, dan start de app vanzelf een nieuwe zoekopdracht
@@ -2778,3 +2795,12 @@ Hieronder enkel wat aan de app zelf te doen valt.
      mee, geen postcode of mailprovider van de eigenaar in de bestanden. Gaat `zentrix-sites`
      ooit openbaar: eerst het nummer van de Marketplace-regio in `facebook.json` vervangen en
      `opdracht-sitefilters.md` (een interne notitie) nakijken.
+9. **De twee zoeklussen samenbrengen** (uit de beoordeling door ChatGPT van 20 september 2026).
+   `MainWindow.RunSearchAsync` en `SearchRunner.RunAsync` voeren allebei een volledige
+   zoekopdracht uit, en elke regel moet dus twee keer geschreven worden. Dat kostte in september
+   2026 al twee keer werk ("nieuw tot je kijkt", de nieuwe rem) en gaf minstens één echt verschil:
+   de prijsgrens, rechtgezet op 22 september (zie "Filters werken meteen op wat er al staat").
+   Het doel: `SearchRunner` wordt de enige die zoekt, het scherm toont enkel. Wat daarvoor eerst
+   nodig is: tussentijdse leveringen per site (`progress`) bij de planner, zoeken zonder bewaarde
+   zoekopdracht, en voortgang en fouten per site. Een verbouwing in kleine stappen, met bij elke
+   stap een proef met het hoofdscherm buiten beeld. Eerst de resterende verschillen op een rij.
