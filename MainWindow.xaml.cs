@@ -1625,6 +1625,53 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     }
 
     /// <summary>
+    /// De andere richting van <see cref="PasToe"/>: wat je op het scherm aan de sites en hun
+    /// filters wijzigde terwijl een bewaarde zoekopdracht openstond, gaat mee in die
+    /// zoekopdracht. Zo zoekt de planner straks met dezelfde waarden.
+    ///
+    /// Tot 22 september 2026 gebeurde dat niet, en dat gaf een stil verschil: zet je de prijs
+    /// of de postcode anders en laat je opnieuw zoeken, dan gebruikte die beurt de nieuwe
+    /// waarde - met de resultaten, de teller en het tijdstip onder die zoekopdracht - terwijl
+    /// de volgende geplande beurt nog met de oude waarden liep. Zo koos de eigenaar het; de
+    /// statusregel zegt wat er bewaard is, want stil bewaren is even verwarrend als stil
+    /// vergeten. Gevonden bij het vergelijken van de twee zoeklussen (zie Volgende stappen).
+    ///
+    /// Een site die in de zoekopdracht staat maar geen tab heeft - verwijderd of hernoemd -
+    /// blijft staan: de planner meldt die als fout, en dat mag niet stil verdwijnen.
+    /// </summary>
+    /// <returns>Wat er overgenomen werd, voor de statusregel; leeg als er niets veranderde.</returns>
+    private string NeemSchermfiltersOver(SavedSearch search)
+    {
+        static string Vorm(SiteSetting s) =>
+            $"{s.Enabled}|{s.PriceMin}|{s.PriceMax}|{s.Postcode}|{s.RadiusKm}|" +
+            string.Join(",", s.Custom.OrderBy(p => p.Key).Select(p => $"{p.Key}={p.Value}"));
+
+        var zonderTab = search.SiteSettings
+            .Where(s => !_tabs.Any(t => !t.IsAll && string.Equals(t.Name, s.Site, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        var nieuw = _tabs.Where(t => !t.IsAll).Select(SiteSetting.FromTab).Concat(zonderTab).ToList();
+
+        var sites = false;
+        var filters = false;
+
+        foreach (var s in nieuw)
+        {
+            var oud = search.For(s.Site);
+
+            if (oud is null) { sites = true; continue; }
+            if (oud.Enabled != s.Enabled) sites = true;
+            if (Vorm(oud) != Vorm(s) && oud.Enabled == s.Enabled) filters = true;
+        }
+
+        if (!sites && !filters && nieuw.Count == search.SiteSettings.Count) return "";
+
+        search.SiteSettings = nieuw;
+
+        return sites && filters ? "sites en filters" : sites ? "sites" : "filters";
+    }
+
+    /// <summary>
     /// Zet de vinkjes en filters van de tabs gelijk met een bewaarde zoekopdracht,
     /// zodat het zoekscherm toont waarmee die zoekopdracht werkt.
     /// </summary>
@@ -2402,6 +2449,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         // Het bewaren van de resultaten loopt op de achtergrond; in finally wordt erop gewacht.
         var bewaren = Task.CompletedTask;
 
+        // Wat er van het scherm in de bewaarde zoekopdracht overgenomen werd (zie
+        // NeemSchermfiltersOver); komt in de statusregel.
+        var overgenomen = "";
+
         try
         {
             // Bij een bewaarde zoekopdracht één keer ophalen wat we al gezien hebben, en
@@ -2576,7 +2627,15 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                 var fouten = _tabs.Where(t => !t.IsAll && t.HasError)
                                   .ToDictionary(t => t.Name, t => t.ErrorText);
                 _activeSearch.RecordRun(searching.Concat(brugOvergeslagen).Select(t => t.Name), fouten, tellingen);
+
+                // Wat je op het scherm aan de sites of hun filters wijzigde, hoort ook in de
+                // zoekopdracht: anders zoekt de planner straks met de oude waarden verder.
+                overgenomen = NeemSchermfiltersOver(_activeSearch);
+
                 _history.Update(_activeSearch);
+
+                if (overgenomen.Length > 0)
+                    Log.Write($"zoeken: de gewijzigde {overgenomen} zijn bewaard in '{_activeSearch.Name}'");
 
                 UpdateSchedulerHint();
             }
@@ -2598,6 +2657,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                     : $" {errors.Count} sites mislukten; zie het waarschuwingsteken op de tabs.";
 
             message += zonderTerm;
+
+            // Stil bewaren is even verwarrend als stil vergeten, dus het staat erbij.
+            if (overgenomen.Length > 0 && _activeSearch is not null)
+                message += $" De gewijzigde {overgenomen} zijn bewaard in '{_activeSearch.Name}'.";
 
             if (aangevuld)
                 Log.Write("zoeken: latere leveringen van de brug vulden ontbrekende gegevens aan");

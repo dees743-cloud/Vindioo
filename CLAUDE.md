@@ -1438,6 +1438,18 @@ hoeveel er wegvielen. In *Sites beheren* staat het veld als "Veilinghuizen overs
   een grens van € 10: 20 gevonden, 10 in beeld, teller 10, bewaard 10, gezien 10, en met de
   grens weg weer 20 in beeld zonder opnieuw te zoeken. Op de oude code: teller 20, bewaard 20,
   gezien 20.
+  **Wat je wijzigt terwijl een bewaarde zoekopdracht openstaat, gaat mee in die zoekopdracht**
+  (22 september 2026, `MainWindow.NeemSchermfiltersOver`), en de statusregel zegt het: "De
+  gewijzigde filters zijn bewaard in 'Cd speler'." Tot dan was dat een stil verschil tussen de
+  twee zoeklussen: je eigen beurt zocht met de nieuwe waarde - en bewaarde de resultaten, de
+  teller en het tijdstip onder die zoekopdracht - terwijl de volgende geplande beurt nog met de
+  oude waarden liep. Stil bewaren is even verwarrend als stil vergeten, vandaar die regel in de
+  statusregel; wie het ongedaan wil maken, gebruikt het tandwiel. Een site die in de zoekopdracht
+  staat maar geen tab heeft (verwijderd of hernoemd) blijft staan, anders verdwijnt de
+  waarschuwing van de planner. Nagemeten met het hoofdscherm buiten beeld: de grens van € 10 naar
+  € 5 gezet, opnieuw gezocht, en de zoekopdracht in de databank stond op € 5 met die regel erbij;
+  op de oude code bleef ze op € 10 staan.
+
 - **Locatie, straal, provincie en het maximum** kan alleen de site zelf: die
   waarden zitten in de zoek-URL. Sluit je zo'n popup nadat je er iets aan
   gewijzigd hebt, dan start de app vanzelf een nieuwe zoekopdracht
@@ -2803,4 +2815,27 @@ Hieronder enkel wat aan de app zelf te doen valt.
    Het doel: `SearchRunner` wordt de enige die zoekt, het scherm toont enkel. Wat daarvoor eerst
    nodig is: tussentijdse leveringen per site (`progress`) bij de planner, zoeken zonder bewaarde
    zoekopdracht, en voortgang en fouten per site. Een verbouwing in kleine stappen, met bij elke
-   stap een proef met het hoofdscherm buiten beeld. Eerst de resterende verschillen op een rij.
+   stap een proef met het hoofdscherm buiten beeld.
+
+   **De inventaris is gemaakt** (22 september 2026, door Codex, daarna punt per punt nagekeken in
+   de code). Bedoeld zoals het is, en dus geen werk: los zoeken zonder bewaarde zoekopdracht, een
+   onuitvoerbare beurt die toch een tijdstip krijgt, tussentijdse resultaten enkel op het scherm,
+   het wachten op het bewaren, meldingen enkel van de planner, en *Recent* enkel bij zelf zoeken.
+   Rechtgezet: de prijsgrens en de gewijzigde filters (zie "Filters werken meteen op wat er al
+   staat"). Nog open, klein maar echt:
+   - **Een verdwenen site** meldt de planner ("bestaat niet meer"); het scherm zwijgt erover,
+     want `PasToe` kent enkel sites die nog een tab hebben.
+   - **Al gezien bij een mislukte site**: levert een site eerst twintig zoekertjes en faalt ze
+     daarna, dan staan die twintig op het scherm al in `seen` (`MarkSeen` per levering), bij de
+     planner niet (`MarkSeen` op het einde). Ze blijven wel nieuw tot je de zoekopdracht opent,
+     maar ze komen niet meer in een melding.
+   - **Annuleren**: de schermlus geeft geen `CancellationToken` mee, dus een zoekopdracht die je
+     zelf startte, kan je niet stoppen.
+   - **De volgorde van het bewaren** verschilt (scherm: nieuwe bovenaan; planner: zoals gevonden).
+     Cosmetisch, want bij het openen wordt toch opnieuw gesorteerd.
+   - **`LastViewed`** wordt bij de planner op het einde opnieuw gelezen, bij het scherm niet.
+
+   Ook nuttig uit die ronde: **de afspeelknop van een zoekopdracht start de plannerlus**
+   (`_scheduler.RunAsync`), niet de schermlus. De schermlus loopt bij het vergrootglas, bij Enter,
+   bij het sluiten van een filterpopup, en bij het openen van een zoekopdracht zonder bewaarde
+   resultaten.
