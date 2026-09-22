@@ -166,7 +166,9 @@ Twee valkuilen die daarbij horen:
   `Autostart.RefreshPath` zet het bij elke start gelijk.
 
 **Wat niet op GitHub hoort** staat in `.gitignore`: `bin`, `obj`, `.vs`, de
-`.user`-bestanden en `.claude` (de adviseurs, met persoonlijke paden). De sites staan sowieso niet in het project maar in de gegevensmap.
+`.user`-bestanden en `.claude` (de adviseurs, met persoonlijke paden). Sinds 22 september 2026
+ook wat andere hulpmiddelen achterlieten: `.codex` (een kopie van die adviseurs), `AGENTS.md` (een
+kopie van dit bestand) en `chatgpt_tips.md`. De sites staan sowieso niet in het project maar in de gegevensmap.
 
 **De app komt zonder sites.** Die staan in een aparte repository, `zentrix-sites`: een
 algemene zoekmotor publiek delen is iets anders dan kant-en-klare bestanden die op
