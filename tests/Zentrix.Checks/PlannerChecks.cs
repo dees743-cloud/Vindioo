@@ -124,6 +124,46 @@ public static class PlannerChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("Elke site meldt zelf dat ze klaar is");
+        {
+            // De derde stap naar één zoeklus: het scherm zet per site de teller op haar tab, de
+            // tijd in de statusregel en de fout op het waarschuwingsteken, zodra die site klaar
+            // is. De runner gaf dat pas op het einde mee, in outcome.SiteErrors.
+            //
+            // "Dood" luistert nergens: dat mislukt meteen, in tegenstelling tot "Traag" hierboven,
+            // dat 30 seconden op een time-out wacht.
+            store.Add(new SiteDefinition
+            {
+                Name = "Dood",
+                BaseUrl = "http://127.0.0.1:1",
+                SearchUrlTemplate = "http://127.0.0.1:1/s?q={query}",
+                ItemSelector = "div.item",
+                TitleSelector = "a.t",
+                UrlSelector = "a.t@href"
+            });
+
+            var meldingen = new List<SiteKlaar>();
+
+            // "Weg" staat wel in de zoekopdracht, maar niet meer in Sites beheren.
+            var zoek = Zoekopdracht("cd", "Snel", "Dood", "Weg");
+            var uit = await runner.RunAsync(zoek, markSeen: false,
+                siteKlaar: m => { lock (meldingen) meldingen.Add(m); });
+
+            var gelukt = meldingen.SingleOrDefault(m => m.Site == "Snel");
+            var mislukt = meldingen.SingleOrDefault(m => m.Site == "Dood");
+            var weg = meldingen.SingleOrDefault(m => m.Site == "Weg");
+
+            Check.Dat(meldingen.Count == 3, $"drie sites, drie meldingen ({meldingen.Count})");
+            Check.Dat(gelukt is { Aantal: 5, Fout: null } && gelukt.Duur > TimeSpan.Zero,
+                $"de site die lukte: 5 zoekertjes, geen fout, {gelukt?.Duur.TotalMilliseconds:F0} ms");
+            Check.Dat(mislukt is { Aantal: 0 } && mislukt.Fout is { Length: > 0 } &&
+                      mislukt.Fout == uit.SiteErrors.GetValueOrDefault("Dood"),
+                $"de site die mislukte: dezelfde melding als in de uitkomst ('{mislukt?.Fout}')");
+            Check.Dat(weg?.Fout?.Contains("bestaat niet meer") == true,
+                $"een site die niet meer bestaat, komt ook langs ('{weg?.Fout}')");
+        }
+
+        // ---------------------------------------------------------------------------
         Check.Groep("Zoeken zonder bewaarde zoekopdracht");
         {
             // De tweede stap naar één zoeklus: het zoekscherm zoekt ook los, met enkel wat er op

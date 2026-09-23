@@ -121,13 +121,15 @@ public static class BrugChecks
                 Check.Dat(stil.Gesloten && stil.Duur < TimeSpan.FromSeconds(4),
                     $"een verbinding die zwijgt: na de wachttijd gesloten ({stil.Duur.TotalSeconds:F1} s)");
 
-                // Evenveel zwijgers als er plaatsen zijn: een volgende past er niet meer bij, en
-                // zodra hun wachttijd om is, wel weer.
+                // Meer zwijgers dan er plaatsen zijn: wat er niet meer bij past, sluit de brug
+                // meteen, en zo staan de plaatsen vol hoeveel er ook naast grijpen. Ruimer dan
+                // precies 32, want draait Chrome met de brug-extensie, dan neemt die er af en
+                // toe zelf een - en dan zou "precies 32" er 31 zijn.
                 BridgeServer.ReadTimeout = TimeSpan.FromSeconds(2);
                 var zwijgers = new List<TcpClient>();
                 try
                 {
-                    for (var i = 0; i < BridgeServer.MaxConnections; i++)
+                    for (var i = 0; i < BridgeServer.MaxConnections + 8; i++)
                     {
                         var zwijger = new TcpClient();
                         await zwijger.ConnectAsync("127.0.0.1", BridgeServer.Port);
@@ -137,7 +139,7 @@ public static class BrugChecks
                     await Task.Delay(300);
                     var teVeel = await RauwAsync($"GET /ping?token={brug.Token} HTTP/1.1\r\n\r\n");
                     Check.Dat(teVeel.Gesloten && teVeel.Antwoord.Length == 0,
-                        $"{BridgeServer.MaxConnections} verbindingen open: een volgende wordt meteen gesloten");
+                        $"de plaatsen vol ({BridgeServer.MaxConnections}): een volgende wordt meteen gesloten");
 
                     await Task.Delay(2500);
                     var weer = await RauwAsync($"GET /ping?token={brug.Token} HTTP/1.1\r\n\r\n");

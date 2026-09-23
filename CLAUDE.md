@@ -455,6 +455,20 @@ hoort. `SearchRunner` herkent dat aan `Id == 0` en houdt dan twee dingen apart:
 Nagemeten in `PlannerChecks`, met de tegenproef: op de oude code was alles nieuw, stonden er vijf
 klaar om te melden, en schreef een losse beurt wél in de databank.
 
+**Elke site meldt zelf dat ze klaar is** (23 september 2026, `SiteKlaar` en de parameter
+`siteKlaar`): haar naam, hoeveel ze gaf, hoelang ze deed en haar fout in gewone taal, of null
+wanneer het lukte. Daarmee kan het scherm de teller op haar tab, de tijd in de statusregel en het
+waarschuwingsteken meteen bijwerken, in plaats van te wachten tot de hele beurt klaar is; tot dan
+gaf de runner de fouten pas op het einde mee, in `outcome.SiteErrors`.
+
+Ook een site die helemaal niet gezocht heeft, komt langs: een brugsite die overgeslagen werd
+omdat de brug niet werkt, en een aangevinkte site die niet meer bestaat. Zonder dat zou het scherm
+die stil laten vallen, en daar gaan de vangnetten van 3c juist over.
+
+Nagemeten in `PlannerChecks` met drie sites tegelijk: een die lukt (5 zoekertjes, geen fout, een
+gemeten tijd), een die meteen mislukt ("is niet bereikbaar"), en een die niet meer in Sites beheren
+staat - die laatste met dezelfde melding als in de uitkomst.
+
 **De planner levert ook tussentijds, als iemand meekijkt** (23 september 2026, de parameter
 `tussentijds`). Vroeger gaf hij pas door wanneer een hele site klaar was: druk je op het
 driehoekje van een zoekopdracht terwijl het venster openstaat, dan bleef het scherm leeg tot de
@@ -2373,14 +2387,14 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel`, Zentrix dicht en Chrome dicht waren dat er 274 op 23 september 2026. Twee dingen op deze
+`--snel`, Zentrix dicht en Chrome dicht waren dat er 278 op 23 september 2026. Twee dingen op deze
 pc laten controles wegvallen, en allebei zeggen ze dat ook:
 
 - **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (22).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
   Het controleproject heeft een eigen gegevensmap en dus een andere code, dus voor zijn brug is
   dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
-  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (272 in plaats van 274).
+  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (276 in plaats van 278).
 
 Drie regels waar het aan vastzit:
 
@@ -2895,9 +2909,17 @@ Hieronder enkel wat aan de app zelf te doen valt.
      zonder `Id` draait gewoon, schrijft niets weg en markeert niets als nieuw (zie "Een
      zoekopdracht zonder `Id`" bij Automatisch zoeken). Het scherm hoeft er dus enkel nog een
      tijdelijke `SavedSearch` uit zijn tabs voor te maken, zoals "Huidige vastzetten" er een maakt.
-   - **Voortgang en fouten per site.** Het scherm zet nu per site de teller op de tab, de tijd in
-     de statusregel en de fout op het waarschuwingsteken, zodra die site klaar is. De runner geeft
-     fouten pas op het einde mee (`outcome.SiteErrors`), dus daar is een melding per site nodig.
+   - ~~Voortgang en fouten per site.~~ Gedaan op 23 september 2026, zie "Elke site meldt zelf dat
+     ze klaar is" bij Automatisch zoeken.
+
+   **De drie voorwaarden zijn klaar; nu de verhuizing zelf.** `MainWindow.RunSearchAsync` bouwt
+   een tijdelijke `SavedSearch` uit zijn tabs (of neemt `_activeSearch`) en roept
+   `SearchRunner.RunAsync` aan met `delivered`, `tussentijds: true` en `siteKlaar`; wat overblijft
+   in het scherm is tonen: `AddBatch`, de tabs, de statusregel, *Recent*, de favorieten en het
+   bewaren. Let bij die stap op de vier kleine verschillen hieronder, en op wat het scherm nu extra
+   doet: de prijsgrens die bij de zoekopdracht hoort (`HoortBijZoekopdracht`), het overnemen van
+   gewijzigde filters (`NeemSchermfiltersOver`) en het slot dat pas opengaat als het bewaren klaar
+   is. Doe het met het hoofdscherm buiten beeld erbij, zoals bij de prijsgrens.
 
    **De inventaris is gemaakt** (22 september 2026, door Codex, daarna punt per punt nagekeken in
    de code). Bedoeld zoals het is, en dus geen werk: los zoeken zonder bewaarde zoekopdracht, een

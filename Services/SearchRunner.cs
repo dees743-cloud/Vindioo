@@ -44,6 +44,21 @@ public class SearchOutcome
 }
 
 /// <summary>
+/// Eén site is klaar (23 september 2026, de derde stap naar één zoeklus). Het scherm zet daarmee
+/// de teller op haar tab, de tijd in de statusregel en een eventuele fout op het
+/// waarschuwingsteken - en dat meteen, niet pas wanneer de hele beurt klaar is.
+///
+/// Ook een site die helemaal niet gezocht heeft, komt hier langs: een brugsite die overgeslagen
+/// werd omdat de brug niet werkt, en een aangevinkte site die niet meer bestaat. Zonder dat zou
+/// het scherm die stil laten vallen, en dat is precies waar de vangnetten van 3c over gaan.
+/// </summary>
+/// <param name="Site">De naam van de site, zoals ze op haar tab staat.</param>
+/// <param name="Aantal">Hoeveel zoekertjes ze gaf; 0 bij een fout.</param>
+/// <param name="Duur">Hoelang die site erover deed.</param>
+/// <param name="Fout">De melding in gewone taal, of null wanneer het lukte.</param>
+public record SiteKlaar(string Site, int Aantal, TimeSpan Duur, string? Fout);
+
+/// <summary>
 /// Voert een <see cref="SavedSearch"/> uit zonder ook maar iets van het scherm
 /// nodig te hebben. Dat is de kern van het automatisch zoeken: dezelfde code
 /// draait of je nu op het vergrootglas klikt of de app in het systeemvak staat.
@@ -170,10 +185,17 @@ public class SearchRunner
     /// versies, en dat scheelde in september 2026 111 van de 159 miljoen gekopieerde tekens.
     /// De planner weet het van het scherm, via <see cref="SearchScheduler.WordtGetoond"/>.
     /// </param>
+    /// <param name="siteKlaar">
+    /// Krijgt per site te horen dat ze klaar is, met haar aantal, haar tijd en haar fout (zie
+    /// <see cref="SiteKlaar"/>). Zo kan het scherm de tab meteen bijwerken in plaats van te
+    /// wachten tot de hele beurt klaar is. Wordt, net als <paramref name="delivered"/>,
+    /// aangeroepen op de draad waarop deze methode loopt.
+    /// </param>
     public async Task<SearchOutcome> RunAsync(SavedSearch search, bool markSeen = true,
                                               IProgress<string>? status = null,
                                               Action<IReadOnlyList<Listing>>? delivered = null,
                                               bool tussentijds = false,
+                                              Action<SiteKlaar>? siteKlaar = null,
                                               CancellationToken ct = default)
     {
         var outcome = new SearchOutcome();
@@ -207,6 +229,9 @@ public class SearchRunner
         {
             outcome.SiteErrors[site] = verdwenenMelding;
             outcome.Errors.Add($"{site}: {verdwenenMelding}");
+
+            // Ze heeft geen tab meer, maar wie meekijkt mag weten dat ze eruit ligt.
+            siteKlaar?.Invoke(new SiteKlaar(site, 0, TimeSpan.Zero, verdwenenMelding));
         }
 
         if (werk.Count == 0)
@@ -265,6 +290,9 @@ public class SearchRunner
                     {
                         Fout(setting.Site, reden);
                         Log.Write($"planner: {setting.Site} {reden}");
+
+                        // Ook een site die niet eens gezocht heeft, hoort op het scherm te komen.
+                        siteKlaar?.Invoke(new SiteKlaar(setting.Site, 0, TimeSpan.Zero, reden));
                     }
                 }
             }
@@ -334,10 +362,12 @@ public class SearchRunner
                     delivered(vers);
                 }
 
+                // Buiten de try: ook een mislukte site heeft een tijd, en die hoort op het scherm.
+                var start = DateTime.Now;
+
                 try
                 {
                     var bron = SourceFactory.Create(def);
-                    var start = DateTime.Now;
 
                     // Enkel wanneer iemand meekijkt: zonder melder vraagt de app de brug ook
                     // geen tussentijdse versies (zie de parameter tussentijds).
@@ -350,7 +380,9 @@ public class SearchRunner
 
                     lock (outcome) outcome.SiteCounts[setting.Site] = resultaten.Count;
 
-                    if (search.VerdachtLeeg(setting.Site, resultaten.Count) is { } verdacht)
+                    var verdacht = search.VerdachtLeeg(setting.Site, resultaten.Count);
+
+                    if (verdacht is not null)
                     {
                         Fout(setting.Site, verdacht);
                         Log.Write($"planner: {setting.Site} {verdacht}");
@@ -360,6 +392,8 @@ public class SearchRunner
 
                     Log.Write($"planner: {setting.Site} gaf {resultaten.Count} resultaten " +
                               $"in {(DateTime.Now - start).TotalSeconds:F1}s");
+
+                    siteKlaar?.Invoke(new SiteKlaar(setting.Site, resultaten.Count, DateTime.Now - start, verdacht));
                 }
                 // Enkel doorgooien als de zoekopdracht zelf gestopt wordt. Een time-out van
                 // HttpClient is óók een OperationCanceledException, en die gooide vroeger de hele
@@ -371,8 +405,12 @@ public class SearchRunner
                 }
                 catch (Exception ex)
                 {
-                    Fout(setting.Site, FriendlyError.Describe(ex));
+                    var melding = FriendlyError.Describe(ex);
+
+                    Fout(setting.Site, melding);
                     Log.Write($"planner: {setting.Site} mislukte - {ex.Message}");
+
+                    siteKlaar?.Invoke(new SiteKlaar(setting.Site, 0, DateTime.Now - start, melding));
                 }
             });
 
