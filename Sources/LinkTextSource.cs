@@ -81,8 +81,18 @@ public class LinkTextSource : ISearchSource
         var document = new HtmlParser().ParseDocument(html);
         var seen = new HashSet<string>();
 
+        // Waarom een kaart wegvalt, hoort in het logboek: op 23 september 2026 telde het
+        // scrollen bij Facebook 126 kaarten en hield de motor er 98 over, en dan wil je
+        // weten of dat dubbels zijn of iets dat we verkeerd lezen.
+        var kaarten = 0;
+        var geenLink = 0;
+        var dubbel = 0;
+        var zonderTitel = 0;
+
         foreach (var link in document.QuerySelectorAll(_def.ItemSelector))
         {
+            kaarten++;
+
             var href = link.GetAttribute("href") ?? "";
 
             string id;
@@ -93,16 +103,25 @@ public class LinkTextSource : ISearchSource
             else
             {
                 var match = _idPattern.Match(href);
-                if (!match.Success) continue;
+                if (!match.Success) { geenLink++; continue; }
                 id = match.Groups[1].Value;
             }
 
-            if (id.Length == 0 || !seen.Add(id)) continue;   // elk zoekertje maar één keer
+            if (id.Length == 0) { geenLink++; continue; }
+            if (!seen.Add(id)) { dubbel++; continue; }   // elk zoekertje maar één keer
 
             var listing = ReadListing(link, id, href);
-            if (listing is not null) results.Add(listing);
+
+            if (listing is null) zonderTitel++;
+            else results.Add(listing);
 
             if (results.Count >= maxResults) break;
+        }
+
+        if (kaarten > results.Count)
+        {
+            Log.Write($"{Name}: {kaarten} kaarten -> {results.Count} zoekertjes " +
+                      $"({dubbel} dubbel, {zonderTitel} zonder titel, {geenLink} geen zoekertje)");
         }
 
         return results;

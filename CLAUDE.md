@@ -1501,6 +1501,22 @@ Er zijn geen ingebouwde bronnen meer — **elke site is een bestand**. Het veld
   een ronde bracht niets meer, dus dat is wat Facebook daar heeft. Geen controlevraag van Facebook.
   De beurt erna meldde 106 nieuwe: alles voorbij die eerste 25 had de zoekopdracht nooit gezien.
 
+  **Waarom niet elke kaart een zoekertje wordt**, zegt het logboek sinds 23 september 2026
+  (`LinkTextSource.ReadPage`), want anders weet je enkel dat het scrollen 126 kaarten telde en de
+  motor er 98 overhield:
+
+  ```
+  Facebook Marketplace: 32 kaarten -> 30 zoekertjes (0 dubbel, 2 zonder titel, 0 geen zoekertje)
+  ```
+
+  Drie redenen: hetzelfde zoekertje staat twee keer op de pagina, de kaart heeft geen titel, of de
+  link is geen zoekertje (bijvoorbeeld "Iets te koop aanbieden"). Nagemeten op een bewaarde pagina
+  van 15 september: 32 kaarten, 30 zoekertjes, en die twee hebben **echt geen titel** - ook het
+  `alt` van de foto (`" in Hemiksem, VLG"`) en het `aria-label` (`", € 80, Hemiksem, VLG, …"`)
+  beginnen leeg. De verkoper vulde er geen in. **Zo'n kaart valt weg**, ook al heeft ze een foto,
+  een prijs en een plaats; zo koos de eigenaar het op 23 september 2026. Wat de 28 van die 126
+  waren, zegt de eerstvolgende beurt met de nieuwe regel.
+
   Tot september 2026 heette dit de Facebook-motor (`FacebookSource.cs`), met al die
   waarden in de code. Na de keuzelijsten van AlleVeilingen was dat de laatste plek waar
   de app een site bij naam kende. Het nummer is gebleven, dus `"Engine": 1` blijft
@@ -2758,9 +2774,11 @@ Wat er per site nog ontbreekt, staat bij "Nog open" in `SITES.md` van `zentrix-s
 Hieronder enkel wat aan de app zelf te doen valt.
 
 1. ~~Het scrollen bij Facebook live nameten.~~ Gedaan op 23 september 2026: 126 zoekertjes na 7
-   keer scrollen, 98 resultaten in 18,0 s, zonder controlevraag (zie de linkmotor). Wat er nog
-   openstaat: de linkmotor haalt van die 126 kaarten er 98 uit, dus 28 vallen weg - nakijken of
-   dat kaarten zonder titel zijn, zoals bij "fiets", of iets anders.
+   keer scrollen, 98 resultaten in 18,0 s, zonder controlevraag (zie de linkmotor). Waarom er van
+   die 126 kaarten 28 wegvielen, zegt de eerstvolgende beurt: het logboek splitst het sinds
+   dezelfde dag uit in dubbels, kaarten zonder titel en links die geen zoekertje zijn. Zijn het
+   vooral dubbels, dan is er niets aan de hand; zijn het kaarten zonder titel, dan is de vraag of
+   die niet beter mét hun foto en prijs getoond worden.
 2. Grote foto's op aanvraag. Bij sommige sites geeft de zoekpagina enkel kleine,
    bijgesneden foto's en staat de grote pas op de pagina van het zoekertje. Die
    ophalen kost een volledige browsersessie (5–10 s), dus niet tijdens het

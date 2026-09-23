@@ -43,6 +43,7 @@ public static class SitesChecks
                 <a href="/marketplace/item/5/"><span>€&nbsp;25</span><span>Krachtige PC | 32</span><span>GB SSD</span><span>Roeselare, VLG</span></a>
                 <a href="/marketplace/item/6/">€ 175Commodore 64Aalter</a>
                 <a href="/marketplace/item/1/?ref=anders"><span>€ 50</span><span>Meisjes fiets 26</span><span>Kortrijk, VLG</span></a>
+                <a href="/marketplace/item/create/"><span>Iets te koop aanbieden</span></a>
                 </body></html>
                 """;
 
@@ -62,6 +63,12 @@ public static class SitesChecks
                 "alles in één tekststuk: de oude manier werkt nog");
             Check.Dat(lijst.Count(l => l.ExternalId == "1") == 1 && een!.Url == "https://www.facebook.com/marketplace/item/1/",
                 "hetzelfde zoekertje twee keer: één keer, met een nette link");
+
+            // Het logboek zegt waarom kaarten wegvallen. Zonder die regel weet je bij Facebook
+            // enkel dat het scrollen 126 kaarten telde en de motor er 98 overhield.
+            var regel = System.IO.File.ReadLines(Log.FilePath).LastOrDefault(r => r.Contains("kaarten ->")) ?? "(geen regel)";
+            Check.Dat(regel.EndsWith("Facebook Marketplace: 8 kaarten -> 5 zoekertjes (1 dubbel, 1 zonder titel, 1 geen zoekertje)"),
+                $"het logboek splitst uit wat er wegviel ({regel})");
         }
 
         // ---------------------------------------------------------------------------
