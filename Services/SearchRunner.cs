@@ -63,11 +63,16 @@ public record SiteKlaar(string Site, int Aantal, TimeSpan Duur, string? Fout);
 /// nodig te hebben. Dat is de kern van het automatisch zoeken: dezelfde code
 /// draait of je nu op het vergrootglas klikt of de app in het systeemvak staat.
 ///
-/// Het hoofdscherm houdt zijn eigen lus, want dat wil resultaten tonen zodra ze
-/// binnenkomen. Wat ze delen is <see cref="Gate"/> - twee zoekopdrachten tegelijk
-/// gaat niet goed: de brug heeft één wachtrij, en twee Playwright-sessies op
-/// hetzelfde browserprofiel botsen - en <see cref="RunInLanesAsync"/>, dat bepaalt
-/// welke sites tegelijk mogen.
+/// Sinds 23 september 2026 is dit de enige plaats waar gezocht wordt. Het hoofdscherm had zijn
+/// eigen lus, want het wil resultaten tonen zodra ze binnenkomen, maar dan moest elke regel twee
+/// keer geschreven worden - en dat gaf stille verschillen tussen zelf zoeken en een geplande
+/// beurt. Wat het scherm nodig had om mee te kunnen, staat in de parameters:
+/// <c>delivered</c> met <c>tussentijds</c>, <c>siteKlaar</c>, <c>slotGenomen</c> en
+/// <c>logNaam</c>.
+///
+/// <see cref="Gate"/> laat er maar één tegelijk zoeken: de brug heeft één wachtrij, en twee
+/// Playwright-sessies op hetzelfde browserprofiel botsen. <see cref="RunInLanesAsync"/> bepaalt
+/// welke sites binnen één beurt tegelijk mogen.
 /// </summary>
 public class SearchRunner
 {
@@ -150,11 +155,11 @@ public class SearchRunner
     /// de statusregel en het logboek.
     /// </summary>
     private SearchOutcome NietUitgevoerd(SavedSearch search, bool markSeen, SearchOutcome outcome, string reden,
-                                         IReadOnlyList<string>? verdwenen = null)
+                                         string logNaam, IReadOnlyList<string>? verdwenen = null)
     {
         outcome.NotRunReason = reden;
         outcome.Errors.Add(reden);
-        Log.Write($"planner: '{search.Name}' niet uitgevoerd - {reden}");
+        Log.Write($"{logNaam}: '{search.Name}' niet uitgevoerd - {reden}");
 
         // Bij "Nu uitvoeren" in het venster van de zoekopdracht (markSeen uit) is het een
         // proefbeurt, en die verzet het schema niet. Een zoekopdracht zonder Id is niet
@@ -191,11 +196,24 @@ public class SearchRunner
     /// wachten tot de hele beurt klaar is. Wordt, net als <paramref name="delivered"/>,
     /// aangeroepen op de draad waarop deze methode loopt.
     /// </param>
+    /// <param name="slotGenomen">
+    /// De aanroeper heeft <see cref="Gate"/> al genomen en geeft het zelf weer vrij. Dat doet het
+    /// hoofdscherm: het wil de statusregel al op "wachten tot de zoekopdracht op de achtergrond
+    /// klaar is" kunnen zetten, en het houdt het slot vast tot de resultaten bewaard zijn, zodat
+    /// de volgende zoekopdracht nooit tegelijk in de databank schrijft.
+    /// </param>
+    /// <param name="logNaam">
+    /// Waarmee de regels in het logboek beginnen: "planner" voor een geplande beurt, "zoeken"
+    /// wanneer je zelf op het vergrootglas klikt. Dezelfde code, maar in het logboek wil je kunnen
+    /// zien wie er aan het werk was.
+    /// </param>
     public async Task<SearchOutcome> RunAsync(SavedSearch search, bool markSeen = true,
                                               IProgress<string>? status = null,
                                               Action<IReadOnlyList<Listing>>? delivered = null,
                                               bool tussentijds = false,
                                               Action<SiteKlaar>? siteKlaar = null,
+                                              bool slotGenomen = false,
+                                              string logNaam = "planner",
                                               CancellationToken ct = default)
     {
         var outcome = new SearchOutcome();
@@ -237,7 +255,7 @@ public class SearchRunner
         if (werk.Count == 0)
             return NietUitgevoerd(search, markSeen, outcome, verdwenen.Count > 0
                 ? $"de aangevinkte site{(verdwenen.Count > 1 ? "s bestaan" : " bestaat")} niet meer: {string.Join(", ", verdwenen)}"
-                : "geen site aangevinkt", verdwenen);
+                : "geen site aangevinkt", logNaam, verdwenen);
 
         // Zonder zoekterm blijven enkel de sites over die op filters alleen kunnen
         // zoeken (AutoScout24). Dezelfde regel als in het hoofdscherm, want een
@@ -249,10 +267,10 @@ public class SearchRunner
 
             if (werk.Count == 0)
                 return NietUitgevoerd(search, markSeen, outcome,
-                    "geen zoekterm, en geen enkele aangevinkte site kan zoeken op filters alleen");
+                    "geen zoekterm, en geen enkele aangevinkte site kan zoeken op filters alleen", logNaam);
 
             if (overgeslagen.Count > 0)
-                Log.Write($"planner: geen zoekterm, overgeslagen: {string.Join(", ", overgeslagen)}");
+                Log.Write($"{logNaam}: geen zoekterm, overgeslagen: {string.Join(", ", overgeslagen)}");
         }
 
         // Een fout bij een site. De rijstroken lopen tegelijk, dus onder een slot.
@@ -265,14 +283,14 @@ public class SearchRunner
             }
         }
 
-        await Gate.WaitAsync(ct);
+        if (!slotGenomen) await Gate.WaitAsync(ct);
 
         // Alle browsersites van deze beurt delen één Chrome.
         using var browserLease = BrowserPool.Lease();
 
         try
         {
-            Log.Write($"planner: '{search.Name}' gestart op {werk.Count} site(s)");
+            Log.Write($"{logNaam}: '{search.Name}' gestart op {werk.Count} site(s)");
 
             // Sites via de brug hebben een draaiende Chrome nodig. Werkt de brug niet,
             // dan slaan we die sites meteen over: anders wacht elke brugsite nog
@@ -280,7 +298,10 @@ public class SearchRunner
             if (werk.Any(p => p.Def.UseBridge))
             {
                 status?.Report("Chrome klaarzetten voor de brug...");
-                outcome.Bridge = await ChromeLauncher.EnsureBridgeAsync(TimeSpan.FromSeconds(30));
+
+                // De meldingen onderweg gaan mee naar de statusregel: dit kan dertig seconden
+                // duren, en dan hoort er te staan waarop gewacht wordt.
+                outcome.Bridge = await ChromeLauncher.EnsureBridgeAsync(TimeSpan.FromSeconds(30), status);
 
                 if (outcome.Bridge != BridgeStatus.Ready)
                 {
@@ -289,7 +310,7 @@ public class SearchRunner
                     foreach (var (setting, _) in werk.Where(p => p.Def.UseBridge))
                     {
                         Fout(setting.Site, reden);
-                        Log.Write($"planner: {setting.Site} {reden}");
+                        Log.Write($"{logNaam}: {setting.Site} {reden}");
 
                         // Ook een site die niet eens gezocht heeft, hoort op het scherm te komen.
                         siteKlaar?.Invoke(new SiteKlaar(setting.Site, 0, TimeSpan.Zero, reden));
@@ -385,12 +406,12 @@ public class SearchRunner
                     if (verdacht is not null)
                     {
                         Fout(setting.Site, verdacht);
-                        Log.Write($"planner: {setting.Site} {verdacht}");
+                        Log.Write($"{logNaam}: {setting.Site} {verdacht}");
                     }
 
                     Lever(resultaten);
 
-                    Log.Write($"planner: {setting.Site} gaf {resultaten.Count} resultaten " +
+                    Log.Write($"{logNaam}: {setting.Site} gaf {resultaten.Count} resultaten " +
                               $"in {(DateTime.Now - start).TotalSeconds:F1}s");
 
                     siteKlaar?.Invoke(new SiteKlaar(setting.Site, resultaten.Count, DateTime.Now - start, verdacht));
@@ -408,7 +429,7 @@ public class SearchRunner
                     var melding = FriendlyError.Describe(ex);
 
                     Fout(setting.Site, melding);
-                    Log.Write($"planner: {setting.Site} mislukte - {ex.Message}");
+                    Log.Write($"{logNaam}: {setting.Site} mislukte - {ex.Message}");
 
                     siteKlaar?.Invoke(new SiteKlaar(setting.Site, 0, DateTime.Now - start, melding));
                 }
@@ -468,7 +489,7 @@ public class SearchRunner
                 _history.Update(search);
             }
 
-            Log.Write($"planner: '{search.Name}' klaar — {outcome.All.Count} resultaten, " +
+            Log.Write($"{logNaam}: '{search.Name}' klaar — {outcome.All.Count} resultaten, " +
                       $"{outcome.New.Count} nieuw, {outcome.All.Count(l => l.IsNew)} nog niet bekeken, " +
                       $"{outcome.SiteErrors.Count} site(s) mislukt");
 
@@ -476,7 +497,9 @@ public class SearchRunner
         }
         finally
         {
-            Gate.Release();
+            // Wie het slot zelf nam, geeft het zelf weer vrij - het hoofdscherm houdt het vast
+            // tot de resultaten bewaard zijn.
+            if (!slotGenomen) Gate.Release();
         }
     }
 

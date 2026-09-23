@@ -76,8 +76,8 @@ Services/
   BridgeServer.cs    lokale server waarmee de browserextensie praat
   ChromeLauncher.cs  vindt en start Chrome wanneer de brug hem nodig heeft, en zegt
                      waarom de brug niet werkt (BridgeStatus)
-  SearchRunner.cs    voert een zoekopdracht uit zónder scherm — de kern van het
-                     automatisch zoeken — en bepaalt welke sites tegelijk mogen
+  SearchRunner.cs    voert élke zoekopdracht uit, met of zonder scherm — de enige
+                     zoeklus — en bepaalt welke sites tegelijk mogen
   SearchScheduler.cs kijkt elke halve minuut wie aan de beurt is
   Notifier.cs        melding via het systeemvak, Telegram of e-mail
   TrayIcon.cs        het pictogram naast de klok (het enige stuk WinForms)
@@ -439,8 +439,14 @@ plus één gedeelde prijs — worden bij het inlezen omgezet
 
 **2. Zoeken zonder scherm.** `SearchRunner` voert een `SavedSearch` uit en geeft
 een `SearchOutcome` terug: alles wat gevonden is, wat daarvan nieuw is, en welke
-sites faalden. Het hoofdscherm houdt voorlopig zijn eigen lus; die twee samenbrengen
-is punt 9 bij Volgende stappen.
+sites faalden.
+
+**En sinds 23 september 2026 is het de enige zoeklus.** Het hoofdscherm had er een eigen, en dan
+moest elke regel twee keer geschreven worden: dat kostte in september 2026 al twee keer werk
+("nieuw tot je kijkt", de nieuwe rem op het aantal) en gaf stille verschillen tussen zelf zoeken
+en een geplande beurt - de prijsgrens, en filters die je wijzigde en die de planner niet kende.
+`MainWindow.RunSearchAsync` zet nu enkel klaar waarmee gezocht wordt en roept de runner aan; wat
+overblijft in het scherm is tonen. Zie "Het scherm zoekt niet meer zelf" hieronder.
 
 **Een zoekopdracht zonder `Id` is niet bewaard** (23 september 2026). Zo zoekt het zoekscherm
 los: iemand typt een woord en klikt op het vergrootglas, zonder dat daar een zoekopdracht bij
@@ -488,6 +494,51 @@ pagina nog laadt - hetzelfde gevoel als zelf zoeken. Drie dingen die daarbij hor
 Nagemeten in `PlannerChecks` met een proefsite van drie pagina's: met een toeschouwer 3
 leveringen (30+30+10), zonder 1, in beide gevallen samen precies de 70 uit de uitkomst en geen
 enkel zoekertje twee keer.
+
+### Het scherm zoekt niet meer zelf
+
+**De verhuizing zelf** (23 september 2026, punt 9 van Volgende stappen). `MainWindow.RunSearchAsync`
+bouwt nu een `SavedSearch` - de geopende bewaarde, of een tijdelijke zonder `Id` uit de aangevinkte
+tabs - en roept daarmee `SearchRunner.RunAsync` aan. Wat overblijft in het scherm is tonen: de
+lijst, de tabs, de statusregel, *Recent* en het bewaren van de uitkomst. De teller, het tijdstip,
+"al gezien", wat er per site misliep en het wegschrijven van de zoekopdracht doet de runner, precies
+zoals bij een geplande beurt.
+
+Wat het scherm daarvoor nodig had, staat in vier parameters van `RunAsync`:
+
+| Parameter | Waarvoor |
+|---|---|
+| `delivered` + `tussentijds` | elke pagina meteen tonen, in plaats van pas als een site klaar is |
+| `siteKlaar` | de tijd in de statusregel en de fout op het waarschuwingsteken van die tab |
+| `slotGenomen` | het scherm neemt `Gate` zelf, en houdt het vast tot de resultaten bewaard zijn |
+| `logNaam` | "zoeken" in het logboek voor je eigen beurt, "planner" voor een geplande |
+
+Drie dingen die daarbij hoorden:
+
+- **De filters van het scherm gaan vooraf in de zoekopdracht** (`NeemSchermfiltersOver`), niet
+  achteraf. Anders zou de runner met de oude prijsgrens tellen en bewaren, en de statusregel met
+  de nieuwe.
+- **Het scherm houdt zijn drie controles vooraf**: geen site aangevinkt, en een lege zoekterm die
+  nergens kan. Die zeggen wat je eraan doet ("Kies eerst welke sites meezoeken"), en een
+  zoekopdracht die bij de runner niet kan draaien krijgt wél een tijdstip - dat verzet de volgende
+  geplande beurt terwijl er met de zoekopdracht zelf niets mis is.
+- **`slotGenomen` moet ook het vrijgeven overslaan**, niet enkel het nemen. Het scherm gaf het
+  daarna nog eens vrij, en een semafoor van één gooit dan `SemaphoreFullException` - de hele
+  zoekopdracht viel om. Gevonden door de controle die erbij hoort, niet door de app te draaien.
+
+**Nagemeten met het hoofdscherm buiten beeld**, op een lokale proefsite met prijzen van € 1 tot
+€ 20: zoeken zonder bewaarde zoekopdracht (20 gevonden, niets nieuw, niets in de databank), met een
+bewaarde zoekopdracht en een grens van € 10 (20 in het geheugen, 10 in beeld, teller 10, bewaard 10,
+gezien 10), een prijsgrens die je wijzigt en die in de zoekopdracht belandt, een site die niet
+bereikbaar is (waarschuwingsteken op háár tab, "1 site mislukte" in de statusregel), en een
+aangevinkte site die niet meer bestaat. Met de tegenproef op de vorige versie: die zweeg over de
+verdwenen site en liep niet door de runner.
+
+**Wat er intussen is rechtgezet**, van de vier kleine verschillen die de inventaris van 22 september
+overhield: een verdwenen site komt nu ook op het scherm (in de statusregel, want ze heeft geen tab),
+"al gezien" wordt pas op het einde geschreven - dus een site die eerst twintig zoekertjes gaf en
+daarna faalde, laat die niet meer als gezien achter - en `LastViewed` wordt op het einde opnieuw
+gelezen. Nog open: **annuleren** (de schermlus geeft nog geen `CancellationToken` mee).
 
 Wat ze wél delen is `SearchRunner.Gate`, een semafoor van één. Twee
 zoekopdrachten tegelijk gaat niet: de brug heeft één wachtrij, en twee
@@ -1478,13 +1529,17 @@ hoeveel er wegvielen. In *Sites beheren* staat het veld als "Veilinghuizen overs
   buiten de grens viel gewoon weg.
 
   **Maar buiten je prijsgrens bestaat niet voor de zoekopdracht** (22 september 2026,
-  `MainWindow.HoortBijZoekopdracht`): het telt niet mee in de teller "nieuw", het wordt niet
+  `SearchRunner.BinnenPrijs`): het telt niet mee in de teller "nieuw", het wordt niet
   bewaard bij de resultaten en het geldt niet als gezien. Zo koos de eigenaar het, en zo deed
-  de planner het al (`SearchRunner.BinnenPrijs`). Het scherm deed het anders, en dat was te
+  de planner het al. Het scherm deed het anders, en dat was te
   zien: bij Zoekopdrachten stond "12 nieuw" terwijl de schakelaar erna "Enkel nieuwe (8)" zei,
   en wat je nooit te zien kreeg, gold toch als bekeken - verruimde je later je prijs, dan was
   het niet meer nieuw. In het geheugen blijft alles staan, dus een ruimere prijs toont nog
   altijd meteen meer.
+
+  Sinds de twee zoeklussen samengebracht zijn, is er nog één regel: die van de runner. Wat het
+  scherm erover weet, is enkel welke zoekertjes het mag tónen
+  (`MainWindow.HoortBijZoekopdracht`, gebruikt door `HoortInHuidigeTab`).
 
   Dit speelt enkel bij sites die zelf niet op prijs filteren: AlleVeilingen, Facebook en
   Kleinanzeigen. Bij de rest staat de grens in de zoek-URL en komt zo'n zoekertje niet binnen.
@@ -2352,8 +2407,13 @@ De app schrijft een logboek naar `%APPDATA%\Zentrix\zentrix-log.txt`
 (`Services/Log.cs`): per zoekopdracht welke bron start, de opdrachten van de
 brug, elke tussentijdse levering met grootte, hoeveel resultaten daaruit
 gelezen zijn, en de tijd per bron. Dat is de snelste weg naar de oorzaak bij
-"traag" of "geen resultaten". De planner schrijft daar ook in: welke zoekopdracht
+"traag" of "geen resultaten". Elke beurt schrijft daar ook in: welke zoekopdracht
 start, wat elke site opleverde en hoeveel er nieuw was.
+
+**Wie er aan het werk was, staat vooraan de regel**: `zoeken:` wanneer je zelf op het
+vergrootglas klikt, `planner:` bij een geplande beurt. Het is dezelfde code (`SearchRunner`,
+zie "Het scherm zoekt niet meer zelf"), dus zonder dat onderscheid is in het logboek niet meer
+te zien wie er zocht.
 
 `App.OnStartup` hangt zich aan `DispatcherUnhandledException`,
 `AppDomain.UnhandledException` en `TaskScheduler.UnobservedTaskException`, en
@@ -2387,14 +2447,14 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel`, Zentrix dicht en Chrome dicht waren dat er 278 op 23 september 2026. Twee dingen op deze
+`--snel`, Zentrix dicht en Chrome dicht waren dat er 282 op 23 september 2026. Twee dingen op deze
 pc laten controles wegvallen, en allebei zeggen ze dat ook:
 
 - **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (22).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
   Het controleproject heeft een eigen gegevensmap en dus een andere code, dus voor zijn brug is
   dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
-  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (276 in plaats van 278).
+  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (280 in plaats van 282).
 
 Drie regels waar het aan vastzit:
 
@@ -2894,52 +2954,29 @@ Hieronder enkel wat aan de app zelf te doen valt.
      mee, geen postcode of mailprovider van de eigenaar in de bestanden. Gaat `zentrix-sites`
      ooit openbaar: eerst het nummer van de Marketplace-regio in `facebook.json` vervangen en
      `opdracht-sitefilters.md` (een interne notitie) nakijken.
-9. **De twee zoeklussen samenbrengen** (uit de beoordeling door ChatGPT van 20 september 2026).
-   `MainWindow.RunSearchAsync` en `SearchRunner.RunAsync` voeren allebei een volledige
-   zoekopdracht uit, en elke regel moet dus twee keer geschreven worden. Dat kostte in september
-   2026 al twee keer werk ("nieuw tot je kijkt", de nieuwe rem) en gaf minstens één echt verschil:
-   de prijsgrens, rechtgezet op 22 september (zie "Filters werken meteen op wat er al staat").
-   Het doel: `SearchRunner` wordt de enige die zoekt, het scherm toont enkel. Een verbouwing in
-   kleine stappen, met bij elke stap een proef. Wat daarvoor nodig is:
+9. ~~**De twee zoeklussen samenbrengen**~~ (uit de beoordeling door ChatGPT van 20 september 2026).
+   **Gedaan op 23 september 2026**, in vier stappen met bij elke stap een proef: tussentijdse
+   leveringen per site, zoeken zonder bewaarde zoekopdracht, voortgang en fouten per site, en dan
+   de verhuizing zelf. `SearchRunner` is nu de enige die zoekt en het scherm toont enkel; zie
+   "Het scherm zoekt niet meer zelf" bij Automatisch zoeken.
 
-   - ~~Tussentijdse leveringen per site.~~ Gedaan op 23 september 2026, zie "De planner levert ook
-     tussentijds" bij Automatisch zoeken. Meteen ook winst vandaag: een beurt die je zelf start met
-     het driehoekje, vult het scherm nu per pagina in plaats van per site.
-   - ~~Zoeken zonder bewaarde zoekopdracht.~~ Gedaan op 23 september 2026: een `SavedSearch`
-     zonder `Id` draait gewoon, schrijft niets weg en markeert niets als nieuw (zie "Een
-     zoekopdracht zonder `Id`" bij Automatisch zoeken). Het scherm hoeft er dus enkel nog een
-     tijdelijke `SavedSearch` uit zijn tabs voor te maken, zoals "Huidige vastzetten" er een maakt.
-   - ~~Voortgang en fouten per site.~~ Gedaan op 23 september 2026, zie "Elke site meldt zelf dat
-     ze klaar is" bij Automatisch zoeken.
+   Waarom het moest: `MainWindow.RunSearchAsync` en `SearchRunner.RunAsync` voerden allebei een
+   volledige zoekopdracht uit, en elke regel moest dus twee keer geschreven worden. Dat kostte in
+   september 2026 al twee keer werk ("nieuw tot je kijkt", de nieuwe rem) en gaf echte verschillen:
+   de prijsgrens en de gewijzigde filters, allebei rechtgezet op 22 september (zie "Filters werken
+   meteen op wat er al staat").
 
-   **De drie voorwaarden zijn klaar; nu de verhuizing zelf.** `MainWindow.RunSearchAsync` bouwt
-   een tijdelijke `SavedSearch` uit zijn tabs (of neemt `_activeSearch`) en roept
-   `SearchRunner.RunAsync` aan met `delivered`, `tussentijds: true` en `siteKlaar`; wat overblijft
-   in het scherm is tonen: `AddBatch`, de tabs, de statusregel, *Recent*, de favorieten en het
-   bewaren. Let bij die stap op de vier kleine verschillen hieronder, en op wat het scherm nu extra
-   doet: de prijsgrens die bij de zoekopdracht hoort (`HoortBijZoekopdracht`), het overnemen van
-   gewijzigde filters (`NeemSchermfiltersOver`) en het slot dat pas opengaat als het bewaren klaar
-   is. Doe het met het hoofdscherm buiten beeld erbij, zoals bij de prijsgrens.
+   **De inventaris** (22 september 2026, door Codex, daarna punt per punt nagekeken in de code)
+   somde de verschillen op. Bedoeld zoals ze waren, en dus geen werk: los zoeken zonder bewaarde
+   zoekopdracht, een onuitvoerbare beurt die toch een tijdstip krijgt, tussentijdse resultaten
+   enkel op het scherm, het wachten op het bewaren, meldingen enkel van de planner, en *Recent*
+   enkel bij zelf zoeken. Rechtgezet bij de verhuizing: een verdwenen site die het scherm stil
+   liet vallen, "al gezien" bij een site die halverwege faalt, `LastViewed` dat op het einde
+   opnieuw gelezen hoort te worden, en de volgorde van het bewaren. **Nog open: annuleren** - de
+   schermlus geeft nog geen `CancellationToken` mee, dus een zoekopdracht die je zelf startte kan
+   je niet stoppen.
 
-   **De inventaris is gemaakt** (22 september 2026, door Codex, daarna punt per punt nagekeken in
-   de code). Bedoeld zoals het is, en dus geen werk: los zoeken zonder bewaarde zoekopdracht, een
-   onuitvoerbare beurt die toch een tijdstip krijgt, tussentijdse resultaten enkel op het scherm,
-   het wachten op het bewaren, meldingen enkel van de planner, en *Recent* enkel bij zelf zoeken.
-   Rechtgezet: de prijsgrens en de gewijzigde filters (zie "Filters werken meteen op wat er al
-   staat"). Nog open, klein maar echt:
-   - **Een verdwenen site** meldt de planner ("bestaat niet meer"); het scherm zwijgt erover,
-     want `PasToe` kent enkel sites die nog een tab hebben.
-   - **Al gezien bij een mislukte site**: levert een site eerst twintig zoekertjes en faalt ze
-     daarna, dan staan die twintig op het scherm al in `seen` (`MarkSeen` per levering), bij de
-     planner niet (`MarkSeen` op het einde). Ze blijven wel nieuw tot je de zoekopdracht opent,
-     maar ze komen niet meer in een melding.
-   - **Annuleren**: de schermlus geeft geen `CancellationToken` mee, dus een zoekopdracht die je
-     zelf startte, kan je niet stoppen.
-   - **De volgorde van het bewaren** verschilt (scherm: nieuwe bovenaan; planner: zoals gevonden).
-     Cosmetisch, want bij het openen wordt toch opnieuw gesorteerd.
-   - **`LastViewed`** wordt bij de planner op het einde opnieuw gelezen, bij het scherm niet.
-
-   Ook nuttig uit die ronde: **de afspeelknop van een zoekopdracht start de plannerlus**
-   (`_scheduler.RunAsync`), niet de schermlus. De schermlus loopt bij het vergrootglas, bij Enter,
-   bij het sluiten van een filterpopup, en bij het openen van een zoekopdracht zonder bewaarde
-   resultaten.
+   Ook nuttig uit die ronde: **de afspeelknop van een zoekopdracht start de planner**
+   (`_scheduler.RunAsync`), en niet `RunSearchAsync`. Dat laatste loopt bij het vergrootglas, bij
+   Enter, bij het sluiten van een filterpopup, en bij het openen van een zoekopdracht zonder
+   bewaarde resultaten.

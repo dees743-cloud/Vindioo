@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using Zentrix.Models;
 using Zentrix.Services;
 
@@ -204,6 +205,40 @@ public static class PlannerChecks
 
             Check.Dat(niet.NotRunReason == "geen site aangevinkt" && zonderSite.LastRun is null,
                 $"niet uitvoerbaar: wel een reden ('{niet.NotRunReason}'), geen tijdstip");
+        }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Het hoofdscherm zoekt met dezelfde lus");
+        {
+            // De verhuizing zelf: het scherm zoekt niet meer zelf maar roept de runner aan. Het
+            // heeft daarvoor twee dingen nodig die de planner niet nodig heeft.
+            //
+            // Ten eerste het slot: het scherm neemt dat zelf, zodat het "wachten tot de
+            // zoekopdracht op de achtergrond klaar is" kan zeggen, en het houdt het vast tot de
+            // resultaten bewaard zijn. Nam de runner het dan ook, dan stond de app stil.
+            await SearchRunner.Gate.WaitAsync();
+
+            var taak = runner.RunAsync(Zoekopdracht("cd", "Snel"), markSeen: false,
+                                       slotGenomen: true, logNaam: "zoeken");
+
+            // Met een wachttijd erbij: zonder slotGenomen loopt dit vast, en een controle die
+            // blijft hangen zegt niets.
+            var opTijd = await Task.WhenAny(taak, Task.Delay(TimeSpan.FromSeconds(10))) == taak;
+
+            Check.Dat(opTijd && taak.Result.All.Count == 5,
+                $"met het slot al genomen draait de beurt gewoon door ({(opTijd ? taak.Result.All.Count : -1)})");
+            Check.Dat(SearchRunner.Gate.CurrentCount == 0, "en het slot blijft van wie het nam");
+
+            SearchRunner.Gate.Release();
+            Check.Dat(SearchRunner.Gate.CurrentCount == 1, "pas die geeft het weer vrij");
+
+            // Ten tweede het logboek: dezelfde code, maar je wil kunnen zien wie er aan het werk
+            // was. Een beurt van het scherm heet "zoeken", een geplande beurt "planner".
+            var logboek = File.ReadAllText(Log.FilePath);
+
+            Check.Dat(logboek.Contains("zoeken: 'Cd' gestart op 1 site(s)") &&
+                      logboek.Contains("zoeken: Snel gaf 5 resultaten"),
+                "het logboek zegt 'zoeken' en niet 'planner' voor een beurt van het scherm");
         }
 
         // ---------------------------------------------------------------------------

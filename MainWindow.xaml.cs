@@ -80,8 +80,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     /// </summary>
     private int? _plannerOpScherm;
 
-    /// <summary>Waar het volgende nieuwe zoekertje van die beurt komt: bovenaan, na de vorige nieuwe.</summary>
-    private int _plannerNieuwBovenaan;
+    /// <summary>
+    /// Waar het volgende nieuwe zoekertje van deze beurt komt: bovenaan, na de vorige nieuwe.
+    /// Geldt voor allebei de wegen naar het scherm - de planner en je eigen zoekopdracht -
+    /// want die lopen sinds 23 september 2026 door dezelfde lus (zie <see cref="ToonLading"/>).
+    /// </summary>
+    private int _nieuwBovenaan;
 
     /// <summary>Is de gebruiker zelf aan het zoeken? Dan zwijgt de planner op het scherm.</summary>
     private bool _zoektHandmatig;
@@ -424,7 +428,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
 
         _plannerOpScherm = search.Id;
-        _plannerNieuwBovenaan = 0;
+        _nieuwBovenaan = 0;
         _heeftGezocht = true;
         _enkelNieuw = false;
 
@@ -433,9 +437,38 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     }
 
     /// <summary>
-    /// Eén site van de lopende beurt is klaar. Werkt zoals AddBatch bij gewoon
-    /// zoeken: nieuwe zoekertjes bovenaan, de rest erachter, en meteen tonen.
+    /// Er is weer een lading zoekertjes binnen, van de planner of van je eigen zoekopdracht.
+    /// Ze zijn al ontdubbeld en hun NIEUW-vlag staat al goed (<see cref="SearchRunner"/>); wat
+    /// hier gebeurt is enkel tonen: nieuwe bovenaan, de rest erachter, de teller op de tab
+    /// bijwerken en de zichtbare pagina verversen.
+    ///
+    /// Het scherm kijkt niet naar de prijsgrens: alles wat binnenkwam blijft in
+    /// <see cref="_results"/> staan, zodat een ruimere prijs meteen meer toont zonder opnieuw
+    /// te zoeken. Wat er te zien is, bepaalt <see cref="HoortInHuidigeTab"/>.
     /// </summary>
+    private void ToonLading(IReadOnlyList<Listing> lading)
+    {
+        if (lading.Count == 0) return;
+
+        foreach (var listing in lading)
+        {
+            listing.IsFavorite = _favoriteKeys.Contains(listing.Key);
+
+            if (listing.IsNew) _results.Insert(_nieuwBovenaan++, listing);
+            else _results.Add(listing);
+
+            var tab = _tabs.FirstOrDefault(t => !t.IsAll && t.Name == listing.Source);
+            if (tab is not null) tab.ResultCount++;
+        }
+
+        UpdateEmptyHints();
+
+        // Meteen tonen wat er binnen is. Zo kijk je al naar pagina één terwijl de rest nog
+        // onderweg is, en groeit het aantal pagina's onder je handen mee.
+        ToonPagina();
+    }
+
+    /// <summary>Eén lading van de planner, wanneer die op het scherm meeloopt.</summary>
     private void Scheduler_Delivered(SavedSearch search, IReadOnlyList<Listing> lading)
     {
         if (_plannerOpScherm != search.Id) return;
@@ -447,19 +480,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             return;
         }
 
-        foreach (var listing in lading)
-        {
-            listing.IsFavorite = _favoriteKeys.Contains(listing.Key);
-
-            if (listing.IsNew) _results.Insert(_plannerNieuwBovenaan++, listing);
-            else _results.Add(listing);
-
-            var tab = _tabs.FirstOrDefault(t => t.Name == listing.Source);
-            if (tab is not null) tab.ResultCount++;
-        }
-
-        UpdateEmptyHints();
-        ToonPagina();
+        ToonLading(lading);
     }
 
     /// <summary>
@@ -2341,6 +2362,21 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         return true;
     }
 
+    /// <summary>
+    /// Zelf zoeken: het vergrootglas, Enter, een filterpopup die sluit, of een bewaarde
+    /// zoekopdracht openen waarvan de vorige resultaten niet meer te vinden zijn.
+    ///
+    /// Sinds 23 september 2026 zoekt het scherm niet meer zelf. Het zet klaar waarmee gezocht
+    /// wordt - de geopende bewaarde zoekopdracht, of een tijdelijke uit de tabs - en laat
+    /// <see cref="SearchRunner.RunAsync"/> het werk doen, net als de planner. Wat hier overblijft
+    /// is tonen: de tabs, de statusregel, <em>Recent</em> en het bewaren van de uitkomst.
+    ///
+    /// Daarvoor stond dezelfde zoeklus twee keer in de app, en moest elke regel dus twee keer
+    /// geschreven worden. Dat kostte in september 2026 al twee keer werk ("nieuw tot je kijkt",
+    /// de nieuwe rem op het aantal) en gaf stille verschillen: de prijsgrens die op het scherm
+    /// anders telde dan bij de planner, en filters die je wijzigde en die de planner niet kende.
+    /// Zie Volgende stappen 9 in CLAUDE.md.
+    /// </summary>
     private async Task RunSearchAsync()
     {
         var query = QueryBox.Text.Trim();
@@ -2361,10 +2397,15 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         _heeftGezocht = true;
 
-        // Zoeken zonder zoekterm kan enkel op sites die het aankunnen. Bij
-        // AutoScout24 is dat de gewone gang van zaken: daar is het zoekwoord het
-        // merk, en wie niet merkgebonden zoekt zet enkel filters. De rest zou van
-        // een lege term hun hele catalogus maken, dus die slaan we over.
+        // Zoeken zonder zoekterm kan enkel op sites die het aankunnen. Bij AutoScout24 is dat
+        // de gewone gang van zaken: daar is het zoekwoord het merk, en wie niet merkgebonden
+        // zoekt zet enkel filters. De rest zou van een lege term hun hele catalogus maken, dus
+        // die slaan we over.
+        //
+        // De runner heeft dezelfde regel, maar het scherm beslist het hier al. Twee redenen: de
+        // tekst mag zeggen wat je eraan doet, en een zoekopdracht die bij de runner niet kan
+        // draaien krijgt wél een tijdstip - dat verzet de volgende geplande beurt, terwijl er
+        // met de zoekopdracht zelf niets mis is.
         var zonderTerm = "";
 
         if (query.Length == 0)
@@ -2395,34 +2436,37 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         Spinner.Visibility = Visibility.Visible;
         StatusText.Text = "Bezig met zoeken...";
 
-        // Hetzelfde slot als de planner. Draait er op de achtergrond net een
-        // zoekopdracht, dan wachten we die af: de brug heeft één wachtrij en
-        // twee Playwright-sessies op hetzelfde profiel botsen.
+        // Hetzelfde slot als de planner. Draait er op de achtergrond net een zoekopdracht, dan
+        // wachten we die af: de brug heeft één wachtrij en twee Playwright-sessies op hetzelfde
+        // profiel botsen. Het scherm neemt het slot zelf (slotGenomen), want het wil dit kunnen
+        // zeggen, en het houdt het vast tot de resultaten bewaard zijn - zie finally.
         if (SearchRunner.Gate.CurrentCount == 0)
             StatusText.Text = "Wachten tot de zoekopdracht op de achtergrond klaar is...";
 
         await SearchRunner.Gate.WaitAsync();
 
-        // Sites die via de brug werken hebben een draaiende Chrome nodig: staat
-        // die dicht, dan vraagt niemand om werk en blijft de opdracht hangen.
-        var brug = BridgeStatus.Ready;
-        var brugOvergeslagen = new List<SiteTab>();
-        var aantalSites = searching.Count;
+        // Waarmee er gezocht wordt. Staat er een bewaarde zoekopdracht open, dan is zij het, met
+        // de sites en filters van het scherm erin: anders zoekt de planner straks met de oude
+        // waarden verder (NeemSchermfiltersOver). Anders een tijdelijke zoekopdracht zonder Id,
+        // en die schrijft niets weg en markeert niets als nieuw.
+        var overgenomen = _activeSearch is null ? "" : NeemSchermfiltersOver(_activeSearch);
 
-        if (searching.Any(t => t.Def!.UseBridge))
+        var zoekopdracht = _activeSearch ?? new SavedSearch
         {
-            var report = new Progress<string>(text => StatusText.Text = text);
-            brug = await ChromeLauncher.EnsureBridgeAsync(TimeSpan.FromSeconds(30), report);
+            Query = query,
+            SiteSettings = searching.Select(SiteSetting.FromTab).ToList()
+        };
 
-            // Werkt de brug niet, dan die sites meteen overslaan. Anders wacht elke
-            // brugsite nog anderhalve minuut op een antwoord waarvan al vaststaat dat
-            // het niet komt: bij Catawiki en leboncoin samen ruim drie minuten.
-            if (brug != BridgeStatus.Ready)
-            {
-                brugOvergeslagen = searching.Where(t => t.Def!.UseBridge).ToList();
-                searching = searching.Except(brugOvergeslagen).ToList();
-            }
-        }
+        bool HeeftTab(string site) =>
+            _tabs.Any(t => !t.IsAll && string.Equals(t.Name, site, StringComparison.OrdinalIgnoreCase));
+
+        // Aangevinkt in de zoekopdracht, maar niet meer in Sites beheren. Die hebben geen tab om
+        // een waarschuwingsteken op te zetten, dus ze horen in de statusregel. Tot deze
+        // verbouwing zweeg het scherm erover en meldde enkel de planner het.
+        var verdwenen = zoekopdracht.SiteSettings
+            .Where(s => s.Enabled && !HeeftTab(s.Site))
+            .Select(s => s.Site)
+            .ToList();
 
         // Een nieuwe zoekopdracht toont alles, ook als je daarnet enkel de nieuwe bekeek.
         _enkelNieuw = false;
@@ -2430,6 +2474,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         _results.Clear();
         _zichtbaar.Clear();
         _pagina = 0;
+        _nieuwBovenaan = 0;
 
         foreach (var tab in _tabs)
         {
@@ -2437,238 +2482,112 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             tab.ErrorText = "";
         }
 
-        foreach (var tab in brugOvergeslagen)
-            tab.ErrorText = "Overgeslagen: " + ChromeLauncher.Describe(brug);
-
         if (query.Length > 0)
         {
             _history.AddRecent(query);
             LoadRecent();
         }
 
-        var errors = new List<string>();
+        // Van hoeveel sites er een melding komt: de aangevinkte tabs, plus de verdwenen sites -
+        // ook die meldt de runner.
+        var verwacht = searching.Count + verdwenen.Count;
+        var klaar = 0;
 
-        // Hoeveel elke site gaf, voor de bewaarde zoekopdracht (zie SavedSearch.LastCounts).
-        var tellingen = new Dictionary<string, int>();
+        // Eén site is klaar. Haar teller staat er al (die loopt mee met de leveringen); hier
+        // komt haar tijd in de statusregel en haar fout op het waarschuwingsteken van haar tab.
+        void SiteIsKlaar(SiteKlaar melding)
+        {
+            klaar++;
+
+            var tab = _tabs.FirstOrDefault(t => !t.IsAll && t.Name == melding.Site);
+            if (tab is not null && melding.Fout is not null) tab.ErrorText = melding.Fout;
+
+            StatusText.Text = melding.Fout is null
+                ? $"({klaar}/{verwacht}) {melding.Site}: {melding.Aantal} gevonden in {melding.Duur.TotalSeconds:F1}s"
+                : $"({klaar}/{verwacht}) {melding.Site}: {melding.Fout}";
+        }
 
         // Het bewaren van de resultaten loopt op de achtergrond; in finally wordt erop gewacht.
         var bewaren = Task.CompletedTask;
 
-        // Wat er van het scherm in de bewaarde zoekopdracht overgenomen werd (zie
-        // NeemSchermfiltersOver); komt in de statusregel.
-        var overgenomen = "";
-
         try
         {
-            // Bij een bewaarde zoekopdracht één keer ophalen wat we al gezien hebben, en
-            // wanneer. Nieuw is wat je nog niet bekeek, net als bij de planner.
-            Dictionary<string, DateTimeOffset>? seen = _activeSearch is not null
-                ? _history.GetSeen(_activeSearch.Id)
-                : null;
-
-            var newCount = 0;
-
-            // Nieuwe resultaten horen bovenaan. Omdat we per bron toevoegen in
-            // plaats van alles op het einde, schuiven we ze op deze teller in.
-            var newTopIndex = 0;
-
-            // Welke resultaten al in de lijst staan. Bronnen die gaandeweg leveren
-            // sturen dezelfde zoekertjes meermaals door; die willen we maar één
-            // keer. We houden het zoekertje zelf bij en niet enkel zijn sleutel,
-            // want een latere levering is soms vollediger - bij Catawiki staat de
-            // prijs er in de eerste versie nog niet in.
-            var shown = new Dictionary<string, Listing>();
-            var aangevuld = false;
-
-            // Voegt een lading resultaten van één site toe aan de lijst.
-            void AddBatch(List<Listing> raw, SiteTab tab)
-            {
-                // Alles wordt bewaard, ook wat buiten de prijsfilter valt. Het
-                // filteren gebeurt bij het tonen, zodat een ruimere prijs meteen
-                // meer resultaten laat zien in plaats van een nieuwe zoekopdracht
-                // te vragen.
-                var batch = raw;
-
-                // Enkel de sleutels die bij de zoekopdracht horen: wat buiten de prijsgrens valt,
-                // telt niet mee en wordt niet als gezien onthouden (zie HoortBijZoekopdracht).
-                var added = new List<string>();
-                var kaarten = 0;
-
-                foreach (var listing in batch)
-                {
-                    if (shown.TryGetValue(listing.Key, out var bestaand))
-                    {
-                        // Stond er al: aanvullen wat toen nog ontbrak.
-                        if (bestaand.MergeFrom(listing)) aangevuld = true;
-                        continue;
-                    }
-
-                    shown[listing.Key] = listing;
-                    listing.IsFavorite = _favoriteKeys.Contains(listing.Key);
-
-                    var hoortErbij = HoortBijZoekopdracht(listing);
-
-                    if (seen is not null && _activeSearch is not null)
-                    {
-                        listing.IsNew = _activeSearch.IsUnviewed(
-                            seen.TryGetValue(listing.Key, out var eerst) ? eerst : null);
-                        if (listing.IsNew && hoortErbij) newCount++;
-                    }
-
-                    if (listing.IsNew) _results.Insert(newTopIndex++, listing);
-                    else _results.Add(listing);
-
-                    tab.ResultCount++;
-                    kaarten++;
-
-                    if (hoortErbij) added.Add(listing.Key);
-                }
-
-                if (_activeSearch is not null && added.Count > 0)
-                    _history.MarkSeen(_activeSearch.Id, added);
-
-                if (kaarten > 0)
-                {
-                    UpdateEmptyHints();
-
-                    // Meteen tonen wat er binnen is. Zo kijk je al naar pagina één
-                    // terwijl de rest nog onderweg is, en groeit het aantal
-                    // pagina's onder je handen mee.
-                    ToonPagina();
-                }
-            }
-
-            // Zolang deze zoekopdracht loopt mogen alle browsersites dezelfde Chrome
-            // gebruiken. Zodra we hier buiten gaan, sluit hij.
-            using var browserLease = BrowserPool.Lease();
-
-            var done = 0;
-
-            // Eén site doorzoeken. Wordt zowel tegelijk als na elkaar gebruikt.
-            async Task Doorzoek(SiteTab tab)
-            {
-                try
-                {
-                    var start = DateTime.Now;
-                    Log.Write($"zoeken: {tab.Name} gestart voor '{query}'");
-
-                    // Progress roept AddBatch op de schermdraad aan, want dit object
-                    // wordt hier op die draad gemaakt. Elke site krijgt zijn eigen
-                    // melder, zodat de juiste filters meegaan.
-                    var progress = new Progress<List<Listing>>(list => AddBatch(list, tab));
-
-                    // Hoeveel de site mag leveren, hangt af van hoe ze binnenkomt: zie
-                    // SiteDefinition.ResultLimit (2000 rechtstreeks, 300 Facebook, anders 500).
-                    var fromSource = await tab.Source!.SearchAsync(
-                        query, tab.Def!.ResultLimit(), tab.Filters, progress);
-
-                    var seconds = (DateTime.Now - start).TotalSeconds;
-
-                    // Wat via progress al binnenkwam, wordt hier overgeslagen.
-                    AddBatch(fromSource, tab);
-
-                    tellingen[tab.Name] = fromSource.Count;
-
-                    // Nul, terwijl deze bewaarde zoekopdracht hier vorige keer tien of meer vond:
-                    // dan is de site waarschijnlijk stuk, en dat hoort op de tab te staan.
-                    if (_activeSearch?.VerdachtLeeg(tab.Name, fromSource.Count) is { } verdacht)
-                    {
-                        tab.ErrorText = verdacht;
-                        errors.Add($"{tab.Name}: {verdacht}");
-                    }
-
-                    Log.Write($"zoeken: {tab.Name} klaar — {fromSource.Count} resultaten in {seconds:F1}s");
-
-                    done++;
-                    StatusText.Text = $"({done}/{searching.Count}) {tab.Name}: " +
-                                      $"{fromSource.Count} gevonden in {seconds:F1}s";
-                }
-                catch (Exception ex)
-                {
-                    done++;
-                    Log.Write($"zoeken: {tab.Name} mislukte - {ex.Message}");
-
-                    var melding = FriendlyError.Describe(ex);
-                    errors.Add($"{tab.Name}: {melding}");
-
-                    // Bij de site zelf tonen: een waarschuwingsteken op zijn tab, met de
-                    // melding als tooltip. De statusregel noemt enkel nog hoeveel sites
-                    // mislukten; daar stond vroeger alles achter elkaar, en het einde viel
-                    // buiten het venster.
-                    tab.ErrorText = melding;
-                }
-            }
-
-            // Drie rijstroken die tegelijk lopen: de rechtstreekse sites (allemaal samen),
-            // de browsersites (na elkaar, ze delen één Chrome-profiel) en de brugsites
-            // (na elkaar, één wachtrij). Een browsersite en een brugsite delen niets, dus
-            // die hoeven niet op elkaar te wachten. Zie SearchRunner.RunInLanesAsync.
             StatusText.Text = searching.Count == 1
                 ? $"{searching[0].Name} doorzoeken..."
                 : $"{searching.Count} sites doorzoeken...";
 
-            await SearchRunner.RunInLanesAsync(searching, t => t.Def!, Doorzoek);
+            var outcome = await _runner.RunAsync(
+                zoekopdracht,
+                markSeen: true,
+                status: new DirecteMelder(tekst => StatusText.Text = tekst),
+                delivered: ToonLading,
+                tussentijds: true,
+                siteKlaar: SiteIsKlaar,
+                slotGenomen: true,
+                logNaam: "zoeken");
 
-            // Teller bij de vastgezette zoekopdracht verversen. Het tijdstip
-            // hoort er ook bij: anders denkt de planner dat deze zoekopdracht nog
-            // moet draaien en doet hij het meteen nog eens over.
+            // De teller, het tijdstip en wat er per site misliep staan al in de zoekopdracht:
+            // dat deed de runner, precies zoals bij een geplande beurt.
             if (_activeSearch is not null)
             {
-                _activeSearch.NewCount = newCount;
-                _activeSearch.LastRun = DateTime.Now;
+                // Werd er niet gezocht, dan is de lege lijst geen uitkomst en blijven de vorige
+                // resultaten staan.
+                if (outcome.NotRunReason is null)
+                {
+                    _lastOutcomes[_activeSearch.Id] = outcome.All;
+                    bewaren = BewaarUitkomstAsync(_activeSearch.Id, outcome.All.ToList());
+                }
 
-                _history.SetLastRun(_activeSearch.Id, DateTime.Now, newCount);
-
-                // Enkel wat bij de zoekopdracht hoort, net als bij de planner. In _results blijft
-                // alles staan: verruim je je prijs, dan zie je meteen weer meer zonder opnieuw
-                // te zoeken. Wat je nooit te zien kreeg, hoort niet in de bewaarde lijst.
-                var uitkomst = _results.Where(HoortBijZoekopdracht).ToList();
-
-                _lastOutcomes[_activeSearch.Id] = uitkomst;
-                bewaren = BewaarUitkomstAsync(_activeSearch.Id, uitkomst.ToList());
-
-                // Wat er misliep, bij de zoekopdracht bewaren: de lijst met zoekopdrachten
-                // toont het dan ook na een herstart.
-                var fouten = _tabs.Where(t => !t.IsAll && t.HasError)
-                                  .ToDictionary(t => t.Name, t => t.ErrorText);
-                _activeSearch.RecordRun(searching.Concat(brugOvergeslagen).Select(t => t.Name), fouten, tellingen);
-
-                // Wat je op het scherm aan de sites of hun filters wijzigde, hoort ook in de
-                // zoekopdracht: anders zoekt de planner straks met de oude waarden verder.
-                overgenomen = NeemSchermfiltersOver(_activeSearch);
-
-                _history.Update(_activeSearch);
-
+                // Een beurt die niet kon draaien schrijft de zoekopdracht niet weg, dus wat we
+                // net van het scherm overnamen zou dan verloren gaan.
                 if (overgenomen.Length > 0)
+                {
+                    _history.Update(_activeSearch);
                     Log.Write($"zoeken: de gewijzigde {overgenomen} zijn bewaard in '{_activeSearch.Name}'");
+                }
 
                 UpdateSchedulerHint();
             }
 
-            // Kort houden: dit is één regel onderaan het scherm. Wat er per site misliep,
-            // staat bij die site, als waarschuwingsteken op zijn tab.
-            var message = $"{_results.Count} resultaten van {aantalSites} site(s)";
+            if (outcome.NotRunReason is not null)
+            {
+                StatusText.Text = $"Er is niet gezocht: {outcome.NotRunReason}.";
+                return;
+            }
 
-            if (_activeSearch is not null) message += $" · {newCount} nieuw";
+            // Kort houden: dit is één regel onderaan het scherm. Wat er per site misliep, staat
+            // bij die site, als waarschuwingsteken op zijn tab.
+            var brugOvergeslagen = outcome.Bridge == BridgeStatus.Ready
+                ? new List<SiteTab>()
+                : searching.Where(t => t.Def!.UseBridge).ToList();
+
+            // Wat er overblijft aan echte fouten: de brugsites en de verdwenen sites staan ook
+            // in SiteErrors, maar die krijgen hieronder hun eigen zin.
+            var mislukt = outcome.SiteErrors.Count - brugOvergeslagen.Count - verdwenen.Count;
+
+            var message = $"{_results.Count} resultaten van {searching.Count} site(s)";
+
+            if (_activeSearch is not null) message += $" · {_activeSearch.NewCount} nieuw";
             message += ".";
 
             if (brugOvergeslagen.Count > 0)
                 message += $" {string.Join(" en ", brugOvergeslagen.Select(t => t.Name))} overgeslagen: " +
-                           ChromeLauncher.Describe(brug);
+                           ChromeLauncher.Describe(outcome.Bridge);
 
-            if (errors.Count > 0)
-                message += errors.Count == 1
+            if (verdwenen.Count > 0)
+                message += $" {string.Join(" en ", verdwenen)} " +
+                           $"{(verdwenen.Count == 1 ? "bestaat" : "bestaan")} niet meer in Sites beheren.";
+
+            if (mislukt > 0)
+                message += mislukt == 1
                     ? " 1 site mislukte; zie het waarschuwingsteken op de tab."
-                    : $" {errors.Count} sites mislukten; zie het waarschuwingsteken op de tabs.";
+                    : $" {mislukt} sites mislukten; zie het waarschuwingsteken op de tabs.";
 
             message += zonderTerm;
 
             // Stil bewaren is even verwarrend als stil vergeten, dus het staat erbij.
             if (overgenomen.Length > 0 && _activeSearch is not null)
                 message += $" De gewijzigde {overgenomen} zijn bewaard in '{_activeSearch.Name}'.";
-
-            if (aangevuld)
-                Log.Write("zoeken: latere leveringen van de brug vulden ontbrekende gegevens aan");
 
             StatusText.Text = message;
         }
@@ -2685,8 +2604,23 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             SearchButton.IsEnabled = true;
 
             _resultsView.Refresh();
-        ToonPagina();
+            ToonPagina();
             UpdateEmptyHints();
         }
+    }
+
+    /// <summary>
+    /// Een melder die rechtstreeks doorgeeft. <see cref="Progress{T}"/> post zijn oproepen naar
+    /// de schermdraad, en dan kan "Catawiki doorzoeken..." achteraf over "(2/3) Catawiki: 100
+    /// gevonden in 6,2s" heen vallen. De runner meldt al vanaf de schermdraad, dus er valt hier
+    /// niets te posten.
+    /// </summary>
+    private sealed class DirecteMelder : IProgress<string>
+    {
+        private readonly Action<string> _toon;
+
+        public DirecteMelder(Action<string> toon) => _toon = toon;
+
+        public void Report(string value) => _toon(value);
     }
 }
