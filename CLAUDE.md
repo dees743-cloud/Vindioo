@@ -689,7 +689,10 @@ leesbaar - terwijl wie het token heeft, als jouw bot schrijft en leest wat jij h
   versluierde vorm en daarna teruggezet; een mail die op dat moment op een andere draad vertrok,
   meldde zich aan met die vorm. Nu gaat het via een JSON-boom.
 
-Nagemeten in `StilFalenChecks`, met de tegenproef op de oude code.
+Nagemeten in `StilFalenChecks`, met de tegenproef op de oude code. En op het echte bestand: op
+23 september 2026 zette de eerste start met de nieuwe exe het om ("instellingen: wachtwoord en
+token (wat ingevuld was) staan nu beschermd door Windows"), en de melding 50 seconden later
+vertrok via systeemvak én e-mail - dus het wachtwoord kwam er ongeschonden weer uit.
 Elk kanaal heeft een testknop: wachten tot er 's nachts iets gevonden wordt om te
 ontdekken dat je token niet klopt, is geen manier van werken.
 
@@ -750,6 +753,11 @@ verdachte en niet de code. Of het hiermee weg is, zegt de volgende pc-start: zie
 venster" bij Fouten opsporen. Nagemeten zonder pc-start: geen venster na een start zoals Windows
 die doet, het venster er na een tweede start (en 226 ms later getekend), een gewone start, en het
 kruisje met opnieuw openen.
+
+**De eerste echte pc-start erna ging goed** (23 september 2026): pc aan om 16:39, Zentrix om 16:40
+in het systeemvak zonder venster, en bij het openen om 16:44:36 stond het beeld er 251 ms later.
+Eén meetpunt - het witte venster kwam ook vroeger niet elke keer - maar precies het geval dat
+misging. Blijft het bij volgende pc-starts goed, dan is het hiermee weg.
 
 **Er draait maar één Zentrix tegelijk.** `App.OnStartup` neemt een benoemd slot (`Mutex`);
 een tweede start vindt dat bezet, geeft het draaiende exemplaar een seintje
@@ -1485,7 +1493,13 @@ Er zijn geen ingebouwde bronnen meer — **elke site is een bestand**. Het veld
   brengen - het muiswiel werkt op wat onder de muis staat, en de pagina heeft meer dan één deel
   dat schuift. Het stopt zodra een ronde niets bracht, en na hoogstens 20 rondes: dit gebeurt met
   je eigen aangemelde account, en eindeloos scrollen is wat Facebook als een robot ziet. Testen
-  in Sites beheren vraagt 20, en scrolt dan niet. Nog niet live gemeten, zie Volgende stappen.
+  in Sites beheren vraagt 20, en scrolt dan niet.
+
+  **Live gemeten op 23 september 2026** ("cd speler", een geplande beurt): `(126 zoekertjes na 7
+  keer scrollen)`, goed voor **98 resultaten in 18,0 s**, waarvan 12,8 s scrollen. Daags ervoor,
+  zonder scrollen: 25 resultaten in 4,3 s. Het stopte vanzelf op 126, ruim onder de rem van 300 -
+  een ronde bracht niets meer, dus dat is wat Facebook daar heeft. Geen controlevraag van Facebook.
+  De beurt erna meldde 106 nieuwe: alles voorbij die eerste 25 had de zoekopdracht nooit gezien.
 
   Tot september 2026 heette dit de Facebook-motor (`FacebookSource.cs`), met al die
   waarden in de code. Na de keuzelijsten van AlleVeilingen was dat de laatste plek waar
@@ -2743,9 +2757,10 @@ witte tekst leesbaar blijft.
 Wat er per site nog ontbreekt, staat bij "Nog open" in `SITES.md` van `zentrix-sites`.
 Hieronder enkel wat aan de app zelf te doen valt.
 
-1. Nagaan hoe het scrollen tot 300 bij Facebook in de praktijk loopt (22 september 2026
-   gebouwd, nog niet live gemeten): hoeveel zoekertjes, hoeveel seconden, en of Facebook om
-   een controle vraagt. Het logboek zegt het per beurt: `(N zoekertjes na M keer scrollen)`.
+1. ~~Het scrollen bij Facebook live nameten.~~ Gedaan op 23 september 2026: 126 zoekertjes na 7
+   keer scrollen, 98 resultaten in 18,0 s, zonder controlevraag (zie de linkmotor). Wat er nog
+   openstaat: de linkmotor haalt van die 126 kaarten er 98 uit, dus 28 vallen weg - nakijken of
+   dat kaarten zonder titel zijn, zoals bij "fiets", of iets anders.
 2. Grote foto's op aanvraag. Bij sommige sites geeft de zoekpagina enkel kleine,
    bijgesneden foto's en staat de grote pas op de pagina van het zoekertje. Die
    ophalen kost een volledige browsersessie (5–10 s), dus niet tijdens het
