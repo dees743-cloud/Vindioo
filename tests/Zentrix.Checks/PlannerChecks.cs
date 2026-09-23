@@ -87,6 +87,43 @@ public static class PlannerChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("Planner: tussentijdse leveringen wanneer iemand meekijkt");
+        {
+            // Drie pagina's, zodat er tijdens het ophalen al iets te leveren valt. De eerste
+            // stap naar één zoeklus: het scherm kan hier pas op over als de planner net als
+            // het scherm per pagina levert, en niet pas als een site helemaal klaar is.
+            using var blader = new Proefsite { PerPagina = { [1] = 30, [2] = 30, [3] = 10 } };
+            store.Add(blader.Site("Blader", paginering: true));
+
+            async Task<(List<IReadOnlyList<Listing>> Leveringen, SearchOutcome Uitkomst)> Beurt(bool meekijken)
+            {
+                var zoek = Zoekopdracht("cd", "Blader");
+                var leveringen = new List<IReadOnlyList<Listing>>();
+
+                var uit = await runner.RunAsync(zoek, markSeen: false,
+                    delivered: lading => leveringen.Add(lading.ToList()), tussentijds: meekijken);
+
+                return (leveringen, uit);
+            }
+
+            var mee = await Beurt(true);
+            var zonder = await Beurt(false);
+
+            var alles = mee.Leveringen.SelectMany(l => l).ToList();
+
+            Check.Dat(mee.Leveringen.Count > 1,
+                $"met iemand die meekijkt: {mee.Leveringen.Count} leveringen ({string.Join("+", mee.Leveringen.Select(l => l.Count))})");
+            Check.Dat(alles.Count == alles.Select(l => l.Key).Distinct().Count(),
+                "geen enkel zoekertje komt twee keer door");
+            Check.Dat(alles.Count == mee.Uitkomst.All.Count && mee.Uitkomst.All.Count == 70,
+                $"samen precies de uitkomst ({alles.Count} geleverd, {mee.Uitkomst.All.Count} in de uitkomst)");
+            Check.Dat(mee.Leveringen.SelectMany(l => l).All(l => l.IsNew), "en ze zijn al als nieuw gemarkeerd");
+
+            Check.Dat(zonder.Leveringen.Count == 1 && zonder.Uitkomst.All.Count == 70,
+                $"zonder toeschouwer: één levering op het einde ({zonder.Leveringen.Count})");
+        }
+
+        // ---------------------------------------------------------------------------
         Check.Groep("Planner: aan de beurt is aan de beurt");
         {
             SearchScheduler Planner(List<string> statussen, params SavedSearch[] lijst)

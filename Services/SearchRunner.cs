@@ -161,9 +161,18 @@ public class SearchRunner
         return outcome;
     }
 
+    /// <param name="tussentijds">
+    /// Ook doorgeven wat er binnenkomt terwijl een site nog bezig is - per pagina, en bij de brug
+    /// zelfs terwijl de pagina laadt - in plaats van pas wanneer die site helemaal klaar is. Enkel
+    /// zinvol wanneer iemand meekijkt: het scherm toont dan de eerste zoekertjes na een seconde in
+    /// plaats van na een site. Staat het uit, dan vraagt de app de brug ook niet om tussentijdse
+    /// versies, en dat scheelde in september 2026 111 van de 159 miljoen gekopieerde tekens.
+    /// De planner weet het van het scherm, via <see cref="SearchScheduler.WordtGetoond"/>.
+    /// </param>
     public async Task<SearchOutcome> RunAsync(SavedSearch search, bool markSeen = true,
                                               IProgress<string>? status = null,
                                               Action<IReadOnlyList<Listing>>? delivered = null,
+                                              bool tussentijds = false,
                                               CancellationToken ct = default)
     {
         var outcome = new SearchOutcome();
@@ -274,23 +283,11 @@ public class SearchRunner
                 ct.ThrowIfCancellationRequested();
                 status?.Report($"{setting.Site} doorzoeken...");
 
-                try
+                // Wat er binnenkomt samenvoegen en doorgeven. Wordt tijdens het ophalen
+                // aangeroepen (per pagina, als er iemand meekijkt) en op het einde met alles
+                // van deze site; wat al binnen was, komt er niet twee keer in.
+                void Lever(IReadOnlyList<Listing> binnen)
                 {
-                    var bron = SourceFactory.Create(def);
-                    var start = DateTime.Now;
-
-                    var resultaten = await bron.SearchAsync(
-                        search.Query, def.ResultLimit(), setting.ToFilters(), null, ct);
-
-                    lock (outcome) outcome.SiteCounts[setting.Site] = resultaten.Count;
-
-                    if (search.VerdachtLeeg(setting.Site, resultaten.Count) is { } verdacht)
-                    {
-                        Fout(setting.Site, verdacht);
-                        Log.Write($"planner: {setting.Site} {verdacht}");
-                    }
-
-                    // Wat deze site nieuw aanbrengt, apart bijhouden om door te geven.
                     var vers = new List<Listing>();
 
                     // De rijstroken komen hier samen. Bij de planner lopen ze allemaal
@@ -298,7 +295,7 @@ public class SearchRunner
                     // ook veilig wanneer iemand deze methode van elders aanroept.
                     lock (gevonden)
                     {
-                        foreach (var listing in resultaten)
+                        foreach (var listing in binnen)
                         {
                             if (gevonden.TryGetValue(listing.Key, out var bestaand))
                             {
@@ -311,21 +308,45 @@ public class SearchRunner
                         }
                     }
 
-                    if (delivered is not null && vers.Count > 0)
-                    {
-                        // De vlaggen nu al zetten, met dezelfde regels als op het
-                        // einde. IsNew meldt geen wijziging aan het scherm: een kaart
-                        // leest hem één keer, bij het tekenen. Achteraf zetten is dus
-                        // te laat — dan verschijnt het NIEUW-label nooit.
-                        foreach (var listing in vers)
-                        {
-                            listing.IsNew = search.IsUnviewed(EerstGezien(listing)) &&
-                                            search.Matches(listing) &&
-                                            BinnenPrijs(search, listing);
-                        }
+                    if (delivered is null || vers.Count == 0) return;
 
-                        delivered(vers);
+                    // De vlaggen nu al zetten, met dezelfde regels als op het einde. IsNew
+                    // meldt geen wijziging aan het scherm: een kaart leest hem één keer, bij
+                    // het tekenen. Achteraf zetten is dus te laat — dan verschijnt het
+                    // NIEUW-label nooit.
+                    foreach (var listing in vers)
+                    {
+                        listing.IsNew = search.IsUnviewed(EerstGezien(listing)) &&
+                                        search.Matches(listing) &&
+                                        BinnenPrijs(search, listing);
                     }
+
+                    delivered(vers);
+                }
+
+                try
+                {
+                    var bron = SourceFactory.Create(def);
+                    var start = DateTime.Now;
+
+                    // Enkel wanneer iemand meekijkt: zonder melder vraagt de app de brug ook
+                    // geen tussentijdse versies (zie de parameter tussentijds).
+                    var melder = tussentijds && delivered is not null
+                        ? new Progress<List<Listing>>(Lever)
+                        : null;
+
+                    var resultaten = await bron.SearchAsync(
+                        search.Query, def.ResultLimit(), setting.ToFilters(), melder, ct);
+
+                    lock (outcome) outcome.SiteCounts[setting.Site] = resultaten.Count;
+
+                    if (search.VerdachtLeeg(setting.Site, resultaten.Count) is { } verdacht)
+                    {
+                        Fout(setting.Site, verdacht);
+                        Log.Write($"planner: {setting.Site} {verdacht}");
+                    }
+
+                    Lever(resultaten);
 
                     Log.Write($"planner: {setting.Site} gaf {resultaten.Count} resultaten " +
                               $"in {(DateTime.Now - start).TotalSeconds:F1}s");

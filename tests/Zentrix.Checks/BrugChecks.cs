@@ -47,13 +47,30 @@ public static class BrugChecks
         brug.Start();
         Check.Dat(!brug.PortBusy, "poort weer vrij: de brug start alsnog");
 
+        // Draait Chrome met de brug-extensie van de gebruiker, dan klopt die elke 250 ms aan met
+        // de échte koppelcode. Dit controleproject heeft een eigen gegevensmap en dus een andere
+        // code, dus voor deze brug is dat een verkeerde - en dan staat WrongCodeRecently altijd
+        // aan, los van wat wij sturen. Die twee controles vallen dan weg, zoals de hele groep
+        // wegvalt wanneer Zentrix de poort bezet houdt.
+        await Task.Delay(1200);
+        var vreemdeExtensie = brug.WrongCodeRecently;
+
         var web = await StuurAsync("GET", "/job?token=verzonnen", "Origin: https://kwaad.example");
-        Check.Dat(!brug.WrongCodeRecently, "webpagina (fetch) met een verzonnen code: telt niet");
         Check.Dat(!web.Contains("Access-Control-Allow-Origin", StringComparison.OrdinalIgnoreCase),
             "webpagina krijgt geen toestemming om het antwoord te lezen");
 
-        await StuurAsync("GET", "/job?token=verzonnen");
-        Check.Dat(!brug.WrongCodeRecently, "webpagina (img, zonder Origin) met een verzonnen code: telt niet");
+        if (vreemdeExtensie)
+        {
+            Check.Overgeslagen("Chrome draait met de brug-extensie en meldt zich met een andere code: " +
+                               "de twee controles op 'een webpagina telt niet' zijn overgeslagen");
+        }
+        else
+        {
+            Check.Dat(!brug.WrongCodeRecently, "webpagina (fetch) met een verzonnen code: telt niet");
+
+            await StuurAsync("GET", "/job?token=verzonnen");
+            Check.Dat(!brug.WrongCodeRecently, "webpagina (img, zonder Origin) met een verzonnen code: telt niet");
+        }
 
         var voorvraagWeb = await StuurAsync("OPTIONS", "/job?token=verzonnen", "Origin: https://kwaad.example",
             "Access-Control-Request-Headers: x-zentrix-brug");

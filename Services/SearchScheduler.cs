@@ -46,6 +46,17 @@ public class SearchScheduler
     /// <summary>Korte tekst over waar de planner mee bezig is, voor de statusregel.</summary>
     public event Action<string>? Status;
 
+    /// <summary>
+    /// Kijkt het scherm mee met deze zoekopdracht? Zo ja, dan worden de resultaten ook
+    /// tussentijds doorgegeven (zie <see cref="SearchRunner.RunAsync"/>), zodat de eerste
+    /// zoekertjes er staan terwijl een site nog bezig is. Het scherm beslist dat zelf, in
+    /// <c>Scheduler_Started</c>: staat het venster in het systeemvak, dan kijkt niemand mee.
+    ///
+    /// Waarom een vraag en geen gebeurtenis: <see cref="Delivered"/> heeft altijd een
+    /// luisteraar (het hoofdscherm), ook wanneer die de lading meteen weggooit.
+    /// </summary>
+    public Func<SavedSearch, bool>? WordtGetoond { get; set; }
+
     /// <summary>Staat er minstens één zoekopdracht op een schema?</summary>
     public bool AnyScheduled => _searches.Any(s => s.Schedule.Mode != ScheduleMode.Off);
 
@@ -83,7 +94,8 @@ public class SearchScheduler
 
             var melder = new Progress<string>(tekst => Status?.Invoke($"'{search.Name}': {tekst}"));
             var outcome = await _runner.RunAsync(search, markSeen: true, status: melder,
-                                                 delivered: lading => Delivered?.Invoke(search, lading));
+                                                 delivered: lading => Delivered?.Invoke(search, lading),
+                                                 tussentijds: WordtGetoond?.Invoke(search) == true);
 
             search.RefreshStatus();
 

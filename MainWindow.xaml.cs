@@ -159,6 +159,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         _scheduler.Started += Scheduler_Started;
         _scheduler.Delivered += Scheduler_Delivered;
         _scheduler.Completed += Scheduler_Completed;
+
+        // Kijkt het scherm mee, dan mogen de resultaten ook tussentijds binnenlopen, zoals bij
+        // zelf zoeken. Scheduler_Started heeft dat net beslist; zit de app in het systeemvak,
+        // dan kijkt niemand mee en wordt er niets tussentijds opgehaald.
+        _scheduler.WordtGetoond = s => _plannerOpScherm == s.Id;
         // De planner mag de statusregel enkel gebruiken wanneer de gebruiker zelf
         // niets aan het zoeken is. Anders zie je tijdens je eigen zoekopdracht
         // ineens de voortgang van iets op de achtergrond.

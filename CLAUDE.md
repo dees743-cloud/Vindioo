@@ -439,8 +439,28 @@ plus één gedeelde prijs — worden bij het inlezen omgezet
 
 **2. Zoeken zonder scherm.** `SearchRunner` voert een `SavedSearch` uit en geeft
 een `SearchOutcome` terug: alles wat gevonden is, wat daarvan nieuw is, en welke
-sites faalden. Het hoofdscherm houdt zijn eigen lus, want dat wil resultaten
-tonen zodra ze binnenkomen.
+sites faalden. Het hoofdscherm houdt voorlopig zijn eigen lus; die twee samenbrengen
+is punt 9 bij Volgende stappen.
+
+**De planner levert ook tussentijds, als iemand meekijkt** (23 september 2026, de parameter
+`tussentijds`). Vroeger gaf hij pas door wanneer een hele site klaar was: druk je op het
+driehoekje van een zoekopdracht terwijl het venster openstaat, dan bleef het scherm leeg tot de
+eerste site helemaal binnen was. Nu komt elke pagina meteen door, en bij de brug zelfs terwijl de
+pagina nog laadt - hetzelfde gevoel als zelf zoeken. Drie dingen die daarbij horen:
+
+- **Enkel wanneer er echt iemand kijkt.** `Delivered` heeft altijd een luisteraar (het
+  hoofdscherm), ook als die de lading weggooit, dus daar valt het niet aan af te lezen. Het
+  scherm beslist het in `Scheduler_Started` en de planner vraagt het op met
+  `SearchScheduler.WordtGetoond`. Staat de app in het systeemvak, dan blijft het bij één levering
+  per site - en vraagt de app de brug ook geen tussentijdse versies, wat in september 111 van de
+  159 miljoen gekopieerde tekens scheelde.
+- **Wat al binnen was, komt niet twee keer door.** Het samenvoegen zit in één plaats (`Lever`),
+  die zowel de tussentijdse als de laatste lading verwerkt en enkel het nieuwe doorgeeft.
+- **De NIEUW-vlag staat er meteen op**, want een kaart leest die één keer, bij het tekenen.
+
+Nagemeten in `PlannerChecks` met een proefsite van drie pagina's: met een toeschouwer 3
+leveringen (30+30+10), zonder 1, in beide gevallen samen precies de 70 uit de uitkomst en geen
+enkel zoekertje twee keer.
 
 Wat ze wél delen is `SearchRunner.Gate`, een semafoor van één. Twee
 zoekopdrachten tegelijk gaat niet: de brug heeft één wachtrij, en twee
@@ -2340,9 +2360,16 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel` en Zentrix dicht waren dat er 262 op 22 september 2026. Draait Zentrix zelf, dan is de
-poort van de brug bezet en vallen de controles van de brug weg. Drie
-regels waar het aan vastzit:
+`--snel`, Zentrix dicht en Chrome dicht waren dat er 268 op 23 september 2026. Twee dingen op deze
+pc laten controles wegvallen, en allebei zeggen ze dat ook:
+
+- **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (22).
+- **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
+  Het controleproject heeft een eigen gegevensmap en dus een andere code, dus voor zijn brug is
+  dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
+  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (266 in plaats van 268).
+
+Drie regels waar het aan vastzit:
 
 - **Het compileert de broncode zelf mee** (`Models`, `Sources`, `Services`, zonder
   `TrayIcon.cs`) en verwijst niet naar `Zentrix.csproj`. Het heeft dus zijn eigen `bin` en
@@ -2845,10 +2872,18 @@ Hieronder enkel wat aan de app zelf te doen valt.
    zoekopdracht uit, en elke regel moet dus twee keer geschreven worden. Dat kostte in september
    2026 al twee keer werk ("nieuw tot je kijkt", de nieuwe rem) en gaf minstens één echt verschil:
    de prijsgrens, rechtgezet op 22 september (zie "Filters werken meteen op wat er al staat").
-   Het doel: `SearchRunner` wordt de enige die zoekt, het scherm toont enkel. Wat daarvoor eerst
-   nodig is: tussentijdse leveringen per site (`progress`) bij de planner, zoeken zonder bewaarde
-   zoekopdracht, en voortgang en fouten per site. Een verbouwing in kleine stappen, met bij elke
-   stap een proef met het hoofdscherm buiten beeld.
+   Het doel: `SearchRunner` wordt de enige die zoekt, het scherm toont enkel. Een verbouwing in
+   kleine stappen, met bij elke stap een proef. Wat daarvoor nodig is:
+
+   - ~~Tussentijdse leveringen per site.~~ Gedaan op 23 september 2026, zie "De planner levert ook
+     tussentijds" bij Automatisch zoeken. Meteen ook winst vandaag: een beurt die je zelf start met
+     het driehoekje, vult het scherm nu per pagina in plaats van per site.
+   - **Zoeken zonder bewaarde zoekopdracht.** `RunAsync` vraagt een `SavedSearch`; het scherm zoekt
+     ook los, met de tabs als invoer. Een tijdelijke `SavedSearch` uit de tabs (zoals "Huidige
+     vastzetten" er een maakt) met `markSeen: false` is vermoedelijk genoeg - na te meten.
+   - **Voortgang en fouten per site.** Het scherm zet nu per site de teller op de tab, de tijd in
+     de statusregel en de fout op het waarschuwingsteken, zodra die site klaar is. De runner geeft
+     fouten pas op het einde mee (`outcome.SiteErrors`), dus daar is een melding per site nodig.
 
    **De inventaris is gemaakt** (22 september 2026, door Codex, daarna punt per punt nagekeken in
    de code). Bedoeld zoals het is, en dus geen werk: los zoeken zonder bewaarde zoekopdracht, een
