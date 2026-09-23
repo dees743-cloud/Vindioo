@@ -124,6 +124,49 @@ public static class PlannerChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("Zoeken zonder bewaarde zoekopdracht");
+        {
+            // De tweede stap naar één zoeklus: het zoekscherm zoekt ook los, met enkel wat er op
+            // dat moment op het scherm staat. Zo'n zoekopdracht is niet bewaard (Id 0), en dan
+            // mag er niets in de databank geschreven worden - en bestaat "nieuw" niet.
+            SavedSearch Los(params string[] sites) => new()
+            {
+                Query = "cd",
+                SiteSettings = sites.Select(n => new SiteSetting { Site = n, Enabled = true }).ToList()
+            };
+
+            var voor = history.GetAll().Count;
+            var leveringen = new List<IReadOnlyList<Listing>>();
+
+            var los = Los("Snel");
+            var uit = await runner.RunAsync(los, markSeen: false,
+                delivered: lading => leveringen.Add(lading.ToList()), tussentijds: true);
+
+            Check.Dat(uit.All.Count == 5 && leveringen.SelectMany(l => l).Count() == 5,
+                $"een losse zoekopdracht levert gewoon resultaten ({uit.All.Count})");
+            Check.Dat(uit.All.All(l => !l.IsNew) && leveringen.SelectMany(l => l).All(l => !l.IsNew),
+                "niets staat als nieuw gemarkeerd: zonder zoekopdracht is er niets om niet bekeken te hebben");
+            Check.Dat(uit.New.Count == 0, $"en er valt niets te melden ({uit.New.Count})");
+            Check.Dat(los.LastRun is null && history.GetAll().Count == voor && history.GetSeen(0).Count == 0,
+                "er is niets in de databank geschreven");
+
+            // Ook met markSeen aan, mocht een aanroeper dat meegeven: zonder rij valt er niets
+            // te onthouden. Vroeger schreef dat rijen met searchId 0.
+            var tweede = Los("Snel");
+            await runner.RunAsync(tweede, markSeen: true);
+
+            Check.Dat(tweede.LastRun is null && history.GetSeen(0).Count == 0 && history.GetAll().Count == voor,
+                "ook met markSeen aan blijft de databank ongemoeid");
+
+            // En een losse zoekopdracht die niet kan draaien, noteert niets.
+            var zonderSite = Los();
+            var niet = await runner.RunAsync(zonderSite, markSeen: true);
+
+            Check.Dat(niet.NotRunReason == "geen site aangevinkt" && zonderSite.LastRun is null,
+                $"niet uitvoerbaar: wel een reden ('{niet.NotRunReason}'), geen tijdstip");
+        }
+
+        // ---------------------------------------------------------------------------
         Check.Groep("Planner: aan de beurt is aan de beurt");
         {
             SearchScheduler Planner(List<string> statussen, params SavedSearch[] lijst)

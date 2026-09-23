@@ -142,8 +142,9 @@ public class SearchRunner
         Log.Write($"planner: '{search.Name}' niet uitgevoerd - {reden}");
 
         // Bij "Nu uitvoeren" in het venster van de zoekopdracht (markSeen uit) is het een
-        // proefbeurt, en die verzet het schema niet.
-        if (markSeen)
+        // proefbeurt, en die verzet het schema niet. Een zoekopdracht zonder Id is niet
+        // bewaard en heeft geen rij om in te schrijven (zie RunAsync).
+        if (markSeen && search.Id > 0)
         {
             // De teller blijft staan: wat je nog niet bekeek, is door deze mislukte beurt
             // niet minder nieuw geworden.
@@ -176,6 +177,14 @@ public class SearchRunner
                                               CancellationToken ct = default)
     {
         var outcome = new SearchOutcome();
+
+        // Een zoekopdracht zonder Id is niet bewaard: zo zoekt het zoekscherm los, met enkel
+        // wat er op dat moment op het scherm staat (23 september 2026, de tweede stap naar één
+        // zoeklus). Dan is er geen rij in de databank om in te schrijven, en bestaat "nieuw"
+        // niet: dat gaat over wat je bij díe zoekopdracht nog niet bekeek. Zonder deze regel
+        // zou alles als nieuw gemarkeerd worden, want wat niet in "al gezien" staat, is nieuw.
+        var bewaard = search.Id > 0;
+        var onthouden = markSeen && bewaard;
 
         var gekozen = search.SiteSettings
             .Where(s => s.Enabled)
@@ -266,8 +275,8 @@ public class SearchRunner
 
             // Vooraf ophalen en niet pas op het einde: elke site geeft zijn
             // zoekertjes meteen door, en dan moet al vaststaan wat nieuw is.
-            var eerderGezien = _history.GetSeen(search.Id);
-            search.LastViewed = _history.GetLastViewed(search.Id);
+            var eerderGezien = bewaard ? _history.GetSeen(search.Id) : new Dictionary<string, DateTimeOffset>();
+            if (bewaard) search.LastViewed = _history.GetLastViewed(search.Id);
 
             DateTimeOffset? EerstGezien(Listing l) =>
                 eerderGezien.TryGetValue(l.Key, out var t) ? t : null;
@@ -316,7 +325,8 @@ public class SearchRunner
                     // NIEUW-label nooit.
                     foreach (var listing in vers)
                     {
-                        listing.IsNew = search.IsUnviewed(EerstGezien(listing)) &&
+                        listing.IsNew = bewaard &&
+                                        search.IsUnviewed(EerstGezien(listing)) &&
                                         search.Matches(listing) &&
                                         BinnenPrijs(search, listing);
                     }
@@ -380,12 +390,17 @@ public class SearchRunner
             // Twee soorten nieuw. Voor de melding: wat deze beurt voor het eerst zag, zodat je
             // niet elk uur een melding krijgt over dezelfde zoekertjes. Voor de teller en het
             // NIEUW-label: wat je nog niet bekeek, ook als een vorige beurt het al vond.
-            foreach (var listing in outcome.All)
+            // Enkel bij een bewaarde zoekopdracht: zonder geschiedenis zou alles "voor het eerst
+            // gezien" zijn, en daar hoort niemand een melding over te krijgen.
+            if (bewaard)
             {
-                if (!eerderGezien.ContainsKey(listing.Key)) outcome.New.Add(listing);
+                foreach (var listing in outcome.All)
+                {
+                    if (!eerderGezien.ContainsKey(listing.Key)) outcome.New.Add(listing);
+                }
             }
 
-            if (markSeen)
+            if (onthouden)
             {
                 if (outcome.All.Count > 0)
                     _history.MarkSeen(search.Id, outcome.All.Select(l => l.Key));
@@ -397,9 +412,9 @@ public class SearchRunner
             }
 
             foreach (var listing in outcome.All)
-                listing.IsNew = search.IsUnviewed(EerstGezien(listing));
+                listing.IsNew = bewaard && search.IsUnviewed(EerstGezien(listing));
 
-            if (markSeen)
+            if (onthouden)
             {
                 search.NewCount = outcome.All.Count(l => l.IsNew);
                 _history.SetLastRun(search.Id, DateTime.Now, search.NewCount);

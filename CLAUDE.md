@@ -442,6 +442,19 @@ een `SearchOutcome` terug: alles wat gevonden is, wat daarvan nieuw is, en welke
 sites faalden. Het hoofdscherm houdt voorlopig zijn eigen lus; die twee samenbrengen
 is punt 9 bij Volgende stappen.
 
+**Een zoekopdracht zonder `Id` is niet bewaard** (23 september 2026). Zo zoekt het zoekscherm
+los: iemand typt een woord en klikt op het vergrootglas, zonder dat daar een zoekopdracht bij
+hoort. `SearchRunner` herkent dat aan `Id == 0` en houdt dan twee dingen apart:
+
+- **Er wordt niets in de databank geschreven**, ook niet met `markSeen` aan: er is geen rij om
+  in te schrijven. Vroeger kwamen daar rijen met `searchId 0` van.
+- **"Nieuw" bestaat niet.** Dat gaat over wat je bij díe zoekopdracht nog niet bekeek, en zonder
+  geschiedenis zou alles nieuw zijn - het NIEUW-label op elke kaart, en een melding over de hele
+  lading. `IsNew` blijft dus uit en `outcome.New` blijft leeg.
+
+Nagemeten in `PlannerChecks`, met de tegenproef: op de oude code was alles nieuw, stonden er vijf
+klaar om te melden, en schreef een losse beurt wél in de databank.
+
 **De planner levert ook tussentijds, als iemand meekijkt** (23 september 2026, de parameter
 `tussentijds`). Vroeger gaf hij pas door wanneer een hele site klaar was: druk je op het
 driehoekje van een zoekopdracht terwijl het venster openstaat, dan bleef het scherm leeg tot de
@@ -2360,14 +2373,14 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel`, Zentrix dicht en Chrome dicht waren dat er 268 op 23 september 2026. Twee dingen op deze
+`--snel`, Zentrix dicht en Chrome dicht waren dat er 274 op 23 september 2026. Twee dingen op deze
 pc laten controles wegvallen, en allebei zeggen ze dat ook:
 
 - **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (22).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
   Het controleproject heeft een eigen gegevensmap en dus een andere code, dus voor zijn brug is
   dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
-  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (266 in plaats van 268).
+  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (272 in plaats van 274).
 
 Drie regels waar het aan vastzit:
 
@@ -2878,9 +2891,10 @@ Hieronder enkel wat aan de app zelf te doen valt.
    - ~~Tussentijdse leveringen per site.~~ Gedaan op 23 september 2026, zie "De planner levert ook
      tussentijds" bij Automatisch zoeken. Meteen ook winst vandaag: een beurt die je zelf start met
      het driehoekje, vult het scherm nu per pagina in plaats van per site.
-   - **Zoeken zonder bewaarde zoekopdracht.** `RunAsync` vraagt een `SavedSearch`; het scherm zoekt
-     ook los, met de tabs als invoer. Een tijdelijke `SavedSearch` uit de tabs (zoals "Huidige
-     vastzetten" er een maakt) met `markSeen: false` is vermoedelijk genoeg - na te meten.
+   - ~~Zoeken zonder bewaarde zoekopdracht.~~ Gedaan op 23 september 2026: een `SavedSearch`
+     zonder `Id` draait gewoon, schrijft niets weg en markeert niets als nieuw (zie "Een
+     zoekopdracht zonder `Id`" bij Automatisch zoeken). Het scherm hoeft er dus enkel nog een
+     tijdelijke `SavedSearch` uit zijn tabs voor te maken, zoals "Huidige vastzetten" er een maakt.
    - **Voortgang en fouten per site.** Het scherm zet nu per site de teller op de tab, de tijd in
      de statusregel en de fout op het waarschuwingsteken, zodra die site klaar is. De runner geeft
      fouten pas op het einde mee (`outcome.SiteErrors`), dus daar is een melding per site nodig.
