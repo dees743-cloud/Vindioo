@@ -629,19 +629,30 @@
                             </TextBlock.Style>
                         </TextBlock>
 
+                        <!-- Tijdens het zoeken is dit de stopknop: hetzelfde vak, een ander
+                             pictogram. Een tweede knop ernaast zou de plaats innemen waar je
+                             muis al staat, en zou twee zichtbaarheden gelijk moeten houden.
+                             De stand staat in Tag, zodat het uiterlijk in het sjabloon blijft
+                             en de code enkel de stand zet. -->
                         <Button Grid.Column="1" x:Name="SearchButton" Click="SearchButton_Click"
-                                        Cursor="Hand" Margin="0,0,6,0">
+                                        Cursor="Hand" Margin="0,0,6,0" ToolTip="Zoeken">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
                                     <Border x:Name="Back" Width="42" Height="38" CornerRadius="10"
                                             Background="Transparent">
-                                        <ui:SymbolIcon Symbol="Search24" FontSize="20"
+                                        <ui:SymbolIcon x:Name="Icoon" Symbol="Search24" FontSize="20"
                                                        Foreground="{StaticResource AccentOnDarkBrush}" />
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
                                             <Setter TargetName="Back" Property="Background"
                                                     Value="{StaticResource AccentSoftBrush}" />
+                                        </Trigger>
+                                        <Trigger Property="Tag" Value="stop">
+                                            <Setter TargetName="Icoon" Property="Symbol" Value="Stop24" />
+                                            <Setter TargetName="Icoon" Property="Foreground"
+                                                    Value="{StaticResource WarningBrush}" />
+                                            <Setter Property="ToolTip" Value="Stoppen" />
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>

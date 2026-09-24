@@ -538,7 +538,40 @@ verdwenen site en liep niet door de runner.
 overhield: een verdwenen site komt nu ook op het scherm (in de statusregel, want ze heeft geen tab),
 "al gezien" wordt pas op het einde geschreven - dus een site die eerst twintig zoekertjes gaf en
 daarna faalde, laat die niet meer als gezien achter - en `LastViewed` wordt op het einde opnieuw
-gelezen. Nog open: **annuleren** (de schermlus geeft nog geen `CancellationToken` mee).
+gelezen. Het vijfde, annuleren, staat hieronder.
+
+### Een zoekopdracht stoppen
+
+**Het vergrootglas wordt een stopknop zodra er gezocht wordt** (24 september 2026). Dat kon tot dan
+niet: je drukte op zoeken, en dan wachtte je het uit - bij een site die de verbinding aanneemt en
+zwijgt, dertig seconden lang, en met "Cd speler" over acht sites al gauw een minuut. Het laatste
+stuk van punt 9: de runner kende zijn `CancellationToken` al, het scherm gaf er geen mee.
+
+- **Eén knop op één plaats.** Dezelfde knop naast de zoekbalk, met een ander pictogram
+  (`Stop24`, in amber). Daar staat je muis al, en een tweede knop ernaast zou twee
+  zichtbaarheden overal gelijk moeten houden. De stand zit in `Tag` van de knop, zodat het
+  uiterlijk in het sjabloon blijft en de code enkel "stop" zet of weghaalt.
+- **Het wachten op het slot hoort erbij.** Draait er een geplande beurt, dan sta je daarop te
+  kijken zonder dat er iets van jou gebeurt; daarom is `Gate.WaitAsync(stop)` ook afbreekbaar.
+  Stop je dan, dan is het slot nooit van jou geweest en wordt het dus ook niet vrijgegeven.
+- **Een halve beurt is geen beurt.** Na het afbreken komt de runner niet meer aan het
+  wegschrijven toe, dus het tijdstip, de teller en "al gezien" blijven die van de vorige beurt.
+  Wat al binnen was, blijft wél op het scherm staan: die sites waren klaar.
+- **Er loopt er maar één tegelijk.** `RunSearchAsync` stopt meteen wanneer er al een beurt van het
+  scherm loopt. Enter, een filterpopup die sluit en het openen van een zoekopdracht komen daar
+  allemaal binnen, en tot nu startten die een tweede beurt die op het slot van de eerste bleef
+  wachten - dezelfde sites nog eens af, zonder dat je erom vroeg. Nu is dat ook nodig: er is één
+  stopknop en één `CancellationTokenSource`.
+
+**De valkuil zit in het slot**, en het is dezelfde als bij `slotGenomen` zelf: geeft de runner het
+bij het afbreken tóch vrij, dan geeft het scherm het daarna een tweede keer vrij en gooit een
+semafoor van één `SemaphoreFullException` - de hele zoekopdracht valt om. `PlannerChecks` kijkt dat
+apart na.
+
+Nagemeten met het hoofdscherm buiten beeld, op twee proefsites (een die meteen antwoordt en een die
+de verbinding aanneemt en zwijgt): 20 zoekertjes binnen, dan op de knop, en **0,2 s later gestopt**
+met "Gestopt. 20 resultaten van de sites die wel klaar waren." De tegenproef op de vorige versie:
+daar liep dezelfde beurt na 15,6 s nog altijd, op weg naar de time-out van 30 s.
 
 Wat ze wél delen is `SearchRunner.Gate`, een semafoor van één. Twee
 zoekopdrachten tegelijk gaat niet: de brug heeft één wachtrij, en twee
@@ -1616,8 +1649,24 @@ Er zijn geen ingebouwde bronnen meer — **elke site is een bestand**. Het veld
   van 15 september: 32 kaarten, 30 zoekertjes, en die twee hebben **echt geen titel** - ook het
   `alt` van de foto (`" in Hemiksem, VLG"`) en het `aria-label` (`", € 80, Hemiksem, VLG, …"`)
   beginnen leeg. De verkoper vulde er geen in. **Zo'n kaart valt weg**, ook al heeft ze een foto,
-  een prijs en een plaats; zo koos de eigenaar het op 23 september 2026. Wat de 28 van die 126
-  waren, zegt de eerstvolgende beurt met de nieuwe regel.
+  een prijs en een plaats; zo koos de eigenaar het op 23 september 2026.
+
+  **Live nagemeten op 24 september 2026**, en het antwoord is een ander dan verwacht. De regel
+  stond intussen twee keer in het logboek, allebei bij een echte beurt:
+
+  | Beurt | Kaarten -> zoekertjes | Weg |
+  |---|---|---|
+  | 23 sept 19:56 | 78 -> 75 | 3 zonder titel, **0 dubbel** |
+  | 24 sept 16:50 | 102 -> 101 | 1 zonder titel, **0 dubbel** |
+
+  De motor laat dus vrijwel niets vallen, en dubbels bestaan er niet. **Het gat zit ergens
+  anders**: het scrollen telde bij allebei **102** zoekertjes, en de motor kreeg er de ene keer
+  102 te lezen en de andere keer maar 78. Dezelfde selector (`ScrolTotAsync` krijgt de
+  `ItemSelector` mee als `waitSelector`), dezelfde pagina, twee momenten: tijdens het scrollen en
+  wanneer de HTML opgehaald wordt. Tussen die twee verdwenen er 24, en op 22 september 28.
+  Facebook ruimt zijn kaarten blijkbaar op naarmate je verder scrolt, en dan lees je een pagina
+  waar een deel al weg is. Eén van de drie keer ging het wél goed, dus het is geen vaste regel -
+  en dat maakt het lastiger te vangen. Zie Volgende stappen 1.
 
   Tot september 2026 heette dit de Facebook-motor (`FacebookSource.cs`), met al die
   waarden in de code. Na de keuzelijsten van AlleVeilingen was dat de laatste plek waar
@@ -2447,14 +2496,14 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel`, Zentrix dicht en Chrome dicht waren dat er 282 op 23 september 2026. Twee dingen op deze
+`--snel`, Zentrix dicht en Chrome dicht waren dat er 284 op 24 september 2026. Twee dingen op deze
 pc laten controles wegvallen, en allebei zeggen ze dat ook:
 
 - **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (22).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
   Het controleproject heeft een eigen gegevensmap en dus een andere code, dus voor zijn brug is
   dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
-  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (280 in plaats van 282).
+  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (282 in plaats van 284).
 
 Drie regels waar het aan vastzit:
 
@@ -2799,7 +2848,8 @@ witte tekst leesbaar blijft.
 
 - Zoeken over meerdere aangevinkte sites tegelijk, met voortgang en tijd per
   bron. De app komt zonder sites: welke er zijn en wat elk kan, staat in `SITES.md`
-  van `zentrix-sites`
+  van `zentrix-sites`. Tijdens het zoeken wordt het vergrootglas een **stopknop**: wat al
+  binnen was blijft staan, en de zoekopdracht telt die halve beurt niet mee
 - Sites importeren uit een map (ook meteen bij een lege eerste start), toevoegen
   met de AI-analyse, en verwijderen in het instellingen-scherm (de knop
   "Verwijderen" op de kaart van die site)
@@ -2887,12 +2937,15 @@ witte tekst leesbaar blijft.
 Wat er per site nog ontbreekt, staat bij "Nog open" in `SITES.md` van `zentrix-sites`.
 Hieronder enkel wat aan de app zelf te doen valt.
 
-1. ~~Het scrollen bij Facebook live nameten.~~ Gedaan op 23 september 2026: 126 zoekertjes na 7
-   keer scrollen, 98 resultaten in 18,0 s, zonder controlevraag (zie de linkmotor). Waarom er van
-   die 126 kaarten 28 wegvielen, zegt de eerstvolgende beurt: het logboek splitst het sinds
-   dezelfde dag uit in dubbels, kaarten zonder titel en links die geen zoekertje zijn. Zijn het
-   vooral dubbels, dan is er niets aan de hand; zijn het kaarten zonder titel, dan is de vraag of
-   die niet beter mét hun foto en prijs getoond worden.
+1. **Facebook verliest soms een kwart van zijn kaarten tussen het scrollen en het lezen.**
+   Het scrollen zelf is nagemeten en werkt (23 september 2026: 126 zoekertjes na 7 keer scrollen,
+   98 resultaten in 18,0 s, zonder controlevraag). Wat er wegviel, is op 24 september uitgeplozen
+   met de nieuwe logboekregel, en het bleek niet te liggen aan dubbels of aan kaarten zonder
+   titel - daarvan zijn er maar 1 tot 3. Het scrollen telde 102 zoekertjes, en de motor kreeg er
+   de ene beurt 102 te lezen en de andere maar 78; zie de linkmotor voor de cijfers. Wat nog
+   ontbreekt om het te kunnen oplossen: de tijd tussen de laatste telling en het ophalen van de
+   HTML, en of het aantal daartussen echt daalt. Dat is één extra telling in
+   `BrowserFetcher`, en daarna een paar echte beurten om te kijken.
 2. Grote foto's op aanvraag. Bij sommige sites geeft de zoekpagina enkel kleine,
    bijgesneden foto's en staat de grote pas op de pagina van het zoekertje. Die
    ophalen kost een volledige browsersessie (5–10 s), dus niet tijdens het
@@ -2972,9 +3025,9 @@ Hieronder enkel wat aan de app zelf te doen valt.
    enkel op het scherm, het wachten op het bewaren, meldingen enkel van de planner, en *Recent*
    enkel bij zelf zoeken. Rechtgezet bij de verhuizing: een verdwenen site die het scherm stil
    liet vallen, "al gezien" bij een site die halverwege faalt, `LastViewed` dat op het einde
-   opnieuw gelezen hoort te worden, en de volgorde van het bewaren. **Nog open: annuleren** - de
-   schermlus geeft nog geen `CancellationToken` mee, dus een zoekopdracht die je zelf startte kan
-   je niet stoppen.
+   opnieuw gelezen hoort te worden, en de volgorde van het bewaren. Annuleren kwam er op
+   24 september bij, en daarmee is er van die lijst niets meer open; zie "Een zoekopdracht
+   stoppen" bij Automatisch zoeken.
 
    Ook nuttig uit die ronde: **de afspeelknop van een zoekopdracht start de planner**
    (`_scheduler.RunAsync`), en niet `RunSearchAsync`. Dat laatste loopt bij het vergrootglas, bij

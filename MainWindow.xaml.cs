@@ -91,6 +91,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private bool _zoektHandmatig;
 
     /// <summary>
+    /// Waarmee de lopende zoekopdracht van het scherm afgebroken wordt, of null wanneer er niets
+    /// loopt. Het is meteen de stand van de knop naast de zoekbalk: staat hij er, dan is het
+    /// vergrootglas een stopknop (zie <see cref="SearchButton_Click"/>).
+    /// </summary>
+    private CancellationTokenSource? _stoppen;
+
+    /// <summary>
     /// Is er sinds het opstarten al iets gezocht of getoond? Bepaalt of een lege lijst
     /// "typ hierboven wat je zoekt" zegt of "niets gevonden". Zie LeegTekst.
     /// </summary>
@@ -2072,7 +2079,42 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         window.ShowDialog();
     }
 
-    private void SearchButton_Click(object sender, RoutedEventArgs e) => _ = RunSearchAsync();
+    /// <summary>
+    /// Het vergrootglas naast de zoekbalk - of de stopknop, wanneer er al een zoekopdracht van
+    /// het scherm loopt. Eén knop op één plaats, want daar staat je muis al, en het pictogram
+    /// zegt welke van de twee het nu is.
+    /// </summary>
+    private void SearchButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_stoppen is null)
+        {
+            _ = RunSearchAsync();
+            return;
+        }
+
+        // De sites moeten hun lopende verzoek nog afmaken; bij Facebook kan dat een paar
+        // seconden scrollen zijn. Daarom zegt de statusregel meteen dat het onderweg is, en
+        // gaat de knop uit - twee keer stoppen bestaat niet.
+        StatusText.Text = "Stoppen...";
+        SearchButton.IsEnabled = false;
+        _stoppen.Cancel();
+    }
+
+    /// <summary>
+    /// Het scherm weer in rust na een zoekopdracht, hoe ze ook afliep: geen wieltje meer, en
+    /// het vergrootglas in plaats van de stopknop.
+    /// </summary>
+    private void ZoekenGedaan()
+    {
+        _zoektHandmatig = false;
+        Spinner.Visibility = Visibility.Collapsed;
+
+        _stoppen?.Dispose();
+        _stoppen = null;
+
+        SearchButton.Tag = null;
+        SearchButton.IsEnabled = true;
+    }
 
     // ==================== resultaten over pagina's verdelen ====================
 
@@ -2379,6 +2421,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     /// </summary>
     private async Task RunSearchAsync()
     {
+        // Er loopt er al een van het scherm. Enter, een filterpopup die sluit en het openen van
+        // een zoekopdracht komen hier allemaal binnen, en tot nu startten die gewoon een tweede
+        // beurt die dan op het slot van de eerste bleef wachten - dezelfde sites nog eens af,
+        // zonder dat je erom vroeg. Nu is er er één tegelijk, en dat moet ook: er is één
+        // stopknop en één CancellationTokenSource.
+        if (_stoppen is not null) return;
+
         var query = QueryBox.Text.Trim();
 
         // Een andere zoekterm dan die van de geopende bewaarde zoekopdracht: dan staat dit
@@ -2432,9 +2481,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         TabSearch.IsChecked = true;
 
         _zoektHandmatig = true;
-        SearchButton.IsEnabled = false;
         Spinner.Visibility = Visibility.Visible;
         StatusText.Text = "Bezig met zoeken...";
+
+        // Vanaf hier kan je de beurt afbreken, en wordt het vergrootglas dus een stopknop.
+        // Het wachten op het slot hoort er mee bij: daar kan je het langst staan kijken.
+        _stoppen = new CancellationTokenSource();
+        var stop = _stoppen.Token;
+        SearchButton.Tag = "stop";
 
         // Hetzelfde slot als de planner. Draait er op de achtergrond net een zoekopdracht, dan
         // wachten we die af: de brug heeft één wachtrij en twee Playwright-sessies op hetzelfde
@@ -2443,7 +2497,18 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         if (SearchRunner.Gate.CurrentCount == 0)
             StatusText.Text = "Wachten tot de zoekopdracht op de achtergrond klaar is...";
 
-        await SearchRunner.Gate.WaitAsync();
+        try
+        {
+            await SearchRunner.Gate.WaitAsync(stop);
+        }
+        catch (OperationCanceledException)
+        {
+            // Gestopt terwijl we nog op de beurt op de achtergrond wachtten. Er is niets
+            // gebeurd, en het slot is nooit van ons geweest: dus ook niet vrijgeven.
+            StatusText.Text = "Gestopt; er was nog niets gezocht.";
+            ZoekenGedaan();
+            return;
+        }
 
         // Waarmee er gezocht wordt. Staat er een bewaarde zoekopdracht open, dan is zij het, met
         // de sites en filters van het scherm erin: anders zoekt de planner straks met de oude
@@ -2524,7 +2589,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                 tussentijds: true,
                 siteKlaar: SiteIsKlaar,
                 slotGenomen: true,
-                logNaam: "zoeken");
+                logNaam: "zoeken",
+                ct: stop);
 
             // De teller, het tijdstip en wat er per site misliep staan al in de zoekopdracht:
             // dat deed de runner, precies zoals bij een geplande beurt.
@@ -2536,14 +2602,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                 {
                     _lastOutcomes[_activeSearch.Id] = outcome.All;
                     bewaren = BewaarUitkomstAsync(_activeSearch.Id, outcome.All.ToList());
-                }
-
-                // Een beurt die niet kon draaien schrijft de zoekopdracht niet weg, dus wat we
-                // net van het scherm overnamen zou dan verloren gaan.
-                if (overgenomen.Length > 0)
-                {
-                    _history.Update(_activeSearch);
-                    Log.Write($"zoeken: de gewijzigde {overgenomen} zijn bewaard in '{_activeSearch.Name}'");
                 }
 
                 UpdateSchedulerHint();
@@ -2591,17 +2649,38 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
             StatusText.Text = message;
         }
+        catch (OperationCanceledException) when (stop.IsCancellationRequested)
+        {
+            // Je drukte op de stopknop. Wat al binnen was, blijft gewoon staan: de sites die
+            // klaar waren, leverden hun zoekertjes al af. De zoekopdracht zelf blijft
+            // onaangeroerd - de runner komt na het afbreken niet meer aan het wegschrijven toe,
+            // dus haar tijdstip, haar teller en "al gezien" blijven die van de vorige beurt.
+            // Dat is ook de bedoeling: een halve beurt is geen beurt.
+            Log.Write($"zoeken: '{zoekopdracht.Name}' gestopt door de gebruiker");
+
+            StatusText.Text = _results.Count == 0
+                ? "Gestopt; er was nog niets binnen."
+                : $"Gestopt. {_results.Count} resultaten van de sites die wel klaar waren.";
+        }
         finally
         {
+            // Wat we van het scherm overnamen hoort in de databank, ook als de beurt gestopt of
+            // niet uitgevoerd werd: je wijzigde die filters, en dat staat los van of er
+            // resultaten kwamen. Bij een gelukte beurt schreef de runner ze al weg; nog eens
+            // schrijven is één UPDATE te veel en verder onschuldig.
+            if (overgenomen.Length > 0 && _activeSearch is not null)
+            {
+                _history.Update(_activeSearch);
+                Log.Write($"zoeken: de gewijzigde {overgenomen} zijn bewaard in '{_activeSearch.Name}'");
+            }
+
             // Pas het slot vrijgeven als de resultaten bewaard zijn: zo schrijft de volgende
             // zoekopdracht nooit tegelijk. Het scherm blijft intussen gewoon reageren, en wat
             // hierboven nog op _activeSearch werkte, liep al voor deze wachttijd.
             await bewaren;
             SearchRunner.Gate.Release();
 
-            _zoektHandmatig = false;
-            Spinner.Visibility = Visibility.Collapsed;
-            SearchButton.IsEnabled = true;
+            ZoekenGedaan();
 
             _resultsView.Refresh();
             ToonPagina();

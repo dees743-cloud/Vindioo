@@ -232,6 +232,28 @@ public static class PlannerChecks
             SearchRunner.Gate.Release();
             Check.Dat(SearchRunner.Gate.CurrentCount == 1, "pas die geeft het weer vrij");
 
+            // Ook wanneer de beurt afgebroken wordt. Dit is de gevaarlijke combinatie: gaf de
+            // runner het slot bij het afbreken tóch vrij, dan geeft het scherm het daarna een
+            // tweede keer vrij, en een semafoor van één gooit dan SemaphoreFullException - de
+            // hele zoekopdracht valt om.
+            using (var afbreken = new CancellationTokenSource())
+            {
+                await SearchRunner.Gate.WaitAsync();
+
+                var gestopt = runner.RunAsync(Zoekopdracht("stop", "Traag"), markSeen: false,
+                                              slotGenomen: true, logNaam: "zoeken", ct: afbreken.Token);
+                afbreken.Cancel();
+
+                Exception? afgebroken = null;
+                try { await gestopt; } catch (Exception ex) { afgebroken = ex; }
+
+                Check.Dat(afgebroken is OperationCanceledException,
+                    $"een afgebroken beurt gooit door naar het scherm ({afgebroken?.GetType().Name})");
+                Check.Dat(SearchRunner.Gate.CurrentCount == 0, "en ook dan blijft het slot van wie het nam");
+
+                SearchRunner.Gate.Release();
+            }
+
             // Ten tweede het logboek: dezelfde code, maar je wil kunnen zien wie er aan het werk
             // was. Een beurt van het scherm heet "zoeken", een geplande beurt "planner".
             var logboek = File.ReadAllText(Log.FilePath);
