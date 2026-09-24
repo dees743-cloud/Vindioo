@@ -87,6 +87,7 @@ Services/
   Log.cs             logboek in een tekstbestand
   FriendlyError.cs   zet een fout om in een zin die de gebruiker iets zegt
   PriceIndicator.cs  wat is een toestel ongeveer waard: zoeken, opschonen, rekenen
+  PhotoAnalyzer.cs   laat een AI op deze pc naar een foto kijken en erover vertellen
   DetailFetcher.cs   haalt van de pagina van een zoekertje wat niet op de zoekpagina staat
   DisplayDiagnostics.cs  zet in het logboek hoe er getekend wordt en wat Windows aan het
                      scherm verandert, voor een wit venster
@@ -1368,6 +1369,58 @@ stap. De woordenlijsten (toebehoren, defect, geen achtervoegsel) staan in `Price
 gemaakt op echte titels; een nieuwe soort rommel vraagt daar een woord bij. Nagemeten in
 `PrijsChecks` met de titels van die dag, en met een lokale proefsite van begin tot einde.
 
+### AI-controle op een foto: wat zie ik hier niet
+
+De **AI-controle** kijkt met een model op je eigen pc naar de foto van een zoekertje en vertelt er
+in gewone taal over. Bedoeld voor wat je met het blote oog niet ziet: een doos vol dvd's waarvan
+de titels te klein zijn, of het typenummer op het label achteraan een oude radio. Zo vroeg de
+eigenaar het op 24 september 2026.
+
+**Het draait lokaal.** Ollama op `127.0.0.1:11434`, op de grafische kaart (een RTX 4060); er gaat
+geen foto de deur uit. Het model staat in `AppSettings.AiModel` en is `qwen3.5:9b` - 9,7 miljard
+parameters, Q4_K_M, 6,6 GB, en het kan "vision". Gemeten: **ongeveer een seconde per foto**, plus
+veertig seconden de eerste keer, want dan wordt het model in de kaart geladen. Daarom staat
+`keep_alive` op tien minuten: anders betaal je die veertig seconden bij elke foto opnieuw.
+
+**Drie dingen kwamen uit het meten en bepalen de hele opzet** (`PhotoAnalyzer`):
+
+- **De foto moet in stukken.** Een vision-model verkleint zijn invoer naar een vast formaat, en op
+  een hele foto zijn kleine labels dan een paar beeldpunten hoog. Op een echte kavelfoto met elf
+  tijdschriften en zo'n dertig diskettehoesjes gaf de hele foto **14 namen** - enkel de grote
+  koppen - en gaven zes stukken er **57**, de kleine labels inbegrepen. De stukken overlappen een
+  kwart, anders valt een titel die op de snijlijn ligt in twee onleesbare helften uiteen.
+- **Het antwoord moet een vaste vorm hebben.** Met vrije tekst liep het model vast in herhaling:
+  34 seconden om 200 keer "SuperDisk" te zeggen. Met een afgedwongen JSON-vorm (`format` in de
+  vraag aan Ollama) gebeurde dat geen enkele keer meer.
+- **Lezen is betrouwbaar, weten niet.** Wat het van de foto leest klopt grotendeels; wat het
+  eromheen bedenkt niet - bij een laptop verzon het toetsen die niet bestaan ("F34"). Daarom leest
+  het eerst enkel namen, en vertelt het pas daarna, met het uitdrukkelijke verbod om iets over
+  staat, kleur of ouderdom te schrijven dat het niet gelezen heeft. Met dat verbod erbij bleef de
+  alinea eerlijk.
+
+**In stukken lezen, in één keer vertellen.** Elk stuk geeft enkel namen terug; op het einde gaat de
+hele foto nog één keer mee, samen met alles wat gelezen is, en daar komt de alinea uit. Dat zet
+meteen leesfouten recht, want dan ziet het model de losse stukken in hun verband: PORTEX stond in
+een los stuk als "FORTEX", MOUSE MANAGER als "HOUSE MANAGER" en HAIKU als "AIKU", en in de alinea
+stonden ze alle drie goed.
+
+**Wat het niet kan, en dus ook niet belooft: tellen.** "Ongeveer twintig tot dertig" voor elf
+tijdschriften en dertig diskettes. Het aantal staat er als een schatting, en dat is het ook.
+
+Nagemeten met de echte Ollama op de echte kavelfoto: **17,8 s** voor de grondige lezing (6 stukken,
+34 namen), en een alinea die er 28 van opsomt. Twee leesfouten bleven staan (DIETPLAN werd
+"Dietpotatoes", ROBOPOST werd "Robopod"), dus ongeveer vijf op de zes klopt - genoeg om te zeggen
+*wat er ongeveer ligt*, niet genoeg om blind op te varen. Een gewone foto van één toestel gaat
+zonder stukken: **1,8 s** voor "een tweedehands ThinkPad-laptop met Intel-processors".
+
+De logica eromheen staat in `FotoChecks`, met een nagebootste Ollama (`NepOllama`): het knippen,
+het ontdubbelen, wat er in de vraag meegaat, een stuk dat onzin teruggeeft, en Ollama dat niet
+draait. De grafische kaart hoort niet in de controles - die moeten overal draaien en in een
+seconde klaar zijn.
+
+**Dit is stap 1 van vier**; zie Volgende stappen 3 voor de rest. In het scherm is er dus nog niets
+van te zien.
+
 ## Hoe een site binnenkomt — drie wegen
 
 1. **Rechtstreeks** (`HttpClient`). Snelst. Werkt bij 2dehands en Marktplaats,
@@ -2518,14 +2571,14 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel`, Zentrix dicht en Chrome dicht waren dat er 284 op 24 september 2026. Twee dingen op deze
+`--snel`, Zentrix dicht en Chrome dicht waren dat er 304 op 24 september 2026. Twee dingen op deze
 pc laten controles wegvallen, en allebei zeggen ze dat ook:
 
 - **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (22).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
   Het controleproject heeft een eigen gegevensmap en dus een andere code, dus voor zijn brug is
   dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
-  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (282 in plaats van 284).
+  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (302 in plaats van 304).
 
 Drie regels waar het aan vastzit:
 
@@ -2973,10 +3026,27 @@ Hieronder enkel wat aan de app zelf te doen valt.
    bijgesneden foto's en staat de grote pas op de pagina van het zoekertje. Die
    ophalen kost een volledige browsersessie (5–10 s), dus niet tijdens het
    zoeken maar pas wanneer je erom vraagt.
-3. Fotobeoordeling — optioneel, begrensd tot de top-N interessantste
-   resultaten, met een voorafgaand scherm dat toont hoeveel foto's het zijn
-   en wat de richttijd is. Backend kiesbaar: Claude API (kost geld) of Ollama
-   lokaal (kost tijd). Beide moeten getest kunnen worden.
+3. **AI-controle op een foto**, lokaal op de grafische kaart. Gevraagd op 24 september 2026:
+   de AI moet zien wat de eigenaar zelf niet ziet - een doos vol dvd's waarvan de titels te klein
+   zijn, of wat voor toestel er staat en welk typenummer erop staat. Vier stappen:
+
+   - ~~De motor.~~ Gedaan op 24 september 2026: `PhotoAnalyzer` knipt, leest, ontdubbelt en
+     vertelt. Zie "AI-controle op een foto" bij Wat je te zien krijgt.
+   - **Rechtsklik op één foto**: *AI-controle op deze foto*, naast *Prijsindicatie*, met een
+     venster zoals dat van de prijsindicatie. Het eerste gebruik na een pauze kost veertig
+     seconden modelladen, en dat hoort het venster te zeggen.
+   - **Alle foto's van dat zoekertje.** De zoekpagina geeft er één; de rest staat op de pagina van
+     het zoekertje. Dat is hetzelfde werk als punt 2 hieronder, en gaat op dezelfde manier: een
+     veld in het sitebestand dat de foto's aanwijst, opgehaald door `DetailFetcher`.
+   - **Meerdere zoekertjes tegelijk**, met vooraf een schermpje dat zegt hoeveel foto's en
+     hoelang. Vraagt dat de lijst en het raster meervoudige selectie aankunnen; nog na te kijken.
+
+   **Google Lens via de brug** is apart besproken en bewust achteraan gezet: het is níet offline -
+   je stuurt dan een foto naar Google - er is geen officiële weg naartoe, en een Google-pagina
+   besturen breekt bij de eerste opmaakwijziging. Wat het wél goed kan is precies wat het lokale
+   model niet kan: een typenummer opzoeken en gelijkaardige items vinden. Dus: de vier stappen
+   hierboven eerst en helemaal lokaal, en Lens daarna als een aparte knop waarvan je weet dat er
+   iets de deur uit gaat.
 4. De brug verder laten scrollen zodat sites met lazy loading meer
    resultaten geven
 5. Het automatisch zoeken kan verder:

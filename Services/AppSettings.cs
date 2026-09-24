@@ -127,6 +127,21 @@ public class AppSettings
     /// </summary>
     public int PageSize { get; set; } = 100;
 
+    // ---------- AI-controle op een foto ----------
+
+    /// <summary>
+    /// Welk model van Ollama een foto bekijkt. Moet "vision" kunnen; qwen3.5:9b heeft dat, en
+    /// staat hier omdat het op deze pc al geïnstalleerd was. Het draait lokaal op de grafische
+    /// kaart, dus er gaat geen foto de deur uit. Zie <see cref="PhotoAnalyzer"/>.
+    /// </summary>
+    public string AiModel { get; set; } = "qwen3.5:9b";
+
+    /// <summary>
+    /// Waar Ollama luistert. Enkel op deze pc; een adres buiten 127.0.0.1 zou betekenen dat de
+    /// foto's naar een andere machine gaan, en daar is deze functie niet voor bedoeld.
+    /// </summary>
+    public string AiUrl { get; set; } = "http://127.0.0.1:11434";
+
     // ---------- meldingen ----------
 
     public NotifySettings Notify { get; set; } = new();

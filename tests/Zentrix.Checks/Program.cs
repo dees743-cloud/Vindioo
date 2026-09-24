@@ -1,4 +1,4 @@
-// Controles voor Zentrix.
+﻿// Controles voor Zentrix.
 //
 // Draaien, vanuit de projectmap, terwijl Visual Studio gewoon open mag blijven:
 //
@@ -43,6 +43,7 @@ await StilFalenChecks.RunAsync();
 await SitesChecks.RunAsync();
 await PrijsChecks.RunAsync();
 await NieuwChecks.RunAsync();
+await FotoChecks.RunAsync();
 BrowserChecks.Run();
 await BrugChecks.RunAsync();
 
