@@ -275,6 +275,9 @@
                                           Click="PriceIndicationMenu_Click" />
                                 <MenuItem Header="AI-controle op deze foto" Icon="{ui:SymbolIcon Sparkle24}"
                                           Click="PhotoInsightMenu_Click" />
+                                <MenuItem Header="AI-controle op alle foto's van dit zoekertje"
+                                          Icon="{ui:SymbolIcon ImageMultiple24}"
+                                          Click="PhotoInsightAllMenu_Click" />
                             </ContextMenu>
                         </Grid.ContextMenu>
 
@@ -366,6 +369,9 @@
                                           Click="PriceIndicationMenu_Click" />
                                 <MenuItem Header="AI-controle op deze foto" Icon="{ui:SymbolIcon Sparkle24}"
                                           Click="PhotoInsightMenu_Click" />
+                                <MenuItem Header="AI-controle op alle foto's van dit zoekertje"
+                                          Icon="{ui:SymbolIcon ImageMultiple24}"
+                                          Click="PhotoInsightAllMenu_Click" />
                             </ContextMenu>
                         </Grid.ContextMenu>
 

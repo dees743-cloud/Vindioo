@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Net.Http;
 using System.Windows;
@@ -7,6 +8,22 @@ using Zentrix.Models;
 using Zentrix.Services;
 
 namespace Zentrix;
+
+/// <summary>Wat de AI van één foto maakte, klaar om te tonen.</summary>
+public class PhotoResultView
+{
+    public string Kop { get; init; } = "";
+    public string Beschrijving { get; init; } = "";
+    public List<string> Gelezen { get; init; } = new();
+    public Brush? Penseel { get; init; }
+
+    public string GelezenKop => Gelezen.Count == 0
+        ? ""
+        : $"Gelezen op de foto ({Gelezen.Count}) - ongeveer vijf op de zes klopt:";
+
+    public Visibility NamenZichtbaar => Gelezen.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility FotoZichtbaar => Penseel is null ? Visibility.Collapsed : Visibility.Visible;
+}
 
 /// <summary>
 /// Wat staat er op deze foto dat je zelf niet ziet? Geopend met een rechtsklik op de foto van een
@@ -22,6 +39,11 @@ namespace Zentrix;
 ///   titels op een doos vol dvd's - maar het kost een halve minuut in plaats van een paar
 ///   seconden. Het vinkje staat aan, en zegt in zijn tooltip waarom je het zou uitzetten.
 ///
+/// **Alle foto's van het zoekertje** (het tweede vinkje) haalt ook de andere foto's van de
+/// advertentie op, van de pagina van het zoekertje zelf - daar staat vaak wat je zoekt. Elke foto
+/// krijgt zijn eigen blok, en dat blok verschijnt zodra die foto klaar is: bij vijf foto's duurt
+/// het geheel meer dan een minuut, en dan wil je niet naar een leeg venster kijken.
+///
 /// De grote foto gaat voor op de miniatuur (<see cref="Listing.LargeImage"/>): hoe meer
 /// beeldpunten, hoe meer er te lezen valt.
 /// </summary>
@@ -30,14 +52,20 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(30) };
 
     private readonly Listing _listing;
-    private CancellationTokenSource? _cts;
-    private PhotoInsight? _laatste;
+    private readonly IReadOnlyList<SiteDefinition> _sites;
+    private readonly ObservableCollection<PhotoResultView> _uitkomsten = new();
 
-    public PhotoInsightWindow(Listing listing)
+    private CancellationTokenSource? _cts;
+
+    public PhotoInsightWindow(Listing listing, IReadOnlyList<SiteDefinition> sites, bool alleFotos = false)
     {
         InitializeComponent();
 
         _listing = listing;
+        _sites = sites;
+
+        Results.ItemsSource = _uitkomsten;
+        AllPhotosBox.IsChecked = alleFotos;
 
         ToonZoekertje();
         ModelText.Text = $"{AppSettings.Current.AiModel}, op je eigen grafische kaart via Ollama.";
@@ -53,20 +81,7 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
         var prijs = _listing.Price is { } p && p > 0 ? PriceRange.Euro(p) : "geen prijs";
         OriginPrice.Text = $"{prijs} · {_listing.Source}";
 
-        // De foto in code: een lege of kapotte link mag het venster niet laten vallen.
-        if (string.IsNullOrWhiteSpace(_listing.Thumbnail)) return;
-
-        try
-        {
-            OriginPhoto.Background = new ImageBrush(new BitmapImage(new Uri(_listing.Thumbnail)))
-            {
-                Stretch = Stretch.UniformToFill
-            };
-        }
-        catch (Exception ex)
-        {
-            Log.Write($"AI-controle: foto niet geladen - {ex.Message}");
-        }
+        OriginPhoto.Background = Penseel(_listing.Thumbnail);
     }
 
     private async void RunButton_Click(object sender, RoutedEventArgs e) => await KijkAsync();
@@ -74,23 +89,32 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
     private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 
     /// <summary>
-    /// De beschrijving én de gelezen namen naar het klembord: bij een doos vol dvd's is die lijst
-    /// juist het ding dat je ergens anders wil plakken.
+    /// Alles wat er staat naar het klembord: bij een doos vol dvd's is die namenlijst juist het
+    /// ding dat je ergens anders wil plakken.
     /// </summary>
     private void CopyButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_laatste is null) return;
+        if (_uitkomsten.Count == 0) return;
 
-        var tekst = _laatste.Beschrijving;
+        var tekst = new System.Text.StringBuilder();
+        tekst.AppendLine(_listing.Title);
 
-        if (_laatste.Gelezen.Count > 0)
-            tekst += Environment.NewLine + Environment.NewLine +
-                     "Gelezen op de foto:" + Environment.NewLine +
-                     string.Join(Environment.NewLine, _laatste.Gelezen);
+        foreach (var uitkomst in _uitkomsten)
+        {
+            tekst.AppendLine();
+            tekst.AppendLine(uitkomst.Kop);
+            tekst.AppendLine(uitkomst.Beschrijving);
+
+            if (uitkomst.Gelezen.Count == 0) continue;
+
+            tekst.AppendLine();
+            tekst.AppendLine("Gelezen op de foto:");
+            foreach (var naam in uitkomst.Gelezen) tekst.AppendLine(naam);
+        }
 
         try
         {
-            Clipboard.SetText(tekst);
+            Clipboard.SetText(tekst.ToString());
             StatusText.Text = "Gekopieerd naar het klembord.";
         }
         catch (Exception ex)
@@ -107,22 +131,33 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
 
         RunButton.IsEnabled = false;
         CopyButton.IsEnabled = false;
-        ResultPanel.Visibility = Visibility.Collapsed;
-        ReadPanel.Visibility = Visibility.Collapsed;
+        _uitkomsten.Clear();
 
         var grondig = ThoroughBox.IsChecked == true;
+        var alle = AllPhotosBox.IsChecked == true;
 
         try
         {
-            StatusText.Text = "De foto ophalen...";
+            var fotos = new List<string>();
 
-            var foto = await HaalFotoAsync(_listing.LargeImage, cts.Token);
-
-            if (foto is null)
+            if (alle)
             {
-                StatusText.Text = "De foto van dit zoekertje is niet op te halen.";
+                StatusText.Text = "De andere foto's van dit zoekertje opzoeken...";
+                fotos = await DetailFetcher.FotosAsync(_listing, _sites, cts.Token);
+            }
+            else if (!string.IsNullOrWhiteSpace(_listing.LargeImage))
+            {
+                fotos.Add(_listing.LargeImage);
+            }
+
+            if (fotos.Count == 0)
+            {
+                StatusText.Text = "Dit zoekertje heeft geen foto om naar te kijken.";
                 return;
             }
+
+            if (alle && fotos.Count == 1)
+                Log.Write($"AI-controle: geen extra foto's gevonden voor '{_listing.Title}'");
 
             // Eerst zeggen dat het model geladen moet worden, en pas dan wachten: anders staar je
             // veertig seconden naar een venster dat niets lijkt te doen.
@@ -131,12 +166,53 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
                                   "grafische kaart geladen; dat duurt ongeveer 40 seconden. " +
                                   "Daarna gaat elke volgende foto snel.";
 
-            var melder = new Progress<string>(tekst => StatusText.Text = tekst);
-            var uitkomst = await new PhotoAnalyzer().AnalyseerAsync(foto, grondig, melder, cts.Token);
+            var klok = System.Diagnostics.Stopwatch.StartNew();
 
-            if (cts.IsCancellationRequested) return;
+            for (var i = 0; i < fotos.Count; i++)
+            {
+                var nummer = fotos.Count == 1 ? "" : $"Foto {i + 1} van {fotos.Count}: ";
+                var melder = new Progress<string>(tekst => StatusText.Text = nummer + tekst);
 
-            Toon(uitkomst);
+                var beeld = await HaalFotoAsync(fotos[i], cts.Token);
+
+                if (beeld is null)
+                {
+                    Log.Write($"AI-controle: foto {i + 1} niet op te halen");
+                    continue;
+                }
+
+                var uitkomst = await new PhotoAnalyzer().AnalyseerAsync(beeld, grondig, melder, cts.Token);
+
+                if (cts.IsCancellationRequested) return;
+
+                if (uitkomst.Fout is not null)
+                {
+                    StatusText.Text = uitkomst.Fout;
+                    return;
+                }
+
+                // Meteen tonen: bij vijf foto's duurt het geheel meer dan een minuut.
+                _uitkomsten.Add(new PhotoResultView
+                {
+                    Kop = fotos.Count == 1 ? "Wat de AI ziet" : $"Foto {i + 1} van {fotos.Count}",
+                    Beschrijving = uitkomst.Beschrijving.Length > 0
+                        ? uitkomst.Beschrijving
+                        : "Het model zag niets waarover het iets kon zeggen.",
+                    Gelezen = uitkomst.Gelezen.ToList(),
+                    Penseel = fotos.Count == 1 ? null : Penseel(fotos[i])
+                });
+
+                CopyButton.IsEnabled = true;
+            }
+
+            klok.Stop();
+
+            StatusText.Text = _uitkomsten.Count switch
+            {
+                0 => "Geen van de foto's was op te halen.",
+                1 => $"Klaar in {klok.Elapsed.TotalSeconds:F0} s.",
+                var n => $"Klaar in {klok.Elapsed.TotalSeconds:F0} s, {n} foto's bekeken."
+            };
         }
         catch (OperationCanceledException)
         {
@@ -148,36 +224,23 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
         }
     }
 
-    private void Toon(PhotoInsight uitkomst)
+    /// <summary>
+    /// Een foto als penseel, om ze in een vlak te tonen. Een lege of kapotte link mag het venster
+    /// niet laten vallen - een sitebestand kan van een vreemde komen.
+    /// </summary>
+    private static Brush? Penseel(string url)
     {
-        _laatste = uitkomst;
+        if (string.IsNullOrWhiteSpace(url)) return null;
 
-        if (uitkomst.Fout is not null)
+        try
         {
-            StatusText.Text = uitkomst.Fout;
-            return;
+            return new ImageBrush(new BitmapImage(new Uri(url))) { Stretch = Stretch.UniformToFill };
         }
-
-        DescriptionText.Text = uitkomst.Beschrijving.Length > 0
-            ? uitkomst.Beschrijving
-            : "Het model zag niets waarover het iets kon zeggen.";
-
-        ResultPanel.Visibility = Visibility.Visible;
-        CopyButton.IsEnabled = true;
-
-        if (uitkomst.Gelezen.Count > 0)
+        catch (Exception ex)
         {
-            ReadTitle.Text = $"Gelezen op de foto ({uitkomst.Gelezen.Count})";
-            ReadNames.ItemsSource = uitkomst.Gelezen;
-            ReadPanel.Visibility = Visibility.Visible;
+            Log.Write($"AI-controle: foto niet geladen - {ex.Message}");
+            return null;
         }
-
-        StatusText.Text = uitkomst.Stukken > 1
-            ? $"Klaar in {uitkomst.Duur.TotalSeconds:F0} s, de foto in {uitkomst.Stukken} stukken gelezen."
-            : $"Klaar in {uitkomst.Duur.TotalSeconds:F0} s." +
-              (uitkomst.Gelezen.Count == 0
-                  ? " Zet 'Grondig' aan om ook kleine tekst te lezen."
-                  : "");
     }
 
     /// <summary>

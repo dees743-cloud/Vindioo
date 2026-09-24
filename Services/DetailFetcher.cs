@@ -284,6 +284,106 @@ public static class DetailFetcher
         return gevonden;
     }
 
+    /// <summary>
+    /// Alle foto's van één zoekertje. De zoekpagina geeft er meestal één; op de pagina van het
+    /// zoekertje zelf staan er vijf of tien, en juist daarop staat vaak wat je wil zien - het
+    /// label achteraan, de doos van binnen, de krassen. Waar ze staan zegt het sitebestand
+    /// (<see cref="SiteDefinition.DetailImagesSelector"/>).
+    ///
+    /// De foto die we al hebben staat altijd vooraan; die is er zeker, en zo kan de AI-controle
+    /// meteen beginnen terwijl de pagina nog opgehaald wordt. Heeft de site geen selector of
+    /// lukt het ophalen niet, dan blijft het bij die ene - een uitzondering is dit niet, de
+    /// meeste sitebestanden hebben dit veld voorlopig nog niet.
+    ///
+    /// Bij een site die via de brug werkt, gaat het ook via de brug: een gewoon verzoek krijgt
+    /// daar een 403. Meldde de extensie zich niet net nog, dan wordt het overgeslagen - hiervoor
+    /// start de app geen Chrome, net als bij de API hierboven.
+    /// </summary>
+    public static async Task<List<string>> FotosAsync(Listing listing, IReadOnlyList<SiteDefinition> sites,
+                                                      CancellationToken ct = default)
+    {
+        var uit = new List<string>();
+        if (!string.IsNullOrWhiteSpace(listing.LargeImage)) uit.Add(listing.LargeImage);
+
+        var def = sites.FirstOrDefault(s =>
+            string.Equals(s.Name, listing.Source, StringComparison.OrdinalIgnoreCase));
+
+        if (def is null || string.IsNullOrWhiteSpace(def.DetailImagesSelector)) return uit;
+        if (!IsWebadres(listing.Url)) return uit;
+        if (def.UseBridge && !BridgeServer.Instance.ExtensionAlive) return uit;
+
+        if (OnthoudenFotos.TryGetValue(listing.Url, out var bekend))
+        {
+            Voeg(uit, bekend);
+            return uit;
+        }
+
+        try
+        {
+            string html;
+
+            if (def.UseBridge)
+            {
+                html = await BridgeServer.Instance.FetchAsync(listing.Url, ct, headers: def.Headers);
+            }
+            else
+            {
+                using var antwoord = await Http.GetAsync(listing.Url, ct);
+                antwoord.EnsureSuccessStatusCode();
+                html = await antwoord.Content.ReadAsStringAsync(ct);
+            }
+
+            var gevonden = await GenericSource.ReadFieldsAsync(html, def.DetailImagesSelector, ct);
+
+            // Een site mag zijn foto's met een pad opgeven in plaats van een volledig adres.
+            var volledig = gevonden
+                .Select(f => Volledig(f, def.BaseUrl))
+                .Where(f => f.Length > 0)
+                .ToList();
+
+            OnthoudenFotos[listing.Url] = volledig;
+            Voeg(uit, volledig);
+
+            Log.Write($"foto's van '{Kort(listing.Title)}': {volledig.Count} op de pagina van het zoekertje");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Niet onthouden: de volgende keer mag het opnieuw geprobeerd worden.
+            Log.Write($"foto's van '{Kort(listing.Title)}' niet op te halen - {ex.Message}");
+        }
+
+        return uit;
+    }
+
+    /// <summary>
+    /// De foto's van één zoekertje, op het adres van zijn pagina. Op het adres en niet op
+    /// <see cref="Listing.Key"/>: die is <c>Source:ExternalId</c>, en bij een leeg id zouden twee
+    /// zoekertjes van dezelfde site elkaars foto's krijgen. Het adres is bovendien precies wat
+    /// opgehaald wordt, dus het is ook de eerlijke sleutel. Zie <see cref="Onthouden"/>.
+    /// </summary>
+    private static readonly ConcurrentDictionary<string, List<string>> OnthoudenFotos = new();
+
+    private static void Voeg(List<string> doel, IEnumerable<string> erbij)
+    {
+        foreach (var foto in erbij)
+            if (!doel.Contains(foto, StringComparer.OrdinalIgnoreCase)) doel.Add(foto);
+    }
+
+    /// <summary>Een pad naar een volledig adres, tegen de basis van de site.</summary>
+    private static string Volledig(string adres, string basis)
+    {
+        if (adres.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            adres.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return adres;
+
+        return Uri.TryCreate(new Uri(basis), adres, out var samen) ? samen.ToString() : "";
+    }
+
+    private static string Kort(string titel) => titel.Length <= 40 ? titel : titel[..40] + "...";
+
     /// <summary>Haalt één pagina op en leest er de datum uit.</summary>
     private static async Task<DateTime?> HaalAsync(string url, string selector, CancellationToken ct)
     {

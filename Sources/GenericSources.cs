@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -432,6 +432,26 @@ public class GenericSource : ISearchSource
         return document.Body is null ? "" : Pick(document.Body, selector);
     }
 
+    /// <summary>
+    /// Hetzelfde, maar dan élk element dat past in plaats van het eerste. Voor de foto's van
+    /// één zoekertje (<see cref="SiteDefinition.DetailImagesSelector"/>): daar wil je ze
+    /// allemaal, in de volgorde waarin ze op de pagina staan.
+    ///
+    /// Lege waarden en dubbels vallen weg. Dubbels komen er echt: een site zet dezelfde foto
+    /// vaak twee keer op de pagina, één keer als miniatuur in het rijtje eronder en één keer
+    /// groot bovenaan.
+    /// </summary>
+    public static async Task<List<string>> ReadFieldsAsync(string html, string selector,
+                                                           CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(selector)) return new List<string>();
+
+        var document = await new HtmlParser().ParseDocumentAsync(html, ct);
+        if (document.Body is null) return new List<string>();
+
+        return PickAll(document.Body, selector);
+    }
+
     // ---------- HTML ----------
 
     private async Task<List<Listing>> ParseHtmlAsync(string html, int maxResults, CancellationToken ct)
@@ -642,6 +662,43 @@ public class GenericSource : ISearchSource
         }
 
         return "";
+    }
+
+    /// <summary>
+    /// Zoals <see cref="Pick"/>, maar dan alle elementen die passen, ontdubbeld en zonder lege.
+    /// Er is met opzet maar één plaats waar de notatie van een selector uitgelegd wordt
+    /// (<c>@attribuut</c>, <c>::replace</c>, <c>::match</c>), dus dit deelt die uitpakkerij.
+    /// </summary>
+    internal static List<string> PickAll(AngleSharp.Dom.IElement node, string selector)
+    {
+        var uit = new List<string>();
+        if (string.IsNullOrWhiteSpace(selector)) return uit;
+
+        var (kaal, regels) = SplitRewrites(selector);
+        selector = kaal;
+
+        string? attribute = null;
+        var at = selector.LastIndexOf('@');
+        if (at > 0)
+        {
+            attribute = selector[(at + 1)..];
+            selector = selector[..at];
+        }
+
+        var kandidaten = selector.Trim() == "."
+            ? new[] { node }
+            : node.QuerySelectorAll(selector).ToArray();
+
+        var gezien = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var target in kandidaten)
+        {
+            var waarde = ApplyRewrites(Regex.Replace(Ruw(target, attribute), @"\s+", " ").Trim(), regels);
+
+            if (waarde.Length > 0 && gezien.Add(waarde)) uit.Add(waarde);
+        }
+
+        return uit;
     }
 
     /// <summary>De tekst of het attribuut van één element, nog zonder opschoonregels.</summary>

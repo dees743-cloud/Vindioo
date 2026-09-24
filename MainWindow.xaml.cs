@@ -1966,11 +1966,20 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     /// reden als de prijsindicatie - het kijken duurt een halve minuut, en intussen wil je verder
     /// kunnen. Het rekenwerk gebeurt op je eigen grafische kaart; zie <see cref="PhotoAnalyzer"/>.
     /// </summary>
-    private void PhotoInsightMenu_Click(object sender, RoutedEventArgs e)
+    private void PhotoInsightMenu_Click(object sender, RoutedEventArgs e) => OpenAiControle(sender, false);
+
+    /// <summary>
+    /// Hetzelfde, maar dan ook de andere foto's van die advertentie. De zoekpagina geeft er één;
+    /// op de pagina van het zoekertje staan er vijf of tien, en juist daarop staat vaak wat je
+    /// wil zien - het label achteraan, de doos van binnen.
+    /// </summary>
+    private void PhotoInsightAllMenu_Click(object sender, RoutedEventArgs e) => OpenAiControle(sender, true);
+
+    private void OpenAiControle(object sender, bool alleFotos)
     {
         if ((sender as FrameworkElement)?.DataContext is not Listing listing) return;
 
-        new PhotoInsightWindow(listing) { Owner = this }.Show();
+        new PhotoInsightWindow(listing, _store.Sites, alleFotos) { Owner = this }.Show();
     }
 
     /// <summary>Opent het geselecteerde zoekertje in de standaardbrowser.</summary>

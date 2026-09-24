@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Zentrix.Models;
 using Zentrix.Services;
 
 namespace Zentrix.Checks;
@@ -138,6 +139,90 @@ public static class FotoChecks
             Check.Dat(dood.Beschrijving.Length == 0, "en geen verzonnen beschrijving");
 
             PhotoAnalyzer.UrlVoorControles = $"http://127.0.0.1:{ollama.Poort}";
+        }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Foto: alle foto's van één zoekertje");
+        {
+            // De zoekpagina geeft er één; op de pagina van het zoekertje staan er meer. Die
+            // pagina zet dezelfde foto twee keer neer - klein in het rijtje, groot bovenaan -
+            // en geeft er één met een pad in plaats van een volledig adres.
+            using var site = new Proefsite
+            {
+                VasteInhoud = """
+                    <html><body>
+                      <div class="gallery">
+                        <img src="https://voorbeeld.be/foto1_klein.jpg">
+                        <img src="https://voorbeeld.be/foto2_klein.jpg">
+                        <img src="https://voorbeeld.be/foto1_klein.jpg">
+                        <img src="/fotos/foto3_klein.jpg">
+                        <img src="">
+                      </div>
+                      <img src="https://voorbeeld.be/logo.png">
+                    </body></html>
+                    """
+            };
+
+            var def = site.Site("Fotosite");
+            def.DetailImagesSelector = ".gallery img@src::replace(_klein,_groot)";
+
+            var zoekertje = new Listing
+            {
+                Source = "Fotosite",
+                Title = "Doos vol dvd's",
+                Url = $"http://127.0.0.1:{site.Poort}/z/1",
+                ImageUrls = { "https://voorbeeld.be/uit-de-lijst.jpg" }
+            };
+
+            var lijst = new[] { def };
+            var fotos = await DetailFetcher.FotosAsync(zoekertje, lijst);
+
+            Check.Dat(fotos.Count == 4, $"vier foto's: die van de lijst plus drie van de pagina ({fotos.Count})");
+            Check.Dat(fotos[0] == "https://voorbeeld.be/uit-de-lijst.jpg",
+                "de foto die we al hadden staat vooraan - die is er zeker");
+            Check.Dat(fotos.Contains("https://voorbeeld.be/foto1_groot.jpg"),
+                "::replace werkt, dus de grote variant");
+            Check.Dat(fotos.Count(f => f.Contains("foto1")) == 1, "dezelfde foto telt één keer");
+            Check.Dat(fotos.Any(f => f == $"http://127.0.0.1:{site.Poort}/fotos/foto3_groot.jpg"),
+                $"een pad wordt een volledig adres ({fotos.LastOrDefault()})");
+            Check.Dat(!fotos.Any(f => f.Contains("logo")), "en enkel wat de selector aanwijst");
+
+            // Een site zonder dat veld: dan blijft het bij de foto uit de lijst, zonder verzoek.
+            var zonder = new Listing
+            {
+                Source = "Geen", Title = "Iets", Url = $"http://127.0.0.1:{site.Poort}/z/2",
+                ImageUrls = { "https://voorbeeld.be/enkel-deze.jpg" }
+            };
+
+            var alleen = await DetailFetcher.FotosAsync(zonder, new[] { site.Site("Geen") });
+
+            Check.Dat(alleen.Count == 1 && alleen[0] == "https://voorbeeld.be/enkel-deze.jpg",
+                $"zonder selector blijft het bij die ene ({alleen.Count})");
+
+            // En een pagina die niet antwoordt, mag het venster niet leegmaken.
+            var stuk = new Listing
+            {
+                Source = "Fotosite", Title = "Iets", Url = "http://127.0.0.1:1/z/3",
+                ImageUrls = { "https://voorbeeld.be/toch-deze.jpg" }
+            };
+
+            var na = await DetailFetcher.FotosAsync(stuk, lijst);
+
+            Check.Dat(na.Count == 1 && na[0] == "https://voorbeeld.be/toch-deze.jpg",
+                $"een pagina die niet lukt: de foto uit de lijst blijft ({na.Count})");
+
+            // En twee zoekertjes van dezelfde site zonder eigen id krijgen niet elkaars foto's:
+            // daarom hangt het onthouden aan het adres van de pagina en niet aan Listing.Key.
+            var buur = new Listing
+            {
+                Source = "Fotosite", Title = "Een ander", Url = $"http://127.0.0.1:{site.Poort}/z/9",
+                ImageUrls = { "https://voorbeeld.be/van-de-buur.jpg" }
+            };
+
+            var vanBuur = await DetailFetcher.FotosAsync(buur, lijst);
+
+            Check.Dat(vanBuur[0] == "https://voorbeeld.be/van-de-buur.jpg",
+                "en het onthouden hangt aan het adres, niet aan een leeg id");
         }
 
         PhotoAnalyzer.UrlVoorControles = null;

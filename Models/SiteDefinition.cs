@@ -1,4 +1,4 @@
-﻿namespace Zentrix.Models;
+namespace Zentrix.Models;
 
 /// <summary>Hoe de bron zijn resultaten aanlevert.</summary>
 public enum SiteKind
@@ -173,6 +173,20 @@ public class SiteDefinition
     /// kloppen.
     /// </summary>
     public string DetailEndDateSelector { get; set; } = "";
+
+    /// <summary>
+    /// Waar de foto's van één zoekertje staan, op de pagina van dat zoekertje zelf. De
+    /// zoekpagina geeft er meestal één; een advertentie heeft er vijf of tien, en juist op die
+    /// andere staat vaak wat je wil zien - het label achteraan, de doos van binnen.
+    ///
+    /// Elk element dat past telt mee, in de volgorde van de pagina, ontdubbeld. Dus meestal
+    /// iets als <c>.gallery img@src</c>, gerust met <c>::replace</c> erachter om de grote
+    /// variant te krijgen, net als bij <see cref="LargeImageSelector"/>.
+    ///
+    /// Gebruikt door de AI-controle op alle foto's van een zoekertje (<c>PhotoInsightWindow</c>);
+    /// leeg laten betekent dat daar enkel de foto van de zoekpagina te zien is.
+    /// </summary>
+    public string DetailImagesSelector { get; set; } = "";
 
     /// <summary>
     /// Een API die het exacte sluitingstijdstip voor veel zoekertjes tegelijk geeft. Zie

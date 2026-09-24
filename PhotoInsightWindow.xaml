@@ -49,6 +49,46 @@
                 <TextBlock Text="{Binding}" FontSize="12" />
             </Border>
         </DataTemplate>
+
+        <!-- Eén foto: de miniatuur, wat de AI erover zegt, en wat er letterlijk op stond.
+             Ook bij één foto is dit één blok - zo is er maar één vorm om te onderhouden. -->
+        <DataTemplate x:Key="FotoUitkomst">
+            <Border Style="{StaticResource Section}">
+                <StackPanel>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Width="88" Height="72" CornerRadius="8" Margin="0,0,12,0"
+                                Background="{StaticResource SurfaceHoverBrush}"
+                                Visibility="{Binding FotoZichtbaar}">
+                            <Border CornerRadius="8" Background="{Binding Penseel}" />
+                        </Border>
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Kop}" Style="{StaticResource SectionTitle}" />
+                            <TextBlock Text="{Binding Beschrijving}" FontSize="14" TextWrapping="Wrap"
+                                       LineHeight="21" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="{Binding GelezenKop}" FontSize="12" Margin="0,4,0,4"
+                               Foreground="{StaticResource TextSubtleBrush}"
+                               Visibility="{Binding NamenZichtbaar}" />
+
+                    <ItemsControl ItemsSource="{Binding Gelezen}" ItemTemplate="{StaticResource GelezenNaam}"
+                                  Visibility="{Binding NamenZichtbaar}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
     </ui:FluentWindow.Resources>
 
     <Grid>
@@ -100,43 +140,26 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <CheckBox x:Name="ThoroughBox" IsChecked="True" VerticalAlignment="Center"
-                                      Content="Grondig: de foto in stukken lezen"
-                                      ToolTip="Nodig om kleine tekst te lezen, zoals de titels op een doos vol dvd's. Duurt een halve minuut in plaats van een paar seconden." />
+                            <StackPanel VerticalAlignment="Center">
+                                <CheckBox x:Name="ThoroughBox" IsChecked="True"
+                                          Content="Grondig: de foto in stukken lezen"
+                                          ToolTip="Nodig om kleine tekst te lezen, zoals de titels op een doos vol dvd's. Duurt een halve minuut in plaats van een paar seconden." />
+                                <CheckBox x:Name="AllPhotosBox" Margin="0,6,0,0"
+                                          Content="Alle foto's van dit zoekertje"
+                                          ToolTip="Haalt ook de andere foto's van de advertentie op. Daar staat vaak wat je zoekt: het label achteraan, de doos van binnen. Enkel bij sites waarvan het sitebestand zegt waar die foto's staan." />
+                            </StackPanel>
 
                             <ui:Button x:Name="RunButton" Grid.Column="1" Content="Opnieuw kijken"
-                                       Appearance="Primary" Margin="8,0,0,0" Click="RunButton_Click" />
+                                       Appearance="Primary" Margin="8,0,0,0" VerticalAlignment="Top"
+                                       Click="RunButton_Click" />
                         </Grid>
 
                         <TextBlock x:Name="StatusText" Style="{StaticResource Uitleg}" Margin="0,10,0,0" />
                     </StackPanel>
                 </Border>
 
-                <!-- ==================== wat de AI ziet ==================== -->
-                <Border x:Name="ResultPanel" Style="{StaticResource Section}" Visibility="Collapsed">
-                    <StackPanel>
-                        <TextBlock Text="Wat de AI ziet" Style="{StaticResource SectionTitle}" />
-                        <TextBlock x:Name="DescriptionText" FontSize="14" TextWrapping="Wrap" LineHeight="21"
-                                   Margin="0,2,0,0" />
-                    </StackPanel>
-                </Border>
-
-                <!-- ==================== wat er letterlijk gelezen is ==================== -->
-                <Border x:Name="ReadPanel" Style="{StaticResource Section}" Visibility="Collapsed">
-                    <StackPanel>
-                        <TextBlock x:Name="ReadTitle" Style="{StaticResource SectionTitle}" />
-                        <TextBlock Style="{StaticResource Uitleg}"
-                                   Text="Dit stond er letterlijk op, zoals het model het las. Ongeveer vijf op de zes klopt; een enkele naam komt er verminkt uit." />
-
-                        <ItemsControl x:Name="ReadNames" ItemTemplate="{StaticResource GelezenNaam}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                    </StackPanel>
-                </Border>
+                <!-- ==================== wat de AI ziet, per foto ==================== -->
+                <ItemsControl x:Name="Results" ItemTemplate="{StaticResource FotoUitkomst}" />
             </StackPanel>
         </ScrollViewer>
 

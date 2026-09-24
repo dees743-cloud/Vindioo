@@ -1444,7 +1444,34 @@ echte Ollama: **12 s**, zes stukken, 34 namen, en de panelen vulden zich zoals h
 menu-items goed gekoppeld zijn, bewijst de build zelf: de XAML-compiler zoekt `Click=` op in de
 code-behind, dus een verkeerde naam komt er niet door.
 
-**Dit is stap 1 en 2 van vier**; zie Volgende stappen 3 voor de rest.
+**Alle foto's van één zoekertje** (stap 3, 24 september 2026). De zoekpagina geeft er één; een
+advertentie heeft er vijf of tien, en juist op die andere staat vaak wat je zoekt - het label
+achteraan, de doos van binnen, de krassen. Het tweede menu-item *AI-controle op alle foto's van
+dit zoekertje* haalt ze op van de pagina van het zoekertje zelf, en elke foto krijgt zijn eigen
+blok in het venster. Dat blok verschijnt zodra die foto klaar is: bij vijf foto's duurt het geheel
+meer dan een minuut, en dan wil je niet naar een leeg venster kijken.
+
+- **Waar die foto's staan, zegt het sitebestand**: `DetailImagesSelector`, met dezelfde notatie als
+  elk ander veld, dus gerust met `::replace` erachter om de grote variant te krijgen. Ontbreekt het
+  veld - en vandaag ontbreekt het bij alle sites - dan blijft het bij de foto van de zoekpagina.
+- **De foto die we al hebben staat vooraan.** Die is er zeker, en zo kan de AI-controle beginnen
+  ook als de pagina niets extra's geeft.
+- **Dubbels vallen weg**, want een site zet dezelfde foto vaak twee keer op de pagina: klein in het
+  rijtje eronder en groot bovenaan. Een pad zonder domein wordt aangevuld tegen `BaseUrl`.
+- **Via de brug bij een brugsite**, en dan enkel als de extensie zich net nog meldde - hiervoor
+  start de app geen Chrome, net als bij de einddatum via een API.
+- **Onthouden op het adres van de pagina**, niet op `Listing.Key`. Die is `Source:ExternalId`, en
+  bij een leeg id zouden twee zoekertjes van dezelfde site elkaars foto's krijgen. Gevonden door de
+  controle die er juist voor staat.
+
+`GenericSource.ReadFieldsAsync` is de meervoudsvorm van `ReadFieldAsync`: élk element dat past in
+plaats van het eerste. Zo blijft er één plaats waar de notatie van een selector uitgelegd wordt.
+
+Nagemeten met het venster buiten beeld, de echte Ollama en twee echte Catawiki-foto's achter een
+lokale proefpagina die de advertentiepagina speelt: twee blokken, elk met eigen miniatuur en een
+ánder antwoord, samen **28 s**.
+
+**Dit is stap 1 tot 3 van vier**; zie Volgende stappen 3 voor de rest.
 
 ## Hoe een site binnenkomt — drie wegen
 
@@ -2090,7 +2117,8 @@ Voor wie eraan werkt:
 
 Wat de analyse **niet** doet, en waar je dus zelf aan moet: `Filters`, `CustomFilters`,
 `Headers`, `AllowsEmptyQuery`, de velden voor de prijsindicatie (`PriceReference`, `IsAuction`,
-`SellerSelector`, `AuctionSellers`), `TimeLeftSelector`, `DetailEndDateSelector`, `EndTimeApi`, een eigen `UrlStyle`
+`SellerSelector`, `AuctionSellers`), `TimeLeftSelector`, `DetailEndDateSelector`,
+`DetailImagesSelector`, `EndTimeApi`, een eigen `UrlStyle`
 en paginering die in het pad zit
 (Kleinanzeigen: `/s-seite:2/cd/k0`). Dat vraagt meten, zie `tools/meet-filter.py`.
 
@@ -2596,14 +2624,14 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel`, Zentrix dicht en Chrome dicht waren dat er 304 op 24 september 2026. Twee dingen op deze
+`--snel`, Zentrix dicht en Chrome dicht waren dat er 313 op 24 september 2026. Twee dingen op deze
 pc laten controles wegvallen, en allebei zeggen ze dat ook:
 
 - **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (22).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
   Het controleproject heeft een eigen gegevensmap en dus een andere code, dus voor zijn brug is
   dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
-  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (302 in plaats van 304).
+  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (311 in plaats van 313).
 
 Drie regels waar het aan vastzit:
 
@@ -2994,7 +3022,8 @@ witte tekst leesbaar blijft.
 - **AI-controle op een foto**: rechtsklik op een foto laat een model op je eigen grafische kaart
   lezen wat er op de voorwerpen staat, en erover vertellen in gewone taal - voor een doos vol
   dvd's waarvan de titels te klein zijn, of het typenummer op een label. Lokaal, dus er gaat geen
-  foto de deur uit
+  foto de deur uit. Ook voor alle foto's van een zoekertje tegelijk, zodra het sitebestand zegt
+  waar die staan (`DetailImagesSelector`)
 - Naast de prijs de **stad** (en anders het land), en bij een veiling erachter **hoelang er nog
   geboden kan worden**. Past die regel niet, dan vervaagt het einde en schuift ze zodra je er met
   de muis op gaat staan. Staat die tijd niet op de zoekpagina van de site maar wel op de pagina van
@@ -3063,9 +3092,10 @@ Hieronder enkel wat aan de app zelf te doen valt.
      vertelt. Zie "AI-controle op een foto" bij Wat je te zien krijgt.
    - ~~Rechtsklik op één foto.~~ Gedaan op 24 september 2026: *AI-controle op deze foto*, naast
      *Prijsindicatie*, met `PhotoInsightWindow`.
-   - **Alle foto's van dat zoekertje.** De zoekpagina geeft er één; de rest staat op de pagina van
-     het zoekertje. Dat is hetzelfde werk als punt 2 hieronder, en gaat op dezelfde manier: een
-     veld in het sitebestand dat de foto's aanwijst, opgehaald door `DetailFetcher`.
+   - ~~Alle foto's van dat zoekertje.~~ Gedaan op 24 september 2026: `DetailImagesSelector` in het
+     sitebestand, opgehaald door `DetailFetcher.FotosAsync`. **Nog te doen: dat veld invullen** -
+     vandaag heeft geen enkel sitebestand het, dus valt het overal terug op de ene foto van de
+     zoekpagina. Per site één regel, uit te zoeken op de pagina van een zoekertje.
    - **Meerdere zoekertjes tegelijk**, met vooraf een schermpje dat zegt hoeveel foto's en
      hoelang. Vraagt dat de lijst en het raster meervoudige selectie aankunnen; nog na te kijken.
 
