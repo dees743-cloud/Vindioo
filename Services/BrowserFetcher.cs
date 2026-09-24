@@ -118,10 +118,15 @@ public class BrowserFetcher : IAsyncDisposable
             // Stonden de zoekertjes er al, dan wachten we tot er geen meer bijkomen in
             // plaats van een vaste halve seconde (die kostte gemeten 526 ms per pagina,
             // ook bij sites waar niets bijkwam). Een lege vervolgpagina slaat dit over.
+            //
+            // Hoeveel het scrollen er telde en na hoeveel rondes, of -1 wanneer er niet
+            // gescrold is. Het komt hieronder in het logboek, samen met een tweede telling.
+            var geteld = -1;
+            var rondesGeteld = 0;
+
             if (gevonden && scrollTot > 0)
             {
-                var (aantal, rondes) = await ScrolTotAsync(page, waitSelector!, scrollTot, ct);
-                stap.Append($" ({aantal} zoekertjes na {rondes} keer scrollen)");
+                (geteld, rondesGeteld) = await ScrolTotAsync(page, waitSelector!, scrollTot, ct);
             }
             else if (gevonden)
             {
@@ -134,6 +139,23 @@ public class BrowserFetcher : IAsyncDisposable
                 await page.WaitForTimeoutAsync(1500);
             }
             Meet("scrollen");
+
+            // Nog eens tellen, vlak voor we de pagina ophalen. Bij Facebook telde het scrollen
+            // op 23 september 2026 102 zoekertjes en hield de motor er maar 78 over, en daags
+            // erna 102 en 101 (zie de linkmotor). Zonder deze tweede telling is niet te zeggen
+            // waar die kaarten bleven: uit de pagina verdwenen omdat de site opruimt wat je
+            // voorbij gescrold bent, of pas bij het uitlezen. Daalt dit getal, dan is het het
+            // eerste; blijft het gelijk terwijl de motor er minder overhoudt, het tweede.
+            //
+            // Enkel bij een site die scrolt, want daar speelt het: een telling kost een
+            // heen-en-weer naar de browser, en de andere sites hebben er niets aan. Allebei
+            // de getallen staan in dezelfde zin, zodat ze niet los van elkaar te lezen zijn.
+            if (geteld >= 0)
+            {
+                var bijHetOphalen = await page.Locator(waitSelector!).CountAsync();
+                stap.Append($" ({geteld} zoekertjes na {rondesGeteld} keer scrollen, " +
+                            $"{bijHetOphalen} bij het ophalen)");
+            }
 
             var html = await page.ContentAsync();
             Meet("uitlezen");

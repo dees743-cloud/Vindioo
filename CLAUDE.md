@@ -1666,7 +1666,29 @@ Er zijn geen ingebouwde bronnen meer — **elke site is een bestand**. Het veld
   wanneer de HTML opgehaald wordt. Tussen die twee verdwenen er 24, en op 22 september 28.
   Facebook ruimt zijn kaarten blijkbaar op naarmate je verder scrolt, en dan lees je een pagina
   waar een deel al weg is. Eén van de drie keer ging het wél goed, dus het is geen vaste regel -
-  en dat maakt het lastiger te vangen. Zie Volgende stappen 1.
+  en dat maakt het lastiger te vangen.
+
+  **Daarom telt de app het nu twee keer** (24 september 2026, `BrowserFetcher.GetHtmlAsync`): één
+  keer zoals altijd tijdens het scrollen, en één keer vlak voor de pagina opgehaald wordt.
+  Allebei in dezelfde zin in het logboek:
+
+  ```
+  browser: ... scrollen 2039ms (50 zoekertjes na 4 keer scrollen, 50 bij het ophalen) uitlezen 3ms
+  ```
+
+  Samen met de regel van de motor (`kaarten -> zoekertjes`) zijn er zo drie meetpunten op één
+  rij, en die zeggen elk iets anders:
+
+  | Wat je ziet | Waar de kaarten bleven |
+  |---|---|
+  | scrollen 102, ophalen 102, kaarten 78 | in het ophalen of in het uitlezen, niet in de pagina |
+  | scrollen 102, ophalen 78, kaarten 78 | uit de pagina: de site ruimt op wat je voorbij gescrold bent |
+
+  De telling gebeurt enkel bij een site die scrolt - ze kost een heen-en-weer naar de browser, en
+  de andere sites hebben er niets aan. Nagemeten met een wegwerpprojectje en een lokale pagina die
+  per scroll tien zoekertjes bijlaadt: 50 na 4 rondes, 50 bij het ophalen, en 50 in de opgehaalde
+  HTML. Een pagina die opruimt in precies dat ene ogenblik tussen de telling en het ophalen is
+  lokaal niet na te bootsen; daarvoor is de eerstvolgende echte Facebook-beurt nodig.
 
   Tot september 2026 heette dit de Facebook-motor (`FacebookSource.cs`), met al die
   waarden in de code. Na de keuzelijsten van AlleVeilingen was dat de laatste plek waar
@@ -2942,10 +2964,11 @@ Hieronder enkel wat aan de app zelf te doen valt.
    98 resultaten in 18,0 s, zonder controlevraag). Wat er wegviel, is op 24 september uitgeplozen
    met de nieuwe logboekregel, en het bleek niet te liggen aan dubbels of aan kaarten zonder
    titel - daarvan zijn er maar 1 tot 3. Het scrollen telde 102 zoekertjes, en de motor kreeg er
-   de ene beurt 102 te lezen en de andere maar 78; zie de linkmotor voor de cijfers. Wat nog
-   ontbreekt om het te kunnen oplossen: de tijd tussen de laatste telling en het ophalen van de
-   HTML, en of het aantal daartussen echt daalt. Dat is één extra telling in
-   `BrowserFetcher`, en daarna een paar echte beurten om te kijken.
+   de ene beurt 102 te lezen en de andere maar 78; zie de linkmotor voor de cijfers. **De extra
+   telling ligt er sinds 24 september**: het logboek zegt nu ook hoeveel zoekertjes er nog in de
+   pagina staan vlak voor ze opgehaald wordt. Wat er nu nodig is, is een echte Facebook-beurt
+   waarin het weer misgaat - dan wijst dat getal aan of de kaarten uit de pagina verdwenen of pas
+   bij het uitlezen. De tabel in de linkmotor zegt wat welke uitkomst betekent.
 2. Grote foto's op aanvraag. Bij sommige sites geeft de zoekpagina enkel kleine,
    bijgesneden foto's en staat de grote pas op de pagina van het zoekertje. Die
    ophalen kost een volledige browsersessie (5–10 s), dus niet tijdens het
