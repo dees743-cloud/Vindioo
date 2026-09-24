@@ -151,6 +151,31 @@ public class PhotoAnalyzer
     }
 
     /// <summary>
+    /// Staat het model al in de grafische kaart? Zo niet, dan kost de eerste vraag er zo'n veertig
+    /// seconden bij, en dat hoort het venster te zéggen in plaats van je te laten wachten voor een
+    /// scherm dat niets doet. Ollama vertelt het in <c>/api/ps</c>.
+    ///
+    /// Antwoordt Ollama helemaal niet, dan geeft dit false: er is dan een ander probleem, en dat
+    /// komt met een betere melding uit de eerste echte vraag.
+    /// </summary>
+    public static async Task<bool> ModelStaatKlaarAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var antwoord = await Http.GetAsync($"{Url.TrimEnd('/')}/api/ps", ct);
+            if (!antwoord.IsSuccessStatusCode) return false;
+
+            var geladen = JsonNode.Parse(await antwoord.Content.ReadAsStringAsync(ct))?["models"] as JsonArray;
+
+            return geladen?.Any(m => m?["name"]?.GetValue<string>() == AppSettings.Current.AiModel) == true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// De vraag op het einde. Alles wat gelezen is gaat mee, zodat het model de losse stukken in
     /// hun verband ziet; en het mag niets toevoegen wat het niet gelezen heeft.
     /// </summary>

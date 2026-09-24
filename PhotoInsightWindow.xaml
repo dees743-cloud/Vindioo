@@ -1,0 +1,160 @@
+<ui:FluentWindow x:Class="Zentrix.PhotoInsightWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 Title="AI-controle"
+                 Height="760" Width="720"
+                 MinHeight="440" MinWidth="560"
+                 WindowBackdropType="None"
+                 Background="{StaticResource AppBackgroundBrush}"
+                 Foreground="{StaticResource TextPrimaryBrush}"
+                 FontFamily="{StaticResource AppFontFamily}"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowStartupLocation="CenterOwner">
+
+    <ui:FluentWindow.Resources>
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+
+        <Style x:Key="Uitleg" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Style.Triggers>
+                <!-- Een lege uitleg neemt geen plaats in. -->
+                <Trigger Property="Text" Value="">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="Section" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource SurfaceBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="Margin" Value="0,0,0,14" />
+        </Style>
+
+        <!-- Eén gelezen naam, als een chipje: samen vormen ze de lijst van wat er letterlijk
+             op de foto stond. -->
+        <DataTemplate x:Key="GelezenNaam">
+            <Border Background="{StaticResource SurfaceHoverBrush}" CornerRadius="6"
+                    Padding="8,3" Margin="0,0,6,6">
+                <TextBlock Text="{Binding}" FontSize="12" />
+            </Border>
+        </DataTemplate>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- WPF-UI zet de Background van een FluentWindow bij het laden zelf terug op de
+             effen themakleur; daarom staat het verloop als eigen vlak achter de inhoud. -->
+        <Border Grid.RowSpan="3" Background="{StaticResource AppBackgroundBrush}" />
+
+        <ui:TitleBar Grid.Row="0" Title="AI-controle op deze foto" />
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="20,10,20,0">
+            <StackPanel>
+
+                <!-- ==================== het zoekertje ==================== -->
+                <Border Style="{StaticResource Section}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Width="104" Height="84" CornerRadius="8" Margin="0,0,14,0"
+                                Background="{StaticResource SurfaceHoverBrush}">
+                            <Border x:Name="OriginPhoto" CornerRadius="8" />
+                        </Border>
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock x:Name="OriginTitle" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock x:Name="OriginPrice" FontSize="13" Margin="0,4,0,0" TextWrapping="Wrap"
+                                       Foreground="{StaticResource TextSubtleBrush}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- ==================== hoe er gekeken wordt ==================== -->
+                <Border Style="{StaticResource Section}">
+                    <StackPanel>
+                        <TextBlock Text="Hoe er gekeken wordt" Style="{StaticResource SectionTitle}" />
+                        <TextBlock x:Name="ModelText" Style="{StaticResource Uitleg}" />
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <CheckBox x:Name="ThoroughBox" IsChecked="True" VerticalAlignment="Center"
+                                      Content="Grondig: de foto in stukken lezen"
+                                      ToolTip="Nodig om kleine tekst te lezen, zoals de titels op een doos vol dvd's. Duurt een halve minuut in plaats van een paar seconden." />
+
+                            <ui:Button x:Name="RunButton" Grid.Column="1" Content="Opnieuw kijken"
+                                       Appearance="Primary" Margin="8,0,0,0" Click="RunButton_Click" />
+                        </Grid>
+
+                        <TextBlock x:Name="StatusText" Style="{StaticResource Uitleg}" Margin="0,10,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================== wat de AI ziet ==================== -->
+                <Border x:Name="ResultPanel" Style="{StaticResource Section}" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock Text="Wat de AI ziet" Style="{StaticResource SectionTitle}" />
+                        <TextBlock x:Name="DescriptionText" FontSize="14" TextWrapping="Wrap" LineHeight="21"
+                                   Margin="0,2,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================== wat er letterlijk gelezen is ==================== -->
+                <Border x:Name="ReadPanel" Style="{StaticResource Section}" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock x:Name="ReadTitle" Style="{StaticResource SectionTitle}" />
+                        <TextBlock Style="{StaticResource Uitleg}"
+                                   Text="Dit stond er letterlijk op, zoals het model het las. Ongeveer vijf op de zes klopt; een enkele naam komt er verminkt uit." />
+
+                        <ItemsControl x:Name="ReadNames" ItemTemplate="{StaticResource GelezenNaam}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid Grid.Row="2" Margin="20,8,20,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="11" TextWrapping="Wrap"
+                       Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,12,0"
+                       Text="Dit draait op je eigen grafische kaart; er gaat geen foto de deur uit. Het model kan lezen, maar niet tellen: een aantal is altijd een schatting." />
+
+            <ui:Button x:Name="CopyButton" Grid.Column="1" Content="Kopiëren" Appearance="Secondary"
+                       Margin="0,0,8,0" Click="CopyButton_Click" IsEnabled="False" />
+            <ui:Button Grid.Column="2" Content="Sluiten" Appearance="Secondary" IsCancel="True"
+                       Click="CloseButton_Click" />
+        </Grid>
+    </Grid>
+</ui:FluentWindow>

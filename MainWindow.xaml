@@ -267,12 +267,14 @@
                     </Grid.ColumnDefinitions>
 
                     <Grid Grid.Column="0" Margin="0,0,16,0">
-                        <!-- Rechtsklik op de foto: de prijsindicatie. Het menu krijgt het zoekertje
-                             als DataContext mee van de foto waarop het opengaat. -->
+                        <!-- Rechtsklik op de foto: wat is dit waard, en wat ziet de AI erop? Het menu
+                             krijgt het zoekertje als DataContext mee van de foto waarop het opengaat. -->
                         <Grid.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="Prijsindicatie" Icon="{ui:SymbolIcon Money24}"
                                           Click="PriceIndicationMenu_Click" />
+                                <MenuItem Header="AI-controle op deze foto" Icon="{ui:SymbolIcon Sparkle24}"
+                                          Click="PhotoInsightMenu_Click" />
                             </ContextMenu>
                         </Grid.ContextMenu>
 
@@ -362,6 +364,8 @@
                             <ContextMenu>
                                 <MenuItem Header="Prijsindicatie" Icon="{ui:SymbolIcon Money24}"
                                           Click="PriceIndicationMenu_Click" />
+                                <MenuItem Header="AI-controle op deze foto" Icon="{ui:SymbolIcon Sparkle24}"
+                                          Click="PhotoInsightMenu_Click" />
                             </ContextMenu>
                         </Grid.ContextMenu>
 

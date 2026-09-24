@@ -109,6 +109,7 @@ Vensters (root):
   SearchSettingsWindow alles van één zoekopdracht: woorden, sites, filters, schema
   NotifySettingsWindow waar meldingen heen gaan en hoe de app op de achtergrond doet
   PriceIndicationWindow de prijsindicatie van één zoekertje (rechtsklik op de foto)
+  PhotoInsightWindow   wat de AI op de foto van een zoekertje ziet (rechtsklik)
 extension/
   background.js      de brug: haalt pagina's op in je eigen Chrome
   manifest.json      naam en versie zoals Chrome ze toont
@@ -1418,8 +1419,32 @@ het ontdubbelen, wat er in de vraag meegaat, een stuk dat onzin teruggeeft, en O
 draait. De grafische kaart hoort niet in de controles - die moeten overal draaien en in een
 seconde klaar zijn.
 
-**Dit is stap 1 van vier**; zie Volgende stappen 3 voor de rest. In het scherm is er dus nog niets
-van te zien.
+**Het venster** (`PhotoInsightWindow`, stap 2, 24 september 2026) gaat open met een rechtsklik op
+de foto: *AI-controle op deze foto*, naast *Prijsindicatie*. Een eigen venster en geen dialoog, om
+dezelfde reden als bij de prijsindicatie: het kijken duurt een halve minuut, en intussen wil je
+verder kunnen. Vier dingen die het eerlijk moet zeggen, want anders lijkt het stuk of te mooi:
+
+- **Het model laden kost de eerste keer zo'n veertig seconden.** Het venster vraagt vooraf aan
+  Ollama of het model al in de kaart staat (`PhotoAnalyzer.ModelStaatKlaarAsync`, `/api/ps`), en
+  zegt het dán - niet achteraf. Anders staar je naar een venster dat niets lijkt te doen.
+- **Grondig lezen duurt langer.** Het vinkje staat aan, en zegt in zijn tooltip waarom je het zou
+  uitzetten: in stukken lezen maakt kleine tekst leesbaar, maar kost een halve minuut in plaats
+  van een paar seconden.
+- **Wat er letterlijk gelezen is, staat eronder**, als losse chipjes, met erbij dat ongeveer vijf
+  op de zes klopt. De alinea erboven is wat je leest; die lijst is waarmee je het kan nagaan.
+- **Onderaan staat wat het niet kan**: het draait op je eigen kaart, er gaat geen foto de deur
+  uit, en een aantal is altijd een schatting.
+
+De **grote foto** gaat voor op de miniatuur (`Listing.LargeImage`): hoe meer beeldpunten, hoe meer
+er te lezen valt. *Kopiëren* zet de alinea én de gelezen namen op het klembord - bij een doos vol
+dvd's is die lijst juist het ding dat je ergens anders wil plakken.
+
+Nagemeten met het venster buiten beeld, met het echte zoekertje, de echte foto van Catawiki en de
+echte Ollama: **12 s**, zes stukken, 34 namen, en de panelen vulden zich zoals het hoort. Dat de
+menu-items goed gekoppeld zijn, bewijst de build zelf: de XAML-compiler zoekt `Click=` op in de
+code-behind, dus een verkeerde naam komt er niet door.
+
+**Dit is stap 1 en 2 van vier**; zie Volgende stappen 3 voor de rest.
 
 ## Hoe een site binnenkomt — drie wegen
 
@@ -2966,6 +2991,10 @@ witte tekst leesbaar blijft.
 - **Prijsindicatie**: rechtsklik op een foto geeft de marktwaarde van dat model uit de
   vraagprijzen op de sites met het vinkje, met varianten apart, zonder veilingen, sets en
   toebehoren, en verbreed naar de reeks als er te weinig zijn
+- **AI-controle op een foto**: rechtsklik op een foto laat een model op je eigen grafische kaart
+  lezen wat er op de voorwerpen staat, en erover vertellen in gewone taal - voor een doos vol
+  dvd's waarvan de titels te klein zijn, of het typenummer op een label. Lokaal, dus er gaat geen
+  foto de deur uit
 - Naast de prijs de **stad** (en anders het land), en bij een veiling erachter **hoelang er nog
   geboden kan worden**. Past die regel niet, dan vervaagt het einde en schuift ze zodra je er met
   de muis op gaat staan. Staat die tijd niet op de zoekpagina van de site maar wel op de pagina van
@@ -3032,9 +3061,8 @@ Hieronder enkel wat aan de app zelf te doen valt.
 
    - ~~De motor.~~ Gedaan op 24 september 2026: `PhotoAnalyzer` knipt, leest, ontdubbelt en
      vertelt. Zie "AI-controle op een foto" bij Wat je te zien krijgt.
-   - **Rechtsklik op één foto**: *AI-controle op deze foto*, naast *Prijsindicatie*, met een
-     venster zoals dat van de prijsindicatie. Het eerste gebruik na een pauze kost veertig
-     seconden modelladen, en dat hoort het venster te zeggen.
+   - ~~Rechtsklik op één foto.~~ Gedaan op 24 september 2026: *AI-controle op deze foto*, naast
+     *Prijsindicatie*, met `PhotoInsightWindow`.
    - **Alle foto's van dat zoekertje.** De zoekpagina geeft er één; de rest staat op de pagina van
      het zoekertje. Dat is hetzelfde werk als punt 2 hieronder, en gaat op dezelfde manier: een
      veld in het sitebestand dat de foto's aanwijst, opgehaald door `DetailFetcher`.

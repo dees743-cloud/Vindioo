@@ -1961,6 +1961,18 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         new PriceIndicationWindow(listing, _store.Sites) { Owner = this }.Show();
     }
 
+    /// <summary>
+    /// Rechtsklik op een foto: wat staat erop dat je zelf niet ziet? Eigen venster, om dezelfde
+    /// reden als de prijsindicatie - het kijken duurt een halve minuut, en intussen wil je verder
+    /// kunnen. Het rekenwerk gebeurt op je eigen grafische kaart; zie <see cref="PhotoAnalyzer"/>.
+    /// </summary>
+    private void PhotoInsightMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not Listing listing) return;
+
+        new PhotoInsightWindow(listing) { Owner = this }.Show();
+    }
+
     /// <summary>Opent het geselecteerde zoekertje in de standaardbrowser.</summary>
     private void OpenSelected(ListBox? lijst)
     {
