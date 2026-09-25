@@ -1579,6 +1579,14 @@ De tekst staat in een `TextBox` zonder rand en niet in een `TextBlock`: er staat
 typenummer of een maat in die je ergens anders wil plakken, en uit een TextBlock valt niets te
 selecteren.
 
+**Het onderste blok schuift** wanneer de tekst er niet in past, en die grens volgt de
+vensterhoogte (`VolgVensterhoogte`: iets minder dan de helft). Zo groeit een lange beschrijving
+mee wanneer je het venster groter maakt, krijgt een advertentie van drie regels geen half leeg
+vak, en verdringt een handelaar met zijn algemene voorwaarden de foto niet. De grens staat op
+het blok en niet op zijn rij - waarom dat uitmaakt, staat bij de UI-conventies; kort: een rij op
+`Auto` meet met oneindige hoogte, en dan knipt ze de tekst af zonder ooit een schuifbalk te
+tonen. Precies dat ging mis.
+
 Twee dingen die daarbij horen:
 
 - **"Online sinds" is tekst en geen datum**, om dezelfde reden als de tijd tot het einde van een
@@ -3090,6 +3098,15 @@ witte tekst leesbaar blijft.
   grotendeels in het weggeknipte stuk. Gebruik dan `MappingMode="Absolute"` met een eindpunt in
   beeldpunten. En let op bij het nakijken: een `VisualBrush` neemt de `OpacityMask`, de `Clip` en de
   `Transform` van zijn wórtelelement niet mee, wel die van de kinderen.
+- **Een `ScrollViewer` in een rij op `Auto` schuift nooit.** Zo'n rij meet haar kind met
+  oneindige hoogte; de ScrollViewer besluit dan dat er niets te schuiven valt en zet zijn
+  schuifbalk niet aan (`VerticalScrollBarVisibility="Auto"` kijkt daar één keer naar). Een
+  `MaxHeight` op de *rij* helpt niet: die klemt de rij pas na het meten, en dan wordt de tekst
+  gewoon afgeknipt - zichtbaar afgekapt, zonder balk. Zet de `MaxHeight` op het **element**, dan
+  wordt de ScrollViewer wél begrensd gemeten. Zo staat het in `ListingDetailWindow`
+  (`InfoBlock`, `VolgVensterhoogte`), waar die grens de vensterhoogte volgt. Nagemeten: met de
+  grens op de rij 699 inhoud in een viewport van 699 (niets te schuiven), met de grens op het
+  blok 699 in 371 en 329 te schuiven.
 - **Een `ObservableCollection` wissen geeft een Reset**, en daarop gooit een lijst of raster
   al zijn containers weg en springt het naar boven. Pas aan wat veranderde (zie
   `ToonPagina`) in plaats van `Clear()` en alles opnieuw toevoegen.

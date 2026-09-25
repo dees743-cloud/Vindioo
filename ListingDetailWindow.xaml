@@ -79,9 +79,9 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" MinHeight="180" />
+                <RowDefinition Height="*" MinHeight="160" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" MaxHeight="260" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <!-- ==================== titel en prijs ==================== -->
@@ -114,9 +114,17 @@
                        TextWrapping="Wrap" Foreground="{StaticResource TextSubtleBrush}" />
 
             <!-- ==================== wie, sinds wanneer, en de tekst ==================== -->
-            <Border Grid.Row="4" Style="{StaticResource Section}" Margin="0,0,0,4">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel>
+            <!-- De bovengrens staat op dít blok en niet op zijn rij. Een rij op Auto meet haar
+                 kind met oneindige hoogte; de schuifbalk besluit dan dat hij niet nodig is, en
+                 daarna knipt de rij de tekst gewoon af - precies wat er misging. Met MaxHeight
+                 hier wordt de ScrollViewer wél begrensd gemeten. Hoeveel, zegt
+                 VolgVensterhoogte: iets minder dan de helft van het venster, zodat een lange
+                 beschrijving meegroeit maar de foto niet verdringt. -->
+            <Border Grid.Row="4" x:Name="InfoBlock" Style="{StaticResource Section}" Margin="0,0,0,4">
+                <ScrollViewer x:Name="InfoScroll" VerticalScrollBarVisibility="Auto"
+                              PanningMode="VerticalOnly">
+                    <!-- Ruimte rechts voor de schuifbalk, anders staat hij op de tekst. -->
+                    <StackPanel Margin="0,0,12,0">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />

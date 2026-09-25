@@ -69,6 +69,9 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
 
         Loaded += async (_, _) => await HaalPaginaAsync();
         Closed += (_, _) => _cts?.Cancel();
+
+        VolgVensterhoogte();
+        SizeChanged += (_, _) => VolgVensterhoogte();
     }
 
     /// <summary>
@@ -180,6 +183,21 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
         var zichtbaar = schoon.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         DescriptionText.Visibility = zichtbaar;
         DescriptionHeader.Visibility = zichtbaar;
+    }
+
+    /// <summary>
+    /// Hoe hoog het onderste blok hoogstens mag worden: iets minder dan de helft van het venster.
+    /// De rij eronder staat op Auto, dus een korte beschrijving krijgt geen half leeg vak; een
+    /// lange loopt tot deze grens en schuift daarbinnen. Zonder die grens duwt een advertentie
+    /// met algemene voorwaarden de foto het venster uit.
+    ///
+    /// De grens staat op het blok en niet op de rij, en dat is precies het punt: een rij op Auto
+    /// meet haar kind met oneindige hoogte. De ScrollViewer besluit dan dat er niets te schuiven
+    /// valt, en daarna knipt de rij de tekst af - zichtbaar afgeknipt, zonder schuifbalk.
+    /// </summary>
+    private void VolgVensterhoogte()
+    {
+        InfoBlock.MaxHeight = Math.Max(200, ActualHeight * 0.45);
     }
 
     /// <summary>Een klik op een miniatuur zet die foto groot.</summary>
