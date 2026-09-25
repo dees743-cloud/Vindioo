@@ -1497,9 +1497,46 @@ kijkt. De browser openen, de cookiemelding wegklikken en de pagina laten laden w
 omweg van een tien seconden per zoekertje. *Openen op de site* staat als knop in dat venster, dus
 die weg blijft; ernaast staat *AI-controle*, die doorstuurt naar `PhotoInsightWindow`.
 
-**De foto's: miniaturen boven, één grote eronder.** De muis over een miniatuur wisselt de grote
-foto, en een randje in het accent toont welke dat is. Geen klik: er valt hier niets te kiezen dat
-blijft staan, en zo blader je met één beweging door alle foto's. Zo koos de eigenaar het.
+**De foto's: miniaturen boven, één grote eronder.** Een klik op een miniatuur wisselt de grote
+foto, en een randje in het accent toont welke dat is. Dat ging eerst bij het zweven met de muis,
+maar die passeert die rij ook op weg naar iets anders, en dan wisselde de foto ongevraagd - de
+eigenaar vroeg er op 25 september 2026 een klik van te maken.
+
+**De grote foto krijgt de vrije ruimte** en groeit dus mee met het venster; een klik erop legt
+hem schermvullend over het venster, met eronder hoeveel beeldpunten hij werkelijk heeft. Esc of
+nog een klik sluit dat weer - Esc sluit eerst die laag en pas daarna het venster, anders valt bij
+één druk alles weg. Geen apart venster: dan is er een tweede plaats die hetzelfde moet doen.
+
+### Is de grote foto wel de grote foto?
+
+Die vraag stelde de eigenaar op 25 september 2026, en het antwoord was **nee**. Gemeten over tien
+zoekertjes van 2dehands, met de echte beeldpunten en niet met wat de URL belooft:
+
+| Wat de app nam | Wat er te halen was |
+|---|---|
+| `pictures.extraExtraLargeUrl`: 726 px op de lange zijde, altijd | `pictures.url`: het origineel, tot **1600 px** |
+
+Zeven van de tien waren groter dan 800 px; de grootste was 1600x1200 (551 kB) waar de app 726x545
+(104 kB) toonde. Het is dus geen randgeval maar de regel. `LargeImageSelector` staat nu op
+`pictures.url::match(^[^?]+)` - het stuk tot aan het vraagteken, want zónder de `?rule=`-parameter
+geeft de CDN het origineel. Dat helpt ook de grote foto bij het zweven in de resultatenlijst, niet
+enkel dit venster.
+
+Datzelfde `::match(^[^?]+)` doet nog iets: het maakt de schrijfwijze gelijk aan die in het
+`ld+json`-blok van de pagina, zodat de foto die we al hadden **niet twee keer** in de rij staat.
+Met de query erbij waren het twee verschillende teksten voor dezelfde foto.
+
+Bij `DetailImagesSelector` stopt het patroon nu ook vóór het vraagteken. Dat gaf meteen meer
+foto's: Marktplaats ging van **1 naar 8** (elk 1200x1600), 2dehands van 3 naar 3 maar in 1024x768
+in plaats van 800x800.
+
+**Bij Facebook is het nog niet opgelost.** Wat de app daar bewaart, is `stp=dst-jpg_s261x260_tt6` -
+een miniatuur van **261x260**. Of die maat op te drijven is, viel niet na te meten: alle bewaarde
+adressen waren verlopen (`oe` stond op 14 september), en fbcdn geeft dan 403 op élke variant. Dat
+verlopen is op zich al iets om te weten - **een favoriet van Facebook verliest na een week of twee
+zijn foto**. Het vraagt een verse Facebook-beurt om verder te kijken. Meer foto's van één
+advertentie kan daar sowieso niet langs deze weg: die staan op de pagina van het zoekertje, en die
+is enkel met een aangemelde browser te openen (zie hieronder).
 
 **Wat er meteen staat en wat opgehaald wordt.** De titel, de prijs, de plaats en de site komen uit
 het zoekertje zelf, en de foto van de zoekpagina staat er meteen groot - het venster is dus nooit
@@ -1518,6 +1555,29 @@ Waar het staat, zegt het sitebestand - drie velden, alle drie ook in *Sites behe
 | `DetailImagesSelector` | alle foto's van de advertentie (bestond al voor de AI-controle) |
 | `DetailSellerSelector` | de verkoper, wanneer die niet al op de zoekpagina staat |
 | `DetailPostedSelector` | sinds wanneer het online staat |
+| `DetailDescriptionSelector` | de volledige beschrijving |
+
+**De beschrijving is het ophalen waard**, want de zoek-API van 2dehands en Marktplaats kapt ze af
+op **200 tekens** - en juist wat erna komt, zegt wat er mankeert of wat er precies bij zit. Gemeten:
+1427 tekens op de pagina tegenover 200 op de zoekpagina. De 200 die we al hebben staan er meteen;
+de volledige komt eroverheen zodra de pagina binnen is.
+
+Twee dingen die de beschrijving vragen, en die je bij geen enkel ander veld tegenkomt:
+
+- **Een selector plakt alle witruimte plat tot één spatie.** Terecht voor een titel of een prijs,
+  maar het maakt van een beschrijving één brij. Daarom gaat er voor dít veld een kopie van de
+  pagina in waarin `<br>` en het einde van een alinea gemarkeerd staan met `\u001F` - een
+  stuurteken dat niet in `\s` zit en dus de opschoning overleeft, en dat in geen enkele advertentie
+  voorkomt. `Opschonen` maakt er daarna echte regeleindes van, met hoogstens één lege regel
+  achter elkaar en een grens van 4000 tekens.
+- **Een letterlijke `\n` wordt alsnog een regeleinde.** 2dehands zet in het stuk dat uit zijn eigen
+  databank komt de twee tékens `\` en `n` waar een regeleinde hoorde; onbewerkt staat dat zo op het
+  scherm ("(LOSSE CD SPELER)\nOpslaglocatie: Onbekend"). Enkel in een beschrijving, want daar is
+  een backslash-n vrijwel zeker een mislukt regeleinde.
+
+De tekst staat in een `TextBox` zonder rand en niet in een `TextBlock`: er staat vaak een
+typenummer of een maat in die je ergens anders wil plakken, en uit een TextBlock valt niets te
+selecteren.
 
 Twee dingen die daarbij horen:
 
@@ -1536,14 +1596,22 @@ vak waarvan niemand weet of het aan het laden is.
 stond hetzelfde zoekertje hier op "€ 40" en in de lijst op "€ 39,95".
 
 Nagemeten met het venster buiten beeld en een vers zoekertje uit de zoek-API van 2dehands (een
-advertentie van gisteren kan al weg zijn): **4 foto's in 356 ms**, verkoper "Japoto", "24 sep. '26",
-de muis op miniatuur 2 wisselt de grote foto en verzet het randje, en een site zonder die velden
-toont de ene foto die we wel hebben met de reden erbij. De logica eromheen staat in `FotoChecks`,
-met een proefsite die telt hoeveel verzoeken er komen - dat één verzoek is het hele punt.
+advertentie van gisteren kan al weg zijn): **3 foto's in 369 ms**, verkoper "Japoto", "24 sep. '26",
+699 tekens beschrijving over 31 regels, zweven doet niets, een klik op miniatuur 2 wisselt de grote
+foto en verzet het randje, een klik op de grote foto opent ze schermvullend met "800 × 800
+beeldpunten" eronder, Esc sluit die laag zonder het venster te sluiten, en een site zonder die
+velden toont de ene foto die we wel hebben met de reden erbij. De logica eromheen staat in
+`FotoChecks`, met een proefsite die telt hoeveel verzoeken er komen - dat één verzoek is het hele
+punt - en een vaste pagina voor de regelindeling van de beschrijving.
 
-**Wat het nog niet doet:** de beschrijving van de advertentie, en "3 dagen online" uitrekenen uit
-"24 sep. '26" (dat vraagt een datumlezer per site). 2dehands zet er trouwens ook "7x bekeken" en
-"0x bewaard" bij; dat is er met dezelfde selector uit te halen.
+**Wat het nog niet doet:** "3 dagen online" uitrekenen uit "24 sep. '26" (dat vraagt een datumlezer
+per site). 2dehands zet er trouwens ook "7x bekeken" en "0x bewaard" bij; dat is er met dezelfde
+selector uit te halen.
+
+**Een site die een aangemelde browser vraagt, kan hier nog niet bij.** `DetailsAsync` haalt de
+pagina met een gewoon verzoek op, of via de brug bij een brugsite. Facebook loopt via Playwright
+met een eigen, aangemeld profiel (`NeedsBrowser`), en daar is dus geen weg naartoe - dat zou
+`BrowserPool` erbij vragen, en die deelt zijn slot met een lopende zoekopdracht.
 
 ## Hoe een site binnenkomt — drie wegen
 
@@ -2190,7 +2258,8 @@ Voor wie eraan werkt:
 Wat de analyse **niet** doet, en waar je dus zelf aan moet: `Filters`, `CustomFilters`,
 `Headers`, `AllowsEmptyQuery`, de velden voor de prijsindicatie (`PriceReference`, `IsAuction`,
 `SellerSelector`, `AuctionSellers`), `TimeLeftSelector`, `DetailEndDateSelector`,
-`DetailImagesSelector`, `DetailSellerSelector`, `DetailPostedSelector`, `EndTimeApi`,
+`DetailImagesSelector`, `DetailSellerSelector`, `DetailPostedSelector`,
+`DetailDescriptionSelector`, `EndTimeApi`,
 een eigen `UrlStyle`
 en paginering die in het pad zit
 (Kleinanzeigen: `/s-seite:2/cd/k0`). Dat vraagt meten, zie `tools/meet-filter.py`.
@@ -2697,14 +2766,14 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel` en Zentrix dicht waren dat er 327 op 25 september 2026, met Chrome open - dus 329 met
+`--snel` en Zentrix dicht waren dat er 332 op 25 september 2026, met Chrome open - dus 334 met
 alles dicht. Twee dingen op deze pc laten controles wegvallen, en allebei zeggen ze dat ook:
 
 - **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (23).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
   Het controleproject heeft een eigen gegevensmap en dus een andere code, dus voor zijn brug is
   dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
-  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (327 in plaats van 329).
+  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (332 in plaats van 334).
 
 Drie regels waar het aan vastzit:
 
@@ -3104,8 +3173,9 @@ witte tekst leesbaar blijft.
 - Rechtsonder op een veilingkaart een **timer** die echt aftelt waar het tijdstip exact is
   (AlleVeilingen, Catawiki via zijn API, eBay op het einde), in het laatste uur in amber
 - Miniaturen in de resultatenlijst. **Dubbelklikken opent een venster met alles van dat zoekertje**:
-  de foto's van de advertentie (miniaturen boven, één grote eronder die meewisselt met de muis), de
-  verkoper en hoelang het online staat, met knoppen naar de site en naar de AI-controle
+  de foto's van de advertentie (miniaturen boven, één grote eronder; klikken wisselt, en een klik op
+  de grote foto legt ze schermvullend over het venster), de verkoper, hoelang het online staat en de
+  volledige beschrijving, met knoppen naar de site en naar de AI-controle
 - *Sites beheren* met een tab per site: alle velden bewerkbaar, per site testen,
   aanmelden bij sites die dat vragen, en exporteren/importeren van losse sitebestanden
 - Server-side zoekfilters via de `Filters`-mapping

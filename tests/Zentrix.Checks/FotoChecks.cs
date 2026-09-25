@@ -268,6 +268,7 @@ public static class FotoChecks
                           <div class="stat"><b>7x</b> bekeken</div>
                           <div class="stat">Sinds <b>24 sep. '26</b></div>
                           <div class="verkoper">Verkocht door Japoto</div>
+                          <div class="tekst">Eerste regel<br>Tweede regel<br><br><br>Na drie breaks\nEn een mislukt regeleinde<br>   </div>
                         </body></html>
                         """;
                 }
@@ -277,6 +278,7 @@ public static class FotoChecks
             def.DetailImagesSelector = ".gallery img@src";
             def.DetailSellerSelector = @".verkoper::match(Verkocht door\s+(.+))";
             def.DetailPostedSelector = @"div.stat::match(Sinds\s+(.+))";
+            def.DetailDescriptionSelector = "div.tekst";
 
             var lijst = new[] { def };
 
@@ -289,7 +291,7 @@ public static class FotoChecks
 
             var det = await DetailFetcher.DetailsAsync(zoekertje, lijst);
 
-            Check.Dat(verzoeken == 1, $"één verzoek voor alle drie ({verzoeken})");
+            Check.Dat(verzoeken == 1, $"één verzoek voor alle vier ({verzoeken})");
             Check.Dat(det.Fotos.Count == 3, $"de foto's: die van de lijst plus twee ({det.Fotos.Count})");
             Check.Dat(det.Verkoper == "Japoto", $"de verkoper ('{det.Verkoper}')");
             Check.Dat(det.Sinds == "24 sep. '26", $"en sinds wanneer ('{det.Sinds}')");
@@ -299,11 +301,32 @@ public static class FotoChecks
             // eerste element waar dat patroon ook echt op past, niet botweg het eerste.
             Check.Dat(!det.Sinds.Contains("bekeken"), "en niet de teller die ervoor staat");
 
+            // De beschrijving houdt haar regelindeling. Een selector plakt alle witruimte plat
+            // tot één spatie - terecht voor een titel, maar het maakt van een beschrijving één
+            // brij. Drie <br> na elkaar worden hoogstens één lege regel, en de lege regel aan
+            // het einde valt weg.
+            var regels = det.Beschrijving.Split('\n');
+
+            Check.Dat(regels.Length == 5,
+                $"de beschrijving houdt haar regels ({regels.Length}): {string.Join(" | ", regels)}");
+            Check.Dat(regels[0] == "Eerste regel" && regels[1] == "Tweede regel",
+                "de eerste twee regels staan apart");
+            Check.Dat(regels[2].Length == 0 && regels[3] == "Na drie breaks",
+                "drie breaks na elkaar geven hoogstens één lege regel");
+
+            // 2dehands zet in het stuk uit zijn eigen databank een regeleinde als de twee
+            // tékens \ en n. Onbewerkt staat dat zo op het scherm.
+            Check.Dat(regels[4] == "En een mislukt regeleinde",
+                $"een letterlijke \\n wordt alsnog een regeleinde ('{regels[4]}')");
+            Check.Dat(!det.Beschrijving.EndsWith("\n") && !det.Beschrijving.Contains('\u001F'),
+                "geen losse witruimte aan het einde, en geen stuurteken in beeld");
+
             // Nog eens: onthouden, dus geen tweede verzoek.
             var weer = await DetailFetcher.DetailsAsync(zoekertje, lijst);
 
             Check.Dat(verzoeken == 1, $"een tweede keer kijken vraagt de pagina niet opnieuw ({verzoeken})");
-            Check.Dat(weer.Fotos.Count == 3 && weer.Verkoper == "Japoto" && weer.Sinds == "24 sep. '26",
+            Check.Dat(weer.Fotos.Count == 3 && weer.Verkoper == "Japoto" && weer.Sinds == "24 sep. '26" &&
+                      weer.Beschrijving == det.Beschrijving,
                 "en geeft hetzelfde terug");
 
             // Een site die nog geen van de drie velden heeft: geen verzoek, en een uitleg in

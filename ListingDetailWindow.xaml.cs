@@ -30,8 +30,13 @@ public class FotoView : ObservableObject
 /// laden is een omweg van tien seconden per zoekertje.
 ///
 /// De opbouw volgt hoe de eigenaar het vroeg: de miniaturen boven elkaar op een rij, één grote
-/// foto eronder, en de muis over een miniatuur wisselt die grote foto. Klikken hoeft niet - er
-/// valt niets te kiezen dat blijft staan, en zo blader je met één beweging door alle foto's.
+/// foto eronder, en een klik op een miniatuur wisselt die grote foto. Eerst wisselde hij al bij
+/// het zweven met de muis; dat ging te vaak per ongeluk, want je muis passeert die rij ook op
+/// weg naar iets anders.
+///
+/// **De grote foto krijgt de vrije ruimte** en groeit dus mee wanneer je het venster groter
+/// maakt. Een klik erop legt hem schermvullend over het venster (Esc of nog een klik sluit dat
+/// weer), want anders is "groot" nog altijd de helft van je scherm.
 ///
 /// **Wat er meteen staat, en wat wordt opgehaald.** De titel, de prijs, de plaats en de site
 /// komen uit het zoekertje zelf: die zijn er al. De andere foto's, de verkoper en "online
@@ -94,6 +99,10 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
         // de pagina nog opgehaald wordt.
         PostedText.Text = _listing.Date is { } datum ? datum.ToString("d MMMM yyyy") : "-";
 
+        // Idem voor de beschrijving: de zoek-API van 2dehands kapt af op 200 tekens, maar die
+        // 200 zijn er meteen. De volledige komt van de pagina.
+        ZetBeschrijving(_listing.Description);
+
         OpenButton.IsEnabled = MainWindow.AlsWebadres(_listing.Url) is not null;
 
         if (!string.IsNullOrWhiteSpace(_listing.LargeImage))
@@ -132,11 +141,17 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
             if (details.Verkoper.Length > 0) SellerText.Text = details.Verkoper;
             if (details.Sinds.Length > 0) PostedText.Text = details.Sinds;
 
+            // Enkel als de pagina meer geeft dan wat we al hadden: de zoekpagina kapt af, maar
+            // een site die niets extra's geeft mag de tekst niet wissen.
+            if (details.Beschrijving.Length > DescriptionText.Text.Length)
+                ZetBeschrijving(details.Beschrijving);
+
             PhotoStatus.Text = _fotos.Count switch
             {
                 0 => "Dit zoekertje heeft geen foto.",
                 1 => "Eén foto; deze site geeft er niet meer, of het sitebestand zegt nog niet waar ze staan.",
-                var n => $"{n} foto's. Ga met de muis over een miniatuur om ze groot te zien."
+                var n => $"{n} foto's. Klik op een miniatuur om ze groot te zien, en op de grote " +
+                         "foto om ze schermvullend te bekijken."
             };
 
             StatusText.Text = details.Fout ?? $"Opgehaald in {klok.ElapsedMilliseconds} ms.";
@@ -153,10 +168,22 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
     }
 
     /// <summary>
-    /// De muis over een miniatuur zet die foto groot. Geen klik: zo blader je met één beweging
-    /// door alle foto's, en er valt hier niets te kiezen dat daarna blijft staan.
+    /// De beschrijving, of niets. Een leeg blok met een kopje erboven zegt niets; dan blijft
+    /// het hele stuk weg.
     /// </summary>
-    private void Miniatuur_MouseEnter(object sender, MouseEventArgs e)
+    private void ZetBeschrijving(string tekst)
+    {
+        var schoon = (tekst ?? "").Trim();
+
+        DescriptionText.Text = schoon;
+
+        var zichtbaar = schoon.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        DescriptionText.Visibility = zichtbaar;
+        DescriptionHeader.Visibility = zichtbaar;
+    }
+
+    /// <summary>Een klik op een miniatuur zet die foto groot.</summary>
+    private void Miniatuur_Klik(object sender, MouseButtonEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is FotoView foto) ZetGroot(foto);
     }
@@ -180,6 +207,48 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
             BigPhoto.Source = null;
             Log.Write($"detailvenster: foto niet te tonen - {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// De foto schermvullend over het venster, en nog eens klikken sluit hem. Zo groot als het
+    /// venster is, dus maximaliseren geeft hem op volle grootte. Erbij staat hoeveel
+    /// beeldpunten de foto werkelijk heeft: dan weet je meteen of de site meer te bieden had.
+    /// </summary>
+    private void BigPhoto_Klik(object sender, MouseButtonEventArgs e)
+    {
+        if (BigPhoto.Source is null) return;
+
+        ZoomPhoto.Source = BigPhoto.Source;
+
+        ZoomHint.Text = BigPhoto.Source is BitmapSource beeld && beeld.PixelWidth > 0
+            ? $"{beeld.PixelWidth} × {beeld.PixelHeight} beeldpunten — klik of Esc om te sluiten"
+            : "Klik of Esc om te sluiten";
+
+        ZoomLayer.Visibility = Visibility.Visible;
+    }
+
+    private void Zoom_Klik(object sender, MouseButtonEventArgs e) => SluitZoom();
+
+    private void SluitZoom()
+    {
+        ZoomLayer.Visibility = Visibility.Collapsed;
+        ZoomPhoto.Source = null;
+    }
+
+    /// <summary>
+    /// Esc sluit eerst de schermvullende foto en pas daarna het venster. Anders sluit één druk
+    /// allebei, en dan lijkt het alsof het venster zomaar wegvalt.
+    /// </summary>
+    protected override void OnPreviewKeyDown(KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape && ZoomLayer.Visibility == Visibility.Visible)
+        {
+            SluitZoom();
+            e.Handled = true;
+            return;
+        }
+
+        base.OnPreviewKeyDown(e);
     }
 
     /// <summary>Het zoekertje alsnog op de site openen - wat een dubbelklik vroeger meteen deed.</summary>

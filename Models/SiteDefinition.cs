@@ -209,6 +209,14 @@ public class SiteDefinition
     public string DetailPostedSelector { get; set; } = "";
 
     /// <summary>
+    /// De volledige beschrijving, op de pagina van het zoekertje. Anders dan
+    /// <see cref="DescriptionSelector"/>, die op de zoekpagina leest: de zoek-API van 2dehands
+    /// en Marktplaats kapt de beschrijving af op 200 tekens, en juist het stuk erna zegt vaak
+    /// wat er mankeert of wat er precies bij zit.
+    /// </summary>
+    public string DetailDescriptionSelector { get; set; } = "";
+
+    /// <summary>
     /// Een API die het exacte sluitingstijdstip voor veel zoekertjes tegelijk geeft. Zie
     /// <see cref="EndTimeApiOptions"/>. Leeg bij de meeste sites.
     /// </summary>

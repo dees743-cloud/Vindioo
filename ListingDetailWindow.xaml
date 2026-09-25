@@ -3,7 +3,7 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  Title="Zoekertje"
-                 Height="840" Width="760"
+                 Height="900" Width="820"
                  MinHeight="460" MinWidth="520"
                  WindowBackdropType="None"
                  Background="{StaticResource AppBackgroundBrush}"
@@ -19,7 +19,6 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="12" />
             <Setter Property="Padding" Value="16" />
-            <Setter Property="Margin" Value="0,0,0,14" />
         </Style>
 
         <!-- Het label van een regel in het blok met gegevens: steeds even breed, zodat
@@ -36,14 +35,13 @@
             <Setter Property="Grid.Column" Value="1" />
         </Style>
 
-        <!-- Eén miniatuur. De muis erop zet hem in de grote foto eronder: klikken hoeft
-             niet, want er valt hier niets te kiezen dat blijft staan. Het randje toont
-             welke er op dat moment groot staat. -->
+        <!-- Eén miniatuur. Klikken zet hem in de grote foto eronder; het randje toont
+             welke dat is. -->
         <DataTemplate x:Key="Miniatuur">
             <Border Width="92" Height="74" Margin="0,0,8,8" CornerRadius="8"
                     Background="{StaticResource SurfaceHoverBrush}"
                     BorderThickness="2" Cursor="Hand"
-                    MouseEnter="Miniatuur_MouseEnter">
+                    MouseLeftButtonUp="Miniatuur_Klik">
                 <Border.Style>
                     <Style TargetType="Border">
                         <Setter Property="BorderBrush" Value="Transparent" />
@@ -74,70 +72,91 @@
 
         <ui:TitleBar Grid.Row="0" Title="Zoekertje" />
 
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="20,10,20,0">
-            <StackPanel>
+        <!-- De foto krijgt de vrije ruimte (rij 2), zodat hij meegroeit wanneer je het
+             venster groter maakt. Wat eronder staat heeft een vaste hoogte en zijn eigen
+             schuifbalk: anders duwt een lange beschrijving de foto weg. -->
+        <Grid Grid.Row="1" Margin="20,10,20,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" MinHeight="180" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" MaxHeight="260" />
+            </Grid.RowDefinitions>
 
-                <!-- ==================== titel en prijs ==================== -->
+            <!-- ==================== titel en prijs ==================== -->
+            <StackPanel Grid.Row="0">
                 <TextBlock x:Name="TitleText" FontSize="19" FontWeight="SemiBold"
                            TextWrapping="Wrap" Margin="2,0,2,4" />
-                <TextBlock x:Name="SubText" FontSize="13" TextWrapping="Wrap" Margin="2,0,2,14"
+                <TextBlock x:Name="SubText" FontSize="13" TextWrapping="Wrap" Margin="2,0,2,12"
                            Foreground="{StaticResource TextSubtleBrush}" />
-
-                <!-- ==================== de foto's ====================
-                     De miniaturen boven, de grote eronder: zo koos de eigenaar het. De muis
-                     over een miniatuur wisselt de grote foto. -->
-                <Border Style="{StaticResource Section}">
-                    <StackPanel>
-                        <ItemsControl x:Name="Thumbs" ItemTemplate="{StaticResource Miniatuur}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-
-                        <Border Background="{StaticResource SurfaceHoverBrush}" CornerRadius="10"
-                                Height="400" Padding="6">
-                            <Image x:Name="BigPhoto" Stretch="Uniform"
-                                   RenderOptions.BitmapScalingMode="HighQuality" />
-                        </Border>
-
-                        <TextBlock x:Name="PhotoStatus" FontSize="12" Margin="2,8,2,0"
-                                   TextWrapping="Wrap"
-                                   Foreground="{StaticResource TextSubtleBrush}" />
-                    </StackPanel>
-                </Border>
-
-                <!-- ==================== wie en sinds wanneer ==================== -->
-                <Border Style="{StaticResource Section}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Grid.Row="0" Text="Verkoper" Style="{StaticResource Label}" />
-                        <TextBlock Grid.Row="0" x:Name="SellerText" Style="{StaticResource Waarde}" />
-
-                        <TextBlock Grid.Row="1" Text="Online sinds" Style="{StaticResource Label}" Margin="0,8,0,0" />
-                        <TextBlock Grid.Row="1" x:Name="PostedText" Style="{StaticResource Waarde}" Margin="0,8,0,0" />
-
-                        <TextBlock Grid.Row="2" Text="Site" Style="{StaticResource Label}" Margin="0,8,0,0" />
-                        <TextBlock Grid.Row="2" x:Name="SourceText" Style="{StaticResource Waarde}" Margin="0,8,0,0" />
-
-                        <TextBlock Grid.Row="3" Text="Link" Style="{StaticResource Label}" Margin="0,8,0,0" />
-                        <TextBlock Grid.Row="3" x:Name="UrlText" Style="{StaticResource Waarde}" Margin="0,8,0,0"
-                                   TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
-                    </Grid>
-                </Border>
             </StackPanel>
-        </ScrollViewer>
+
+            <!-- ==================== de miniaturen ==================== -->
+            <ItemsControl Grid.Row="1" x:Name="Thumbs" ItemTemplate="{StaticResource Miniatuur}"
+                          Margin="0,0,0,2">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+
+            <!-- ==================== de grote foto ==================== -->
+            <Border Grid.Row="2" Background="{StaticResource SurfaceHoverBrush}" CornerRadius="10"
+                    Padding="6" Cursor="Hand" MouseLeftButtonUp="BigPhoto_Klik"
+                    ToolTip="Klik om de foto schermvullend te bekijken">
+                <Image x:Name="BigPhoto" Stretch="Uniform"
+                       RenderOptions.BitmapScalingMode="HighQuality" />
+            </Border>
+
+            <TextBlock Grid.Row="3" x:Name="PhotoStatus" FontSize="12" Margin="2,8,2,10"
+                       TextWrapping="Wrap" Foreground="{StaticResource TextSubtleBrush}" />
+
+            <!-- ==================== wie, sinds wanneer, en de tekst ==================== -->
+            <Border Grid.Row="4" Style="{StaticResource Section}" Margin="0,0,0,4">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Text="Verkoper" Style="{StaticResource Label}" />
+                            <TextBlock Grid.Row="0" x:Name="SellerText" Style="{StaticResource Waarde}" />
+
+                            <TextBlock Grid.Row="1" Text="Online sinds" Style="{StaticResource Label}" Margin="0,8,0,0" />
+                            <TextBlock Grid.Row="1" x:Name="PostedText" Style="{StaticResource Waarde}" Margin="0,8,0,0" />
+
+                            <TextBlock Grid.Row="2" Text="Site" Style="{StaticResource Label}" Margin="0,8,0,0" />
+                            <TextBlock Grid.Row="2" x:Name="SourceText" Style="{StaticResource Waarde}" Margin="0,8,0,0" />
+
+                            <TextBlock Grid.Row="3" Text="Link" Style="{StaticResource Label}" Margin="0,8,0,0" />
+                            <TextBlock Grid.Row="3" x:Name="UrlText" Style="{StaticResource Waarde}" Margin="0,8,0,0"
+                                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                        </Grid>
+
+                        <!-- De beschrijving staat er als selecteerbare tekst: er staat vaak een
+                             typenummer of een maat in die je ergens anders wil plakken. Een
+                             TextBox zonder rand leest als tekst maar laat selecteren toe. -->
+                        <TextBlock x:Name="DescriptionHeader" Text="Beschrijving" Margin="0,14,0,4"
+                                   FontSize="13" Foreground="{StaticResource TextSubtleBrush}"
+                                   Visibility="Collapsed" />
+                        <TextBox x:Name="DescriptionText" Visibility="Collapsed"
+                                 IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0"
+                                 Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                                 FontSize="13" Padding="0" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
 
         <Grid Grid.Row="2" Margin="20,8,20,16">
             <Grid.ColumnDefinitions>
@@ -158,6 +177,18 @@
                        Margin="0,0,8,0" Click="OpenButton_Click" />
             <ui:Button Grid.Column="3" Content="Sluiten" Appearance="Secondary" IsCancel="True"
                        Click="CloseButton_Click" />
+        </Grid>
+
+        <!-- ==================== de foto schermvullend ====================
+             Over het hele venster, dus maximaliseren geeft de foto op volle grootte. Klikken
+             (of Esc) doet hem weer dicht. Geen apart venster: dan moet er een tweede plaats
+             onderhouden worden die hetzelfde doet. -->
+        <Grid x:Name="ZoomLayer" Grid.RowSpan="3" Visibility="Collapsed"
+              Background="#E6000000" Cursor="Hand" MouseLeftButtonUp="Zoom_Klik">
+            <Image x:Name="ZoomPhoto" Stretch="Uniform" Margin="24"
+                   RenderOptions.BitmapScalingMode="HighQuality" />
+            <TextBlock x:Name="ZoomHint" VerticalAlignment="Bottom" HorizontalAlignment="Center"
+                       Margin="0,0,0,14" FontSize="12" Foreground="#CCFFFFFF" />
         </Grid>
     </Grid>
 </ui:FluentWindow>

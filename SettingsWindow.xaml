@@ -216,6 +216,11 @@
                                             ToolTip="Sinds wanneer het zoekertje online staat, zoals de site het schrijft ('Sinds 24 sep. 26'). Tekst en geen datum: elke site schrijft het anders op, en wat de site zelf toont klopt altijd. Te zien in het detailvenster (dubbelklik op een zoekertje)." />
                             </StackPanel>
                             <StackPanel Width="240" Margin="0,0,16,10">
+                                <TextBlock Text="Beschrijving (op de pagina zelf)" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.DetailDescriptionSelector, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="De volledige beschrijving op de pagina van het zoekertje. De zoek-API van 2dehands en Marktplaats kapt af op 200 tekens, en juist wat erna komt zegt vaak wat er mankeert of wat er precies bij zit." />
+                            </StackPanel>
+                            <StackPanel Width="240" Margin="0,0,16,10">
                                 <TextBlock Text="Datum" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
                                 <ui:TextBox Text="{Binding Def.DateSelector, UpdateSourceTrigger=PropertyChanged}" />
                             </StackPanel>

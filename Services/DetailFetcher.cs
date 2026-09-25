@@ -308,7 +308,7 @@ public static class DetailFetcher
     /// geeft; <see cref="Fout"/> zegt waarom er niets kwam, of null wanneer alles lukte.
     /// </summary>
     public record ListingDetails(IReadOnlyList<string> Fotos, string Verkoper, string Sinds,
-                                 string? Fout = null);
+                                 string Beschrijving = "", string? Fout = null);
 
     /// <summary>
     /// Alles van de pagina van één zoekertje in <b>één</b> verzoek: de foto's, de verkoper en
@@ -329,21 +329,22 @@ public static class DetailFetcher
         var def = sites.FirstOrDefault(s =>
             string.Equals(s.Name, listing.Source, StringComparison.OrdinalIgnoreCase));
 
-        if (def is null) return new ListingDetails(fotos, "", "", "Deze site staat niet meer in Sites beheren.");
+        if (def is null) return new ListingDetails(fotos, "", "", "", "Deze site staat niet meer in Sites beheren.");
 
         var leest = !string.IsNullOrWhiteSpace(def.DetailImagesSelector) ||
                     !string.IsNullOrWhiteSpace(def.DetailSellerSelector) ||
-                    !string.IsNullOrWhiteSpace(def.DetailPostedSelector);
+                    !string.IsNullOrWhiteSpace(def.DetailPostedSelector) ||
+                    !string.IsNullOrWhiteSpace(def.DetailDescriptionSelector);
 
         if (!leest)
-            return new ListingDetails(fotos, "", "",
+            return new ListingDetails(fotos, "", "", "",
                 $"Het sitebestand van {def.Name} zegt nog niet waar de foto's en de verkoper staan.");
 
         if (!IsWebadres(listing.Url))
-            return new ListingDetails(fotos, "", "", "Dit zoekertje heeft geen webadres.");
+            return new ListingDetails(fotos, "", "", "", "Dit zoekertje heeft geen webadres.");
 
         if (def.UseBridge && !BridgeServer.Instance.ExtensionAlive)
-            return new ListingDetails(fotos, "", "",
+            return new ListingDetails(fotos, "", "", "",
                 $"{def.Name} loopt via de brug, en die meldde zich niet. Staat Chrome open?");
 
         if (OnthoudenDetails.TryGetValue(listing.Url, out var bekend))
@@ -385,14 +386,23 @@ public static class DetailFetcher
                 ? ""
                 : (await GenericSource.ReadFieldAsync(html, def.DetailPostedSelector, ct)).Trim();
 
-            var uitkomst = new ListingDetails(volledig, verkoper, sinds);
+            // Voor de beschrijving gaat er een kopie in waarin <br> een regeleinde geworden is.
+            // Een selector leest de tekst van een element, en die kent geen tags meer: zonder
+            // dit plakt "eerste regel<br>tweede regel" aan elkaar tot één brij.
+            var beschrijving = string.IsNullOrWhiteSpace(def.DetailDescriptionSelector)
+                ? ""
+                : Opschonen(await GenericSource.ReadFieldAsync(
+                    MetRegeleindes(html), def.DetailDescriptionSelector, ct));
+
+            var uitkomst = new ListingDetails(volledig, verkoper, sinds, beschrijving);
             OnthoudenDetails[listing.Url] = uitkomst;
 
             Voeg(fotos, volledig);
 
             Log.Write($"pagina van '{Kort(listing.Title)}': {volledig.Count} foto's" +
                       $"{(verkoper.Length > 0 ? ", verkoper '" + verkoper + "'" : "")}" +
-                      $"{(sinds.Length > 0 ? ", sinds '" + sinds + "'" : "")}");
+                      $"{(sinds.Length > 0 ? ", sinds '" + sinds + "'" : "")}" +
+                      $"{(beschrijving.Length > 0 ? ", " + beschrijving.Length + " tekens beschrijving" : "")}");
 
             return uitkomst with { Fotos = fotos };
         }
@@ -404,7 +414,7 @@ public static class DetailFetcher
         {
             // Niet onthouden: de volgende keer mag het opnieuw geprobeerd worden.
             Log.Write($"pagina van '{Kort(listing.Title)}' niet op te halen - {ex.Message}");
-            return new ListingDetails(fotos, "", "", FriendlyError.Describe(ex));
+            return new ListingDetails(fotos, "", "", "", FriendlyError.Describe(ex));
         }
     }
 
@@ -432,6 +442,63 @@ public static class DetailFetcher
     }
 
     private static string Kort(string titel) => titel.Length <= 40 ? titel : titel[..40] + "...";
+
+    /// <summary>
+    /// Waar een regel eindigde, in een teken dat het opschonen overleeft. Een selector plakt
+    /// alle witruimte plat tot één spatie - terecht voor een titel of een prijs, maar het maakt
+    /// van een beschrijving één brij. Een gewone <c>\n</c> zou dus sneuvelen; dit stuurteken
+    /// staat niet in <c>\s</c> en komt in geen enkele advertentie voor.
+    /// </summary>
+    private const char Regeleinde = '\u001F';
+
+    /// <summary>
+    /// Een kopie van de pagina waarin <c>&lt;br&gt;</c> en het einde van een alinea gemarkeerd
+    /// staan met <see cref="Regeleinde"/>. Enkel voor de beschrijving: daar is de indeling de
+    /// helft van de leesbaarheid, en een selector geeft enkel tekst terug - zonder dit plakt
+    /// "eerste regel&lt;br&gt;tweede regel" aan elkaar.
+    /// </summary>
+    private static string MetRegeleindes(string html) =>
+        System.Text.RegularExpressions.Regex.Replace(
+            html, @"<\s*(br\s*/?|/p|/div|/li)\s*>", "$0" + Regeleinde,
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// Een beschrijving zoals ze leesbaar is: geen rij lege regels, geen spaties aan de rand,
+    /// en niet eindeloos lang. Sites zetten er graag drie witregels en een blok voorwaarden
+    /// achter.
+    /// </summary>
+    private static string Opschonen(string tekst)
+    {
+        if (string.IsNullOrWhiteSpace(tekst)) return "";
+
+        // Sommige sites zetten een regeleinde per ongeluk als de twee tékens \ en n in hun
+        // pagina - 2dehands doet dat in het stuk dat uit hun eigen databank komt. Onbewerkt
+        // staat er dan "(LOSSE CD SPELER)\nOpslaglocatie: Onbekend" op het scherm. Enkel in
+        // een beschrijving: daar is een backslash-n vrijwel zeker een mislukt regeleinde.
+        var regels = tekst.Replace("\\n", "\n")
+                          .Replace(Regeleinde, '\n').Replace("\r\n", "\n").Split('\n')
+                          .Select(r => r.Trim())
+                          .ToList();
+
+        var uit = new List<string>();
+        foreach (var regel in regels)
+        {
+            // Hoogstens één lege regel na elkaar.
+            if (regel.Length == 0 && (uit.Count == 0 || uit[^1].Length == 0)) continue;
+            uit.Add(regel);
+        }
+
+        var samen = string.Join("\n", uit).Trim();
+
+        return samen.Length <= MaxBeschrijving ? samen : samen[..MaxBeschrijving].TrimEnd() + " […]";
+    }
+
+    /// <summary>
+    /// Hoeveel tekens van de beschrijving er getoond worden. Ruim genoeg voor een gewone
+    /// advertentie; een handelaar die er zijn hele algemene voorwaarden achter plakt, wordt
+    /// afgekapt met een teken dat er meer is - en de knop naar de site staat ernaast.
+    /// </summary>
+    private const int MaxBeschrijving = 4000;
 
     /// <summary>Haalt één pagina op en leest er de datum uit.</summary>
     private static async Task<DateTime?> HaalAsync(string url, string selector, CancellationToken ct)
