@@ -426,14 +426,12 @@ public class GenericSource : ISearchSource
     /// </summary>
     public static async Task<string> ReadFieldAsync(string html, string selector, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(selector)) return "";
-
-        var document = await new HtmlParser().ParseDocumentAsync(html, ct);
-        return document.Body is null ? "" : Pick(document.Body, selector);
+        var wortel = await WortelAsync(html, ct);
+        return wortel is null ? "" : Pick(wortel, selector);
     }
 
     /// <summary>
-    /// Hetzelfde, maar dan élk element dat past in plaats van het eerste. Voor de foto's van
+    /// Hetzelfde, maar dan alles wat past in plaats van het eerste. Voor de foto's van
     /// één zoekertje (<see cref="SiteDefinition.DetailImagesSelector"/>): daar wil je ze
     /// allemaal, in de volgorde waarin ze op de pagina staan.
     ///
@@ -444,12 +442,24 @@ public class GenericSource : ISearchSource
     public static async Task<List<string>> ReadFieldsAsync(string html, string selector,
                                                            CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(selector)) return new List<string>();
+        var wortel = await WortelAsync(html, ct);
+        return wortel is null ? new List<string>() : PickAll(wortel, selector);
+    }
+
+    /// <summary>
+    /// Waar de twee hierboven in zoeken: de hele pagina, dus <c>&lt;html&gt;</c> en niet
+    /// <c>&lt;body&gt;</c>. Op een zoekpagina maakt dat niets uit, maar op de pagina van één
+    /// zoekertje wel: 2dehands zet al zijn foto's in het blok
+    /// <c>application/ld+json</c> - de webstandaard die ook Google leest - en dat staat in de
+    /// <c>&lt;head&gt;</c>. Met alleen de body vond de selector daar nul elementen, terwijl de
+    /// foto's er gewoon stonden.
+    /// </summary>
+    private static async Task<AngleSharp.Dom.IElement?> WortelAsync(string html, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(html)) return null;
 
         var document = await new HtmlParser().ParseDocumentAsync(html, ct);
-        if (document.Body is null) return new List<string>();
-
-        return PickAll(document.Body, selector);
+        return document.DocumentElement;
     }
 
     // ---------- HTML ----------
@@ -616,6 +626,42 @@ public class GenericSource : ISearchSource
     }
 
     /// <summary>
+    /// Zoals <see cref="ApplyRewrites"/>, maar dan élke treffer van het patroon in plaats van de
+    /// eerste. Enkel voor <see cref="PickAll"/>: daar betekent "alles wat past" ook echt alles, en
+    /// dat maakt één blok met veel waarden erin bruikbaar.
+    ///
+    /// Dat is geen randgeval maar de gewone manier waarop sites hun foto's neerzetten: 2dehands
+    /// heeft op de pagina van een zoekertje maar één <c>img</c> in de HTML - de rest zet
+    /// JavaScript erin - terwijl álle foto's netjes in het <c>application/ld+json</c>-blok staan,
+    /// de webstandaard die ook Google leest. Met dit gedrag wijs je dat blok aan en haal je ze er
+    /// alle vijf uit; zonder zou je er één krijgen.
+    /// </summary>
+    private static List<string> ApplyRewritesAll(string value, Opschoning regels)
+    {
+        foreach (var (van, naar) in regels.Vervangingen)
+            if (van.Length > 0) value = value.Replace(van, naar);
+
+        if (regels.Patroon.Length == 0)
+            return value.Length > 0 ? new List<string> { value } : new List<string>();
+
+        try
+        {
+            return Regex.Matches(value, regels.Patroon)
+                        .Select(t => (t.Groups.Count > 1 ? t.Groups[1].Value : t.Value).Trim())
+                        .Where(t => t.Length > 0)
+                        .ToList();
+        }
+        catch (ArgumentException ex)
+        {
+            lock (GemeldePatronen)
+                if (GemeldePatronen.Add(regels.Patroon))
+                    Services.Log.Write($"::match({regels.Patroon}) is geen geldig patroon - {ex.Message}");
+
+            return new List<string> { value };
+        }
+    }
+
+    /// <summary>
     /// Leest één veld uit. Schrijf "a@href" of "img@src" om een attribuut te nemen
     /// in plaats van de tekst. Hang er "::replace(oud,nieuw)" achter om in de
     /// gevonden waarde nog iets te vervangen, of "::match(patroon)" om er enkel een
@@ -665,9 +711,13 @@ public class GenericSource : ISearchSource
     }
 
     /// <summary>
-    /// Zoals <see cref="Pick"/>, maar dan alle elementen die passen, ontdubbeld en zonder lege.
-    /// Er is met opzet maar één plaats waar de notatie van een selector uitgelegd wordt
+    /// Zoals <see cref="Pick"/>, maar dan alles wat past, ontdubbeld en zonder lege. Er is met
+    /// opzet maar één plaats waar de notatie van een selector uitgelegd wordt
     /// (<c>@attribuut</c>, <c>::replace</c>, <c>::match</c>), dus dit deelt die uitpakkerij.
+    ///
+    /// Twee verschillen met <see cref="Pick"/>, en allebei betekenen ze "alles":
+    /// élk element dat de selector vindt, en met <c>::match</c> élke treffer binnen zo'n element
+    /// in plaats van enkel de eerste (zie <see cref="ApplyRewritesAll"/>).
     /// </summary>
     internal static List<string> PickAll(AngleSharp.Dom.IElement node, string selector)
     {
@@ -693,9 +743,10 @@ public class GenericSource : ISearchSource
 
         foreach (var target in kandidaten)
         {
-            var waarde = ApplyRewrites(Regex.Replace(Ruw(target, attribute), @"\s+", " ").Trim(), regels);
+            var ruw = Regex.Replace(Ruw(target, attribute), @"\s+", " ").Trim();
 
-            if (waarde.Length > 0 && gezien.Add(waarde)) uit.Add(waarde);
+            foreach (var waarde in ApplyRewritesAll(ruw, regels))
+                if (waarde.Length > 0 && gezien.Add(waarde)) uit.Add(waarde);
         }
 
         return uit;

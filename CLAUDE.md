@@ -1453,7 +1453,9 @@ meer dan een minuut, en dan wil je niet naar een leeg venster kijken.
 
 - **Waar die foto's staan, zegt het sitebestand**: `DetailImagesSelector`, met dezelfde notatie als
   elk ander veld, dus gerust met `::replace` erachter om de grote variant te krijgen. Ontbreekt het
-  veld - en vandaag ontbreekt het bij alle sites - dan blijft het bij de foto van de zoekpagina.
+  veld, dan blijft het bij de foto van de zoekpagina. Ingevuld op 25 september 2026 voor 2dehands,
+  Marktplaats en AlleVeilingen; welke selector en wat er gemeten is, staat in `SITES.md` van
+  `zentrix-sites`.
 - **De foto die we al hebben staat vooraan.** Die is er zeker, en zo kan de AI-controle beginnen
   ook als de pagina niets extra's geeft.
 - **Dubbels vallen weg**, want een site zet dezelfde foto vaak twee keer op de pagina: klein in het
@@ -1464,12 +1466,24 @@ meer dan een minuut, en dan wil je niet naar een leeg venster kijken.
   bij een leeg id zouden twee zoekertjes van dezelfde site elkaars foto's krijgen. Gevonden door de
   controle die er juist voor staat.
 
-`GenericSource.ReadFieldsAsync` is de meervoudsvorm van `ReadFieldAsync`: élk element dat past in
-plaats van het eerste. Zo blijft er één plaats waar de notatie van een selector uitgelegd wordt.
+`GenericSource.ReadFieldsAsync` is de meervoudsvorm van `ReadFieldAsync`: alles wat past in plaats
+van het eerste. Zo blijft er één plaats waar de notatie van een selector uitgelegd wordt. Twee
+dingen kwamen daarbij boven, en allebei zijn het fouten die je enkel op een echte pagina vindt:
+
+- **"Alles wat past" betekent ook élke treffer binnen één element.** Een site zet zijn foto's vaak
+  niet als losse `img` neer maar samen in één blok, en dan is één element genoeg. Met `::match`
+  levert dat blok nu elke treffer op in plaats van de eerste.
+- **Er wordt in de hele pagina gezocht, niet enkel in de `<body>`.** 2dehands zet zijn foto's in
+  het `application/ld+json`-blok van de **`<head>`**, en met alleen de body vond de selector daar
+  nul elementen terwijl de foto's er gewoon stonden. Dat gold ook voor `ReadFieldAsync`, dus die
+  is meteen mee rechtgezet; in de praktijk verandert er niets voor de einddatum van AlleVeilingen,
+  want een `div` staat nooit in de `<head>`.
 
 Nagemeten met het venster buiten beeld, de echte Ollama en twee echte Catawiki-foto's achter een
 lokale proefpagina die de advertentiepagina speelt: twee blokken, elk met eigen miniatuur en een
-ánder antwoord, samen **28 s**.
+ánder antwoord, samen **28 s**. En op 25 september met de echte sitebestanden en echte zoekertjes,
+via dezelfde import als in het tandwielmenu: 2dehands gaf **3 extra foto's in 425 ms**,
+AlleVeilingen **2 in 136 ms**.
 
 **Dit is stap 1 tot 3 van vier**; zie Volgende stappen 3 voor de rest.
 
@@ -3093,9 +3107,10 @@ Hieronder enkel wat aan de app zelf te doen valt.
    - ~~Rechtsklik op één foto.~~ Gedaan op 24 september 2026: *AI-controle op deze foto*, naast
      *Prijsindicatie*, met `PhotoInsightWindow`.
    - ~~Alle foto's van dat zoekertje.~~ Gedaan op 24 september 2026: `DetailImagesSelector` in het
-     sitebestand, opgehaald door `DetailFetcher.FotosAsync`. **Nog te doen: dat veld invullen** -
-     vandaag heeft geen enkel sitebestand het, dus valt het overal terug op de ene foto van de
-     zoekpagina. Per site één regel, uit te zoeken op de pagina van een zoekertje.
+     sitebestand, opgehaald door `DetailFetcher.FotosAsync`. Ingevuld op 25 september voor
+     2dehands, Marktplaats en AlleVeilingen. **Nog open**: Catawiki en eBay lopen via de brug, en
+     dat vraagt een draaiende Zentrix met de extensie om na te meten; Facebook, Discogs,
+     leboncoin, Kleinanzeigen en AutoScout24 zijn nog niet bekeken.
    - **Meerdere zoekertjes tegelijk**, met vooraf een schermpje dat zegt hoeveel foto's en
      hoelang. Vraagt dat de lijst en het raster meervoudige selectie aankunnen; nog na te kijken.
 

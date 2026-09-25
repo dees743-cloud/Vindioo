@@ -7,6 +7,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Zentrix.Models;
 using Zentrix.Services;
+using Zentrix.Sources;
 
 namespace Zentrix.Checks;
 
@@ -186,6 +187,26 @@ public static class FotoChecks
             Check.Dat(fotos.Any(f => f == $"http://127.0.0.1:{site.Poort}/fotos/foto3_groot.jpg"),
                 $"een pad wordt een volledig adres ({fotos.LastOrDefault()})");
             Check.Dat(!fotos.Any(f => f.Contains("logo")), "en enkel wat de selector aanwijst");
+
+            // Foto's staan lang niet altijd in de <body>. 2dehands zet ze in het ld+json-blok van
+            // de <head> - de webstandaard die ook Google leest - en met alleen de body vond de
+            // selector daar nul elementen terwijl ze er gewoon stonden. Meteen ook de twee andere
+            // dingen die dat blok vraagt: alle treffers binnen één element, en ::replace vooraf
+            // om de / van JSON weer een schuine streep te maken.
+            var uni = new string(new[] { (char)92, 'u', '0', '0', '2', 'F' });
+
+            var kop = "<html><head><script type=\"application/ld+json\">" +
+                      "{\"image\":[\"https:" + uni + uni + "foto.be" + uni + "een_klein.jpg\"," +
+                      "\"https:" + uni + uni + "foto.be" + uni + "twee_klein.jpg\"]}" +
+                      "</script></head><body><p>niets</p></body></html>";
+
+            var uitKop = await GenericSource.ReadFieldsAsync(kop,
+                "script[type='application/ld+json']::replace(" + uni + ",/)::replace(_klein,_groot)" +
+                "::match(https://foto\\.be/[A-Za-z0-9/._-]+)");
+
+            Check.Dat(uitKop.Count == 2, $"een blok in de <head> wordt gevonden ({uitKop.Count})");
+            Check.Dat(uitKop.All(f => f.EndsWith("_groot.jpg")),
+                $"met ::replace vooraf en élke treffer erin ({string.Join(", ", uitKop)})");
 
             // Een site zonder dat veld: dan blijft het bij de foto uit de lijst, zonder verzoek.
             var zonder = new Listing
