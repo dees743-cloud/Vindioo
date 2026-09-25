@@ -201,6 +201,21 @@
                                             ToolTip="Voor een veilingsite die de sluitingsdatum niet op haar zoekpagina zet, maar wel op de pagina van het kavel. De app haalt die pagina dan op voor de kavels die op het scherm staan - een verzoek per kavel, dus enkel invullen als het echt nodig is." />
                             </StackPanel>
                             <StackPanel Width="240" Margin="0,0,16,10">
+                                <TextBlock Text="Foto's (op de pagina zelf)" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.DetailImagesSelector, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="Waar alle foto's van één zoekertje staan, op zijn eigen pagina. De zoekpagina geeft er meestal één; een advertentie heeft er vijf of tien. Alles wat past telt mee, ontdubbeld - dus meestal iets als .gallery img@src, gerust met ::replace erachter voor de grote variant. Gebruikt door het detailvenster (dubbelklik) en de AI-controle." />
+                            </StackPanel>
+                            <StackPanel Width="240" Margin="0,0,16,10">
+                                <TextBlock Text="Verkoper (op de pagina zelf)" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.DetailSellerSelector, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="De naam van de verkoper op de pagina van het zoekertje. Laat dit leeg wanneer 'Verkoper' hierboven al iets geeft: dan staat hij er meteen, zonder die pagina op te halen." />
+                            </StackPanel>
+                            <StackPanel Width="240" Margin="0,0,16,10">
+                                <TextBlock Text="Online sinds (op de pagina zelf)" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
+                                <ui:TextBox Text="{Binding Def.DetailPostedSelector, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="Sinds wanneer het zoekertje online staat, zoals de site het schrijft ('Sinds 24 sep. 26'). Tekst en geen datum: elke site schrijft het anders op, en wat de site zelf toont klopt altijd. Te zien in het detailvenster (dubbelklik op een zoekertje)." />
+                            </StackPanel>
+                            <StackPanel Width="240" Margin="0,0,16,10">
                                 <TextBlock Text="Datum" FontSize="12" Opacity="0.6" Margin="0,0,0,2" />
                                 <ui:TextBox Text="{Binding Def.DateSelector, UpdateSourceTrigger=PropertyChanged}" />
                             </StackPanel>

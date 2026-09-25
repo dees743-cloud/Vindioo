@@ -110,6 +110,7 @@ Vensters (root):
   NotifySettingsWindow waar meldingen heen gaan en hoe de app op de achtergrond doet
   PriceIndicationWindow de prijsindicatie van één zoekertje (rechtsklik op de foto)
   PhotoInsightWindow   wat de AI op de foto van een zoekertje ziet (rechtsklik)
+  ListingDetailWindow  alles van één zoekertje: de foto's, de verkoper, hoelang online (dubbelklik)
 extension/
   background.js      de brug: haalt pagina's op in je eigen Chrome
   manifest.json      naam en versie zoals Chrome ze toont
@@ -1487,6 +1488,63 @@ AlleVeilingen **2 in 136 ms**.
 
 **Dit is stap 1 tot 3 van vier**; zie Volgende stappen 3 voor de rest.
 
+### Dubbelklikken: alles van één zoekertje
+
+**Een dubbelklik opent niet meer de webpagina, maar een eigen venster** (25 september 2026,
+`ListingDetailWindow`, gevraagd door de eigenaar). Daarin staan de foto's van de advertentie, wie
+het verkoopt en hoelang het er al staat - precies wat je wil weten om te beslissen of je verder
+kijkt. De browser openen, de cookiemelding wegklikken en de pagina laten laden was daarvoor een
+omweg van een tien seconden per zoekertje. *Openen op de site* staat als knop in dat venster, dus
+die weg blijft; ernaast staat *AI-controle*, die doorstuurt naar `PhotoInsightWindow`.
+
+**De foto's: miniaturen boven, één grote eronder.** De muis over een miniatuur wisselt de grote
+foto, en een randje in het accent toont welke dat is. Geen klik: er valt hier niets te kiezen dat
+blijft staan, en zo blader je met één beweging door alle foto's. Zo koos de eigenaar het.
+
+**Wat er meteen staat en wat opgehaald wordt.** De titel, de prijs, de plaats en de site komen uit
+het zoekertje zelf, en de foto van de zoekpagina staat er meteen groot - het venster is dus nooit
+leeg. De andere foto's, de verkoper en "online sinds" staan op de pagina van het zoekertje, en die
+wordt opgehaald zodra het venster opengaat.
+
+**In één verzoek, niet drie** (`DetailFetcher.DetailsAsync`). Het zijn drie gegevens van dezelfde
+pagina; die drie keer ophalen zou bij een brugsite twaalf seconden kosten. `FotosAsync` (de
+AI-controle) loopt sindsdien over dezelfde weg, met enkel de foto's eruit. Wat opgehaald is, blijft
+onthouden op het adres van de pagina.
+
+Waar het staat, zegt het sitebestand - drie velden, alle drie ook in *Sites beheren*:
+
+| Veld | Waarvoor |
+|---|---|
+| `DetailImagesSelector` | alle foto's van de advertentie (bestond al voor de AI-controle) |
+| `DetailSellerSelector` | de verkoper, wanneer die niet al op de zoekpagina staat |
+| `DetailPostedSelector` | sinds wanneer het online staat |
+
+Twee dingen die daarbij horen:
+
+- **"Online sinds" is tekst en geen datum**, om dezelfde reden als de tijd tot het einde van een
+  veiling: elke site schrijft het anders op ("Eergisteren", "24 sep. '26", "Vandaag"), en wat de
+  site zelf toont klopt altijd met wat een bezoeker daar ziet. Er wordt dus niets uitgerekend.
+- **De verkoper hoeft meestal niet opgehaald te worden.** 2dehands en Marktplaats zetten hem al op
+  hun zoekpagina (`SellerSelector`, dat er toch al staat voor "veilinghuizen overslaan"), dus daar
+  blijft `DetailSellerSelector` leeg en staat de naam er meteen.
+
+**Heeft een site geen van de drie velden, dan zegt het venster dat** ("Het sitebestand van Discogs
+zegt nog niet waar de foto's en de verkoper staan") en wordt er niets opgehaald. Beter dan een leeg
+vak waarvan niemand weet of het aan het laden is.
+
+**De prijs komt uit `PriceTextConverter`**, dezelfde als op de kaart. Rekende dit venster zelf, dan
+stond hetzelfde zoekertje hier op "€ 40" en in de lijst op "€ 39,95".
+
+Nagemeten met het venster buiten beeld en een vers zoekertje uit de zoek-API van 2dehands (een
+advertentie van gisteren kan al weg zijn): **4 foto's in 356 ms**, verkoper "Japoto", "24 sep. '26",
+de muis op miniatuur 2 wisselt de grote foto en verzet het randje, en een site zonder die velden
+toont de ene foto die we wel hebben met de reden erbij. De logica eromheen staat in `FotoChecks`,
+met een proefsite die telt hoeveel verzoeken er komen - dat één verzoek is het hele punt.
+
+**Wat het nog niet doet:** de beschrijving van de advertentie, en "3 dagen online" uitrekenen uit
+"24 sep. '26" (dat vraagt een datumlezer per site). 2dehands zet er trouwens ook "7x bekeken" en
+"0x bewaard" bij; dat is er met dezelfde selector uit te halen.
+
 ## Hoe een site binnenkomt — drie wegen
 
 1. **Rechtstreeks** (`HttpClient`). Snelst. Werkt bij 2dehands en Marktplaats,
@@ -2132,7 +2190,8 @@ Voor wie eraan werkt:
 Wat de analyse **niet** doet, en waar je dus zelf aan moet: `Filters`, `CustomFilters`,
 `Headers`, `AllowsEmptyQuery`, de velden voor de prijsindicatie (`PriceReference`, `IsAuction`,
 `SellerSelector`, `AuctionSellers`), `TimeLeftSelector`, `DetailEndDateSelector`,
-`DetailImagesSelector`, `EndTimeApi`, een eigen `UrlStyle`
+`DetailImagesSelector`, `DetailSellerSelector`, `DetailPostedSelector`, `EndTimeApi`,
+een eigen `UrlStyle`
 en paginering die in het pad zit
 (Kleinanzeigen: `/s-seite:2/cd/k0`). Dat vraagt meten, zie `tools/meet-filter.py`.
 
@@ -2638,14 +2697,15 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel` en Zentrix dicht waren dat er 313 op 25 september 2026, met Chrome open - dus 315 met
-alles dicht. Twee dingen op deze pc laten controles wegvallen, en allebei zeggen ze dat ook:
+`--snel` waren dat er 306 op 25 september 2026, met Zentrix open - dus 329 met alles dicht (de
+bruggroep is er 23, waarvan 2 wegvallen zodra Chrome draait). Twee dingen op deze pc laten
+controles wegvallen, en allebei zeggen ze dat ook:
 
-- **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (22).
+- **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (23).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
   Het controleproject heeft een eigen gegevensmap en dus een andere code, dus voor zijn brug is
   dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
-  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (313 in plaats van 315).
+  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (327 in plaats van 329).
 
 Drie regels waar het aan vastzit:
 
@@ -3044,7 +3104,9 @@ witte tekst leesbaar blijft.
   het kavel, dan haalt de app ze daar op - enkel voor de kavels die je op dat moment ziet
 - Rechtsonder op een veilingkaart een **timer** die echt aftelt waar het tijdstip exact is
   (AlleVeilingen, Catawiki via zijn API, eBay op het einde), in het laatste uur in amber
-- Miniaturen in de resultatenlijst, dubbelklik opent het zoekertje
+- Miniaturen in de resultatenlijst. **Dubbelklikken opent een venster met alles van dat zoekertje**:
+  de foto's van de advertentie (miniaturen boven, één grote eronder die meewisselt met de muis), de
+  verkoper en hoelang het online staat, met knoppen naar de site en naar de AI-controle
 - *Sites beheren* met een tab per site: alle velden bewerkbaar, per site testen,
   aanmelden bij sites die dat vragen, en exporteren/importeren van losse sitebestanden
 - Server-side zoekfilters via de `Filters`-mapping

@@ -183,10 +183,30 @@ public class SiteDefinition
     /// iets als <c>.gallery img@src</c>, gerust met <c>::replace</c> erachter om de grote
     /// variant te krijgen, net als bij <see cref="LargeImageSelector"/>.
     ///
-    /// Gebruikt door de AI-controle op alle foto's van een zoekertje (<c>PhotoInsightWindow</c>);
-    /// leeg laten betekent dat daar enkel de foto van de zoekpagina te zien is.
+    /// Gebruikt door de AI-controle op alle foto's van een zoekertje (<c>PhotoInsightWindow</c>)
+    /// en door het detailvenster (<c>ListingDetailWindow</c>); leeg laten betekent dat daar
+    /// enkel de foto van de zoekpagina te zien is.
     /// </summary>
     public string DetailImagesSelector { get; set; } = "";
+
+    /// <summary>
+    /// De naam van de verkoper op de pagina van het zoekertje zelf. Anders dan
+    /// <see cref="SellerSelector"/>, die op de zoekpagina leest: sommige sites zetten de
+    /// verkoper enkel op de advertentie. Staat hij wél al op de zoekpagina, laat dit dan leeg -
+    /// dan is hij er meteen, zonder verzoek.
+    /// </summary>
+    public string DetailSellerSelector { get; set; } = "";
+
+    /// <summary>
+    /// Sinds wanneer het zoekertje online staat, op zijn eigen pagina. Bij 2dehands staat dat
+    /// er als "Sinds 24 sep. '26".
+    ///
+    /// Dit is <b>tekst</b> en geen tijdstip, met opzet en om dezelfde reden als
+    /// <see cref="TimeLeftSelector"/>: elke site schrijft het anders op ("Eergisteren",
+    /// "24 sep. '26", "vandaag"), en wat de site zelf toont klopt altijd met wat een bezoeker
+    /// daar ziet. Er wordt dus niets uitgerekend, en het wordt niet bewaard bij een favoriet.
+    /// </summary>
+    public string DetailPostedSelector { get; set; } = "";
 
     /// <summary>
     /// Een API die het exacte sluitingstijdstip voor veel zoekertjes tegelijk geeft. Zie

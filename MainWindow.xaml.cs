@@ -1982,38 +1982,16 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         new PhotoInsightWindow(listing, _store.Sites, alleFotos) { Owner = this }.Show();
     }
 
-    /// <summary>Opent het geselecteerde zoekertje in de standaardbrowser.</summary>
+    /// <summary>
+    /// Opent het geselecteerde zoekertje in een eigen venster: de foto's, de verkoper en
+    /// hoelang het online staat. Tot september 2026 ging hier meteen de browser open; die
+    /// staat nu als knop in dat venster. De reden staat bij <see cref="ListingDetailWindow"/>.
+    /// </summary>
     private void OpenSelected(ListBox? lijst)
     {
         if (lijst?.SelectedItem is not Listing listing) return;
 
-        if (string.IsNullOrWhiteSpace(listing.Url))
-        {
-            StatusText.Text = "Dit resultaat heeft geen link.";
-            return;
-        }
-
-        var adres = AlsWebadres(listing.Url);
-        if (adres is null)
-        {
-            StatusText.Text = "Deze link is geen webadres en wordt daarom niet geopend: " + listing.Url;
-            Log.Write($"zoekertje niet geopend, geen webadres: {listing.Url}");
-            return;
-        }
-
-        try
-        {
-            // UseShellExecute laat Windows zelf de standaardbrowser kiezen.
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = adres.AbsoluteUri,
-                UseShellExecute = true
-            });
-        }
-        catch (Exception ex)
-        {
-            StatusText.Text = "Kon de link niet openen: " + ex.Message;
-        }
+        new ListingDetailWindow(listing, _store.Sites) { Owner = this }.Show();
     }
 
     // ---------- zoeken ----------

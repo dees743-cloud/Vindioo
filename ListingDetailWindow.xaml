@@ -1,0 +1,163 @@
+<ui:FluentWindow x:Class="Zentrix.ListingDetailWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 Title="Zoekertje"
+                 Height="840" Width="760"
+                 MinHeight="460" MinWidth="520"
+                 WindowBackdropType="None"
+                 Background="{StaticResource AppBackgroundBrush}"
+                 Foreground="{StaticResource TextPrimaryBrush}"
+                 FontFamily="{StaticResource AppFontFamily}"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowStartupLocation="CenterOwner">
+
+    <ui:FluentWindow.Resources>
+        <Style x:Key="Section" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource SurfaceBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="Margin" Value="0,0,0,14" />
+        </Style>
+
+        <!-- Het label van een regel in het blok met gegevens: steeds even breed, zodat
+             de waarden eronder elkaar netjes uitlijnen. -->
+        <Style x:Key="Label" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Width" Value="120" />
+            <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+        </Style>
+
+        <Style x:Key="Waarde" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Grid.Column" Value="1" />
+        </Style>
+
+        <!-- Eén miniatuur. De muis erop zet hem in de grote foto eronder: klikken hoeft
+             niet, want er valt hier niets te kiezen dat blijft staan. Het randje toont
+             welke er op dat moment groot staat. -->
+        <DataTemplate x:Key="Miniatuur">
+            <Border Width="92" Height="74" Margin="0,0,8,8" CornerRadius="8"
+                    Background="{StaticResource SurfaceHoverBrush}"
+                    BorderThickness="2" Cursor="Hand"
+                    MouseEnter="Miniatuur_MouseEnter">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="BorderBrush" Value="Transparent" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsActief}" Value="True">
+                                <Setter Property="BorderBrush" Value="{StaticResource AccentOnDarkBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+
+                <Image Source="{Binding Url}" Stretch="UniformToFill" Margin="1"
+                       RenderOptions.BitmapScalingMode="HighQuality" />
+            </Border>
+        </DataTemplate>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- WPF-UI zet de Background van een FluentWindow bij het laden zelf terug op de
+             effen themakleur; daarom staat het verloop als eigen vlak achter de inhoud. -->
+        <Border Grid.RowSpan="3" Background="{StaticResource AppBackgroundBrush}" />
+
+        <ui:TitleBar Grid.Row="0" Title="Zoekertje" />
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="20,10,20,0">
+            <StackPanel>
+
+                <!-- ==================== titel en prijs ==================== -->
+                <TextBlock x:Name="TitleText" FontSize="19" FontWeight="SemiBold"
+                           TextWrapping="Wrap" Margin="2,0,2,4" />
+                <TextBlock x:Name="SubText" FontSize="13" TextWrapping="Wrap" Margin="2,0,2,14"
+                           Foreground="{StaticResource TextSubtleBrush}" />
+
+                <!-- ==================== de foto's ====================
+                     De miniaturen boven, de grote eronder: zo koos de eigenaar het. De muis
+                     over een miniatuur wisselt de grote foto. -->
+                <Border Style="{StaticResource Section}">
+                    <StackPanel>
+                        <ItemsControl x:Name="Thumbs" ItemTemplate="{StaticResource Miniatuur}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+
+                        <Border Background="{StaticResource SurfaceHoverBrush}" CornerRadius="10"
+                                Height="400" Padding="6">
+                            <Image x:Name="BigPhoto" Stretch="Uniform"
+                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                        </Border>
+
+                        <TextBlock x:Name="PhotoStatus" FontSize="12" Margin="2,8,2,0"
+                                   TextWrapping="Wrap"
+                                   Foreground="{StaticResource TextSubtleBrush}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================== wie en sinds wanneer ==================== -->
+                <Border Style="{StaticResource Section}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="Verkoper" Style="{StaticResource Label}" />
+                        <TextBlock Grid.Row="0" x:Name="SellerText" Style="{StaticResource Waarde}" />
+
+                        <TextBlock Grid.Row="1" Text="Online sinds" Style="{StaticResource Label}" Margin="0,8,0,0" />
+                        <TextBlock Grid.Row="1" x:Name="PostedText" Style="{StaticResource Waarde}" Margin="0,8,0,0" />
+
+                        <TextBlock Grid.Row="2" Text="Site" Style="{StaticResource Label}" Margin="0,8,0,0" />
+                        <TextBlock Grid.Row="2" x:Name="SourceText" Style="{StaticResource Waarde}" Margin="0,8,0,0" />
+
+                        <TextBlock Grid.Row="3" Text="Link" Style="{StaticResource Label}" Margin="0,8,0,0" />
+                        <TextBlock Grid.Row="3" x:Name="UrlText" Style="{StaticResource Waarde}" Margin="0,8,0,0"
+                                   TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid Grid.Row="2" Margin="20,8,20,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0" x:Name="StatusText" VerticalAlignment="Center" FontSize="12"
+                       TextTrimming="CharacterEllipsis" Margin="0,0,12,0"
+                       Foreground="{StaticResource TextSubtleBrush}" />
+
+            <ui:Button Grid.Column="1" x:Name="AiButton" Content="AI-controle" Appearance="Secondary"
+                       Margin="0,0,8,0" Click="AiButton_Click"
+                       ToolTip="Laat een model op je eigen grafische kaart lezen wat er op de foto's staat." />
+            <ui:Button Grid.Column="2" x:Name="OpenButton" Content="Openen op de site" Appearance="Primary"
+                       Margin="0,0,8,0" Click="OpenButton_Click" />
+            <ui:Button Grid.Column="3" Content="Sluiten" Appearance="Secondary" IsCancel="True"
+                       Click="CloseButton_Click" />
+        </Grid>
+    </Grid>
+</ui:FluentWindow>

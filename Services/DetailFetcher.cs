@@ -301,21 +301,55 @@ public static class DetailFetcher
     /// </summary>
     public static async Task<List<string>> FotosAsync(Listing listing, IReadOnlyList<SiteDefinition> sites,
                                                       CancellationToken ct = default)
+        => (await DetailsAsync(listing, sites, ct)).Fotos.ToList();
+
+    /// <summary>
+    /// Wat de pagina van één zoekertje meer vertelt dan de zoekpagina. Leeg wat de site niet
+    /// geeft; <see cref="Fout"/> zegt waarom er niets kwam, of null wanneer alles lukte.
+    /// </summary>
+    public record ListingDetails(IReadOnlyList<string> Fotos, string Verkoper, string Sinds,
+                                 string? Fout = null);
+
+    /// <summary>
+    /// Alles van de pagina van één zoekertje in <b>één</b> verzoek: de foto's, de verkoper en
+    /// sinds wanneer het online staat. Eén verzoek en niet drie - het is dezelfde pagina, en bij
+    /// een brugsite kost elk verzoek zo'n vier seconden.
+    ///
+    /// Wat er gelezen wordt, zegt het sitebestand: <see cref="SiteDefinition.DetailImagesSelector"/>,
+    /// <see cref="SiteDefinition.DetailSellerSelector"/> en
+    /// <see cref="SiteDefinition.DetailPostedSelector"/>. Staat er geen enkele, dan wordt de
+    /// pagina niet opgehaald.
+    /// </summary>
+    public static async Task<ListingDetails> DetailsAsync(Listing listing, IReadOnlyList<SiteDefinition> sites,
+                                                          CancellationToken ct = default)
     {
-        var uit = new List<string>();
-        if (!string.IsNullOrWhiteSpace(listing.LargeImage)) uit.Add(listing.LargeImage);
+        var fotos = new List<string>();
+        if (!string.IsNullOrWhiteSpace(listing.LargeImage)) fotos.Add(listing.LargeImage);
 
         var def = sites.FirstOrDefault(s =>
             string.Equals(s.Name, listing.Source, StringComparison.OrdinalIgnoreCase));
 
-        if (def is null || string.IsNullOrWhiteSpace(def.DetailImagesSelector)) return uit;
-        if (!IsWebadres(listing.Url)) return uit;
-        if (def.UseBridge && !BridgeServer.Instance.ExtensionAlive) return uit;
+        if (def is null) return new ListingDetails(fotos, "", "", "Deze site staat niet meer in Sites beheren.");
 
-        if (OnthoudenFotos.TryGetValue(listing.Url, out var bekend))
+        var leest = !string.IsNullOrWhiteSpace(def.DetailImagesSelector) ||
+                    !string.IsNullOrWhiteSpace(def.DetailSellerSelector) ||
+                    !string.IsNullOrWhiteSpace(def.DetailPostedSelector);
+
+        if (!leest)
+            return new ListingDetails(fotos, "", "",
+                $"Het sitebestand van {def.Name} zegt nog niet waar de foto's en de verkoper staan.");
+
+        if (!IsWebadres(listing.Url))
+            return new ListingDetails(fotos, "", "", "Dit zoekertje heeft geen webadres.");
+
+        if (def.UseBridge && !BridgeServer.Instance.ExtensionAlive)
+            return new ListingDetails(fotos, "", "",
+                $"{def.Name} loopt via de brug, en die meldde zich niet. Staat Chrome open?");
+
+        if (OnthoudenDetails.TryGetValue(listing.Url, out var bekend))
         {
-            Voeg(uit, bekend);
-            return uit;
+            Voeg(fotos, bekend.Fotos);
+            return bekend with { Fotos = fotos };
         }
 
         try
@@ -333,7 +367,9 @@ public static class DetailFetcher
                 html = await antwoord.Content.ReadAsStringAsync(ct);
             }
 
-            var gevonden = await GenericSource.ReadFieldsAsync(html, def.DetailImagesSelector, ct);
+            var gevonden = string.IsNullOrWhiteSpace(def.DetailImagesSelector)
+                ? new List<string>()
+                : await GenericSource.ReadFieldsAsync(html, def.DetailImagesSelector, ct);
 
             // Een site mag zijn foto's met een pad opgeven in plaats van een volledig adres.
             var volledig = gevonden
@@ -341,10 +377,24 @@ public static class DetailFetcher
                 .Where(f => f.Length > 0)
                 .ToList();
 
-            OnthoudenFotos[listing.Url] = volledig;
-            Voeg(uit, volledig);
+            var verkoper = string.IsNullOrWhiteSpace(def.DetailSellerSelector)
+                ? ""
+                : (await GenericSource.ReadFieldAsync(html, def.DetailSellerSelector, ct)).Trim();
 
-            Log.Write($"foto's van '{Kort(listing.Title)}': {volledig.Count} op de pagina van het zoekertje");
+            var sinds = string.IsNullOrWhiteSpace(def.DetailPostedSelector)
+                ? ""
+                : (await GenericSource.ReadFieldAsync(html, def.DetailPostedSelector, ct)).Trim();
+
+            var uitkomst = new ListingDetails(volledig, verkoper, sinds);
+            OnthoudenDetails[listing.Url] = uitkomst;
+
+            Voeg(fotos, volledig);
+
+            Log.Write($"pagina van '{Kort(listing.Title)}': {volledig.Count} foto's" +
+                      $"{(verkoper.Length > 0 ? ", verkoper '" + verkoper + "'" : "")}" +
+                      $"{(sinds.Length > 0 ? ", sinds '" + sinds + "'" : "")}");
+
+            return uitkomst with { Fotos = fotos };
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -353,19 +403,18 @@ public static class DetailFetcher
         catch (Exception ex)
         {
             // Niet onthouden: de volgende keer mag het opnieuw geprobeerd worden.
-            Log.Write($"foto's van '{Kort(listing.Title)}' niet op te halen - {ex.Message}");
+            Log.Write($"pagina van '{Kort(listing.Title)}' niet op te halen - {ex.Message}");
+            return new ListingDetails(fotos, "", "", FriendlyError.Describe(ex));
         }
-
-        return uit;
     }
 
     /// <summary>
-    /// De foto's van één zoekertje, op het adres van zijn pagina. Op het adres en niet op
-    /// <see cref="Listing.Key"/>: die is <c>Source:ExternalId</c>, en bij een leeg id zouden twee
-    /// zoekertjes van dezelfde site elkaars foto's krijgen. Het adres is bovendien precies wat
-    /// opgehaald wordt, dus het is ook de eerlijke sleutel. Zie <see cref="Onthouden"/>.
+    /// Wat we van de pagina van een zoekertje lazen, op het adres van die pagina. Op het adres
+    /// en niet op <see cref="Listing.Key"/>: die is <c>Source:ExternalId</c>, en bij een leeg id
+    /// zouden twee zoekertjes van dezelfde site elkaars foto's krijgen. Het adres is bovendien
+    /// precies wat opgehaald wordt, dus het is ook de eerlijke sleutel. Zie <see cref="Onthouden"/>.
     /// </summary>
-    private static readonly ConcurrentDictionary<string, List<string>> OnthoudenFotos = new();
+    private static readonly ConcurrentDictionary<string, ListingDetails> OnthoudenDetails = new();
 
     private static void Voeg(List<string> doel, IEnumerable<string> erbij)
     {

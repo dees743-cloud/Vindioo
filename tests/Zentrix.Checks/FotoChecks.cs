@@ -246,6 +246,101 @@ public static class FotoChecks
                 "en het onthouden hangt aan het adres, niet aan een leeg id");
         }
 
+        // ---------------------------------------------------------------------------
+        Check.Groep("De pagina van een zoekertje: foto's, verkoper en sinds in één verzoek");
+        {
+            // Het detailvenster wil drie dingen van dezelfde pagina. Die drie keer ophalen zou
+            // bij een brugsite twaalf seconden kosten, dus het is één verzoek - en dat wordt
+            // hier geteld, want dat is het hele punt.
+            var verzoeken = 0;
+
+            using var site = new Proefsite
+            {
+                Antwoord = _ =>
+                {
+                    Interlocked.Increment(ref verzoeken);
+                    return """
+                        <html><body>
+                          <div class="gallery">
+                            <img src="https://voorbeeld.be/een.jpg">
+                            <img src="https://voorbeeld.be/twee.jpg">
+                          </div>
+                          <div class="stat"><b>7x</b> bekeken</div>
+                          <div class="stat">Sinds <b>24 sep. '26</b></div>
+                          <div class="verkoper">Verkocht door Japoto</div>
+                        </body></html>
+                        """;
+                }
+            };
+
+            var def = site.Site("Detailsite");
+            def.DetailImagesSelector = ".gallery img@src";
+            def.DetailSellerSelector = @".verkoper::match(Verkocht door\s+(.+))";
+            def.DetailPostedSelector = @"div.stat::match(Sinds\s+(.+))";
+
+            var lijst = new[] { def };
+
+            var zoekertje = new Listing
+            {
+                Source = "Detailsite", Title = "Een cd-speler",
+                Url = $"http://127.0.0.1:{site.Poort}/z/100",
+                ImageUrls = { "https://voorbeeld.be/uit-de-lijst.jpg" }
+            };
+
+            var det = await DetailFetcher.DetailsAsync(zoekertje, lijst);
+
+            Check.Dat(verzoeken == 1, $"één verzoek voor alle drie ({verzoeken})");
+            Check.Dat(det.Fotos.Count == 3, $"de foto's: die van de lijst plus twee ({det.Fotos.Count})");
+            Check.Dat(det.Verkoper == "Japoto", $"de verkoper ('{det.Verkoper}')");
+            Check.Dat(det.Sinds == "24 sep. '26", $"en sinds wanneer ('{det.Sinds}')");
+            Check.Dat(det.Fout is null, "zonder klacht");
+
+            // "Sinds" staat niet vooraan in het rijtje: met een patroon neemt de motor het
+            // eerste element waar dat patroon ook echt op past, niet botweg het eerste.
+            Check.Dat(!det.Sinds.Contains("bekeken"), "en niet de teller die ervoor staat");
+
+            // Nog eens: onthouden, dus geen tweede verzoek.
+            var weer = await DetailFetcher.DetailsAsync(zoekertje, lijst);
+
+            Check.Dat(verzoeken == 1, $"een tweede keer kijken vraagt de pagina niet opnieuw ({verzoeken})");
+            Check.Dat(weer.Fotos.Count == 3 && weer.Verkoper == "Japoto" && weer.Sinds == "24 sep. '26",
+                "en geeft hetzelfde terug");
+
+            // Een site die nog geen van de drie velden heeft: geen verzoek, en een uitleg in
+            // plaats van een leeg venster waarvan niemand weet of het aan het laden is.
+            var kaal = site.Site("Kaal");
+            var elders = new Listing
+            {
+                Source = "Kaal", Title = "Iets", Url = $"http://127.0.0.1:{site.Poort}/z/101",
+                ImageUrls = { "https://voorbeeld.be/enkel-deze.jpg" }
+            };
+
+            var zonder = await DetailFetcher.DetailsAsync(elders, new[] { kaal });
+
+            Check.Dat(verzoeken == 1, $"een site zonder die velden haalt niets op ({verzoeken})");
+            Check.Dat(zonder.Fout is not null && zonder.Fout.Contains("zegt nog niet"),
+                $"en zegt waarom: {zonder.Fout}");
+            Check.Dat(zonder.Fotos.Count == 1, "de foto uit de lijst blijft staan");
+
+            // Een pagina die niet antwoordt, mag het venster niet leegmaken.
+            var stuk = new Listing
+            {
+                Source = "Detailsite", Title = "Iets", Url = "http://127.0.0.1:1/z/102",
+                ImageUrls = { "https://voorbeeld.be/toch-deze.jpg" }
+            };
+
+            var na = await DetailFetcher.DetailsAsync(stuk, lijst);
+
+            Check.Dat(na.Fotos.Count == 1 && na.Verkoper.Length == 0,
+                "een pagina die niet lukt: de foto uit de lijst blijft");
+            Check.Dat(na.Fout is not null, $"met de reden erbij: {na.Fout}");
+
+            // FotosAsync is sinds het detailvenster dezelfde weg, met enkel de foto's eruit.
+            var alleenFotos = await DetailFetcher.FotosAsync(zoekertje, lijst);
+
+            Check.Dat(alleenFotos.Count == 3, $"de AI-controle loopt over dezelfde weg ({alleenFotos.Count})");
+        }
+
         PhotoAnalyzer.UrlVoorControles = null;
     }
 
