@@ -1436,6 +1436,25 @@ verder kunnen. Vier dingen die het eerlijk moet zeggen, want anders lijkt het st
 - **Onderaan staat wat het niet kan**: het draait op je eigen kaart, er gaat geen foto de deur
   uit, en een aantal is altijd een schatting.
 
+**Het kijken is te onderbreken** (26 september 2026). *Opnieuw kijken* wordt *Stoppen* zodra er
+gekeken wordt, in amber - dezelfde vorm als het vergrootglas dat een stopknop wordt op het
+hoofdscherm, en om dezelfde reden: één knop op één plaats, want daar staat je muis al. Bij zes
+foto's duurt een grondige lezing meer dan een minuut, en tot dan kon je enkel het venster
+sluiten.
+
+Wat al bekeken is, blijft staan en is te kopiëren; de knop is meteen weer een startknop, dus je
+kan er zo opnieuw aan beginnen (bijvoorbeeld zonder het vinkje "grondig"). Het stoppen gaat door
+tot in Ollama: de `CancellationToken` gaat mee in het verzoek, dus een lezing die bezig is wordt
+echt afgebroken en niet stilletjes uitgezeten.
+
+`_gestopt` staat naast de token, want die staat óók op "geannuleerd" wanneer het venster dichtgaat
+of wanneer er opnieuw gekeken wordt - en dan hoort er geen "Gestopt" in de statusregel te komen.
+
+Nagemeten met het venster buiten beeld, de echte Ollama en een zoekertje van zes foto's: foto 1
+klaar na 19 s, dan op Stoppen midden in foto 2, en **0,1 s later gestopt** met "Gestopt na één
+foto; die staat hieronder." De knop stond weer op *Opnieuw kijken*, het blok van foto 1 stond er
+nog en *Kopiëren* werkte.
+
 De **grote foto** gaat voor op de miniatuur (`Listing.LargeImage`): hoe meer beeldpunten, hoe meer
 er te lezen valt. *Kopiëren* zet de alinea én de gelezen namen op het klembord - bij een doos vol
 dvd's is die lijst juist het ding dat je ergens anders wil plakken.

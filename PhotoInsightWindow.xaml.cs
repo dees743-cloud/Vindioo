@@ -57,6 +57,16 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
 
     private CancellationTokenSource? _cts;
 
+    /// <summary>Er wordt gekeken; de knop is dan een stopknop.</summary>
+    private bool _bezig;
+
+    /// <summary>
+    /// Er is op Stoppen gedrukt. Nodig naast de token: die staat ook op "geannuleerd" wanneer
+    /// het venster dichtgaat of wanneer er opnieuw gekeken wordt, en dan hoort er geen
+    /// "Gestopt" in de statusregel te komen.
+    /// </summary>
+    private bool _gestopt;
+
     public PhotoInsightWindow(Listing listing, IReadOnlyList<SiteDefinition> sites, bool alleFotos = false)
     {
         InitializeComponent();
@@ -84,7 +94,24 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
         OriginPhoto.Background = Penseel(_listing.Thumbnail);
     }
 
-    private async void RunButton_Click(object sender, RoutedEventArgs e) => await KijkAsync();
+    /// <summary>
+    /// Dezelfde knop start en stopt, net als het vergrootglas op het hoofdscherm. Eén knop op
+    /// één plaats: daar staat je muis al, en een tweede knop ernaast zou twee zichtbaarheden
+    /// overal gelijk moeten houden.
+    /// </summary>
+    private async void RunButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_bezig)
+        {
+            _gestopt = true;
+            _cts?.Cancel();
+            StatusText.Text = "Stoppen...";
+            RunButton.IsEnabled = false;   // niet twee keer
+            return;
+        }
+
+        await KijkAsync();
+    }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 
@@ -129,7 +156,13 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
         _cts?.Cancel();
         var cts = _cts = new CancellationTokenSource();
 
-        RunButton.IsEnabled = false;
+        _bezig = true;
+        _gestopt = false;
+
+        RunButton.Content = "Stoppen";
+        RunButton.Appearance = Wpf.Ui.Controls.ControlAppearance.Caution;
+        RunButton.ToolTip = "Het kijken afbreken. Wat al bekeken is, blijft staan.";
+
         CopyButton.IsEnabled = false;
         _uitkomsten.Clear();
 
@@ -216,11 +249,31 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
         }
         catch (OperationCanceledException)
         {
-            // Het venster ging dicht, of er werd opnieuw gekeken.
+            // Op Stoppen gedrukt, het venster ging dicht, of er wordt opnieuw gekeken.
+            if (_gestopt)
+                StatusText.Text = _uitkomsten.Count switch
+                {
+                    0 => "Gestopt. Er was nog geen enkele foto klaar.",
+                    1 => "Gestopt na één foto; die staat hieronder.",
+                    var n => $"Gestopt na {n} foto's; die staan hieronder."
+                };
         }
         finally
         {
-            if (!cts.IsCancellationRequested) RunButton.IsEnabled = true;
+            _bezig = false;
+
+            // Ook na Stoppen weer bruikbaar: wat al bekeken is blijft staan, en je kan er zo
+            // opnieuw aan beginnen. Gaat het venster dicht, of is er intussen een nieuwe beurt
+            // begonnen, dan blijft de knop van die ander.
+            if (_gestopt || !cts.IsCancellationRequested)
+            {
+                RunButton.Content = "Opnieuw kijken";
+                RunButton.Appearance = Wpf.Ui.Controls.ControlAppearance.Primary;
+                RunButton.ToolTip = null;
+                RunButton.IsEnabled = true;
+            }
+
+            if (_uitkomsten.Count > 0) CopyButton.IsEnabled = true;
         }
     }
 
