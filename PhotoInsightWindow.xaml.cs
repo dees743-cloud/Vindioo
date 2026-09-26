@@ -138,6 +138,14 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
     private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 
     /// <summary>
+    /// Voor een partij: elke gelezen titel apart opzoeken. Daar is de vraag niet wat de doos
+    /// waard is maar of er iets waardevols bij zit, en dan ís elke gelezen naam een titel die
+    /// op zichzelf te koop staat. Zie <see cref="LotPriceWindow"/>.
+    /// </summary>
+    private void LotButton_Click(object sender, RoutedEventArgs e) =>
+        new LotPriceWindow(_listing, _sites, _gelezenSamen) { Owner = this }.Show();
+
+    /// <summary>
     /// Wat is dit ongeveer waard? Hetzelfde venster als elders, maar met een betere zoekterm:
     /// de prijsindicatie leidt die anders af uit de <i>titel</i>, en daar staat meestal geen
     /// modelnummer in (op 2dehands 78 tot 98% van de titels niet). Op het toestel staat het wel,
@@ -201,6 +209,7 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
 
         CopyButton.IsEnabled = false;
         PriceButton.IsEnabled = false;
+        LotButton.IsEnabled = false;
         _uitkomsten.Clear();
 
         SamenvattingBlok.Visibility = Visibility.Collapsed;
@@ -324,6 +333,7 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
 
                 CopyButton.IsEnabled = true;
                 PriceButton.IsEnabled = true;
+                LotButton.IsEnabled = true;
 
                 // Bracht deze foto geen enkele nieuwe naam, dan kan het verhaal niet veranderen;
                 // die vraag aan het model wordt dan overgeslagen. Bij de eerste foto altijd wel,
@@ -392,6 +402,7 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
             {
                 CopyButton.IsEnabled = true;
                 PriceButton.IsEnabled = true;
+                LotButton.IsEnabled = true;
             }
         }
     }

@@ -35,8 +35,12 @@ public partial class PriceIndicationWindow : Wpf.Ui.Controls.FluentWindow
     /// voorwerp, en de enige marktwaarde die er bij het meten uitkwam ging over een Xbox op de
     /// achtergrond van een stereoset.
     /// </param>
+    /// <param name="term">
+    /// De zoekterm, wanneer die niet uit de titel van het zoekertje hoort te komen. Zo opent
+    /// <see cref="LotPriceWindow"/> de vergelijkingen van één gelezen titel uit een partij.
+    /// </param>
     public PriceIndicationWindow(Listing listing, IReadOnlyList<SiteDefinition> sites,
-                                 IReadOnlyList<string>? vanDeFotos = null)
+                                 IReadOnlyList<string>? vanDeFotos = null, string? term = null)
     {
         InitializeComponent();
 
@@ -44,7 +48,15 @@ public partial class PriceIndicationWindow : Wpf.Ui.Controls.FluentWindow
         _sites = sites;
 
         ToonZoekertje();
-        TermBox.Text = PriceIndicator.SuggestTerm(listing.Title);
+
+        var gekozen = (term ?? "").Trim();
+        TermBox.Text = gekozen.Length > 0 ? gekozen : PriceIndicator.SuggestTerm(listing.Title);
+
+        if (gekozen.Length > 0)
+            TermUitleg.Text =
+                "Deze titel is van de foto's gelezen, niet uit de titel van het zoekertje. " +
+                "Klopt het niet, pas het dan aan: elk woord moet in de titel van een " +
+                "vergelijking staan.";
 
         var voorstellen = PriceIndicator.AlsZoektermen(vanDeFotos ?? Array.Empty<string>());
 

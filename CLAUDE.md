@@ -109,6 +109,7 @@ Vensters (root):
   SearchSettingsWindow alles van één zoekopdracht: woorden, sites, filters, schema
   NotifySettingsWindow waar meldingen heen gaan en hoe de app op de achtergrond doet
   PriceIndicationWindow de prijsindicatie van één zoekertje (rechtsklik op de foto)
+  LotPriceWindow       wat er in een partij zit: elke gelezen titel apart opgezocht
   PhotoInsightWindow   wat de AI op de foto van een zoekertje ziet (rechtsklik)
   ListingDetailWindow  alles van één zoekertje: de foto's, de verkoper, hoelang online (dubbelklik)
 extension/
@@ -1389,6 +1390,44 @@ Twee dingen die daar los van elkaar misgingen, en die allebei blijven bestaan:
 
 Daarom leest de app en kies jij. Het scheelt ook een vraag aan het model: het venster gaat
 meteen open in plaats van na vier seconden.
+
+**Bij een partij ligt het anders, en daar kan het wél automatisch** (26 september 2026,
+`LotPriceWindow`, de knop *Prijs per titel* in de AI-controle). Bij een doos spellen of een
+stapel platen is de vraag niet wat de doos waard is maar **of er iets waardevols bij zit** - en
+dan ís elke gelezen naam een titel die op zichzelf te koop staat. Er valt dus niets te kiezen:
+alle titels worden apart opgezocht, met dezelfde prijsindicatie als elders, en ze komen op
+volgorde van duur naar goedkoop te staan. Klikken op een regel opent de gewone prijsindicatie
+voor díe titel, met haar vergelijkingen.
+
+Gemeten op 26 september 2026, met de echte Ollama en de echte sites:
+
+| Partij | Foto's | Namen gelezen | Bruikbaar | Gaven een marktwaarde |
+|---|---|---|---|---|
+| "Set van 160 PSP spellen" | 3 | 108 in 66 s | 98 | **10 van de eerste 15** |
+| "verzameling pop cd's Prince U2 ..." | 6 | 109 in 73 s | 100 | **9 van de eerste 12** |
+
+En de bedragen kloppen met wat zulke spellen doen: FIFA 12 € 3,99, Wipeout Pure € 7,50,
+The Simpsons Game € 20, Yu-Gi-Oh! GX Tag Force € 25. Dat zijn precies de twee waar je naar op
+zoek was.
+
+**Er staat met opzet geen totaal bij**, en dat is geen voorzichtigheid maar een meting. Bij die
+cd-verzameling las de AI het getal **"25000"** van een hoesje, en dat gaf een marktwaarde van
+**€ 550** uit vijf dure treffers - meer dan alle echte titels van die verzameling samen. Eén
+verkeerd gelezen naam maakt een totaal dus waardeloos, terwijl een lijst op volgorde de vraag
+gewoon beantwoordt. Sindsdien valt een naam **zonder één letter erin** weg
+(`PriceIndicator.AlsZoektermen`), maar dat vangt niet alles: "Prince" alleen geeft de prijs van
+willekeurig welke Prince-cd.
+
+**Per keer vijfentwintig.** Eén prijsindicatie kost ongeveer een seconde en vier verzoeken aan
+de sites; alle 98 namen in één klik zou bijna vierhonderd verzoeken in twee minuten zijn. Dus
+vijfentwintig, met een knop voor de volgende vijfentwintig, en de knop is intussen een stopknop
+- dezelfde vorm als het vergrootglas en de AI-controle.
+
+Nagemeten met het venster buiten beeld op die set PSP-spellen, met dertien namen waar met opzet
+rommel bij zat (een getal, een los teken en een dubbele titel): **13 opgezocht in 14 s**, de drie
+stukken rommel eruit, tien met een marktwaarde van duur naar goedkoop, de drie zonder onderaan,
+en een klik op "Yu-Gi-Oh! GX TAG FORCE" opende de prijsindicatie met díe titel als zoekterm en
+niet met die van de partij.
 
 **Waarom dat gemeten moest worden:** de prijsindicatie leidt haar zoekterm af uit de **titel**,
 en daar staat meestal geen modelnummer in. Geteld op 2dehands, zestig zoekertjes per term: bij
@@ -3051,15 +3090,15 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel` en alles dicht waren dat er 367 op 26 september 2026; draait Chrome met de
-brug-extensie erbij, dan zijn het er 365. Twee dingen op deze pc laten controles wegvallen, en
+`--snel` en alles dicht waren dat er 369 op 26 september 2026; draait Chrome met de
+brug-extensie erbij, dan zijn het er 367 (allebei gemeten). Twee dingen op deze pc laten controles wegvallen, en
 allebei zeggen ze dat ook:
 
 - **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (23).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
   Het controleproject heeft een eigen gegevensmap en dus een andere code, dus voor zijn brug is
   dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
-  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (365 in plaats van 367).
+  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (367 in plaats van 369).
 
 Drie regels waar het aan vastzit:
 
@@ -3462,6 +3501,9 @@ witte tekst leesbaar blijft.
   zonder veilingen, sets en toebehoren, en verbreed naar de reeks als er te weinig zijn. Kwam je
   er via de AI-controle, dan staan de namen die van de foto's gelezen zijn erbij als klikbare
   voorstellen voor de zoekterm
+- **Prijs per titel** voor een partij: elke naam die de AI van de foto's las, apart opgezocht en
+  op volgorde van duur naar goedkoop. Zo zie je of er in een doos spellen of een stapel platen
+  iets waardevols zit; klikken op een regel geeft de vergelijkingen van die ene titel
 - **AI-controle op een foto**: rechtsklik op een foto laat een model op je eigen grafische kaart
   lezen wat er op de voorwerpen staat, en erover vertellen in gewone taal - voor een doos vol
   dvd's waarvan de titels te klein zijn, of het typenummer op een label. Lokaal, dus er gaat geen

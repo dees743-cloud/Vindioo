@@ -471,6 +471,17 @@ public static class FotoChecks
                 "en er worden er hoogstens vijftien aangeboden");
             Check.Dat(PriceIndicator.AlsZoektermen(Array.Empty<string>()).Count == 0,
                 "niets gelezen: niets voorgesteld");
+
+            // Een gelezen getal is geen titel, en het is niet onschuldig: "25000" van een
+            // cd-hoesje gaf een marktwaarde van € 550 uit vijf dure treffers - meer dan alle
+            // echte titels van die verzameling samen.
+            var getallen = new[] { "25000", "1987-2003", "2 x", "U2 THE BEST OF 1980-1990" };
+            var zonderGetallen = PriceIndicator.AlsZoektermen(getallen);
+
+            Check.Dat(!zonderGetallen.Contains("25000") && !zonderGetallen.Contains("1987-2003"),
+                $"een naam zonder één letter valt weg ({string.Join(", ", zonderGetallen)})");
+            Check.Dat(zonderGetallen.Contains("U2 THE BEST OF 1980-1990"),
+                "een titel met cijfers erin blijft gewoon staan");
         }
 
         // ---------------------------------------------------------------------------

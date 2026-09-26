@@ -169,7 +169,11 @@ public static class PriceIndicator
 
             // Een losse letter of een teken zegt niets, en een halve zin is geen zoekterm.
             if (kort.Length < 2 || kort.Length > 40) continue;
-            if (!kort.Any(char.IsLetterOrDigit)) continue;
+
+            // Er moet een létter in staan. Een gelezen getal is geen titel, en het is niet
+            // onschuldig: "25000" van een cd-hoesje gaf een marktwaarde van € 550 uit vijf
+            // dure treffers, meer dan de rest van die hele verzameling samen.
+            if (!kort.Any(char.IsLetter)) continue;
             if (schoon.Contains(kort, StringComparer.OrdinalIgnoreCase)) continue;
 
             schoon.Add(kort);

@@ -185,20 +185,26 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="11" TextWrapping="Wrap"
                        Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,12,0"
                        Text="Dit draait op je eigen grafische kaart; er gaat geen foto de deur uit. Het model kan lezen, maar niet tellen: een aantal is altijd een schatting." />
 
-            <!-- Pas bruikbaar zodra er gelezen is: dan kent de app het merk en het typenummer
-                 van het toestel, en dat is een betere zoekterm dan de titel. -->
+            <!-- Twee vragen, twee knoppen. "Prijsindicatie" gaat over het voorwerp op de foto
+                 en neemt de gelezen namen mee als voorstel; "Prijs per titel" gaat over een
+                 partij, waar elke gelezen naam zelf iets is dat te koop staat. Allebei pas
+                 bruikbaar zodra er gelezen is. -->
             <ui:Button x:Name="PriceButton" Grid.Column="1" Content="Prijsindicatie" Appearance="Secondary"
                        Margin="0,0,8,0" Click="PriceButton_Click" IsEnabled="False"
-                       ToolTip="Wat is dit ongeveer waard? Zoekt op het merk en het typenummer die van de foto's gelezen zijn, in plaats van op de woorden uit de titel." />
-            <ui:Button x:Name="CopyButton" Grid.Column="2" Content="Kopiëren" Appearance="Secondary"
+                       ToolTip="Wat is dit ongeveer waard? De namen die van de foto's gelezen zijn, komen erbij te staan om aan te klikken." />
+            <ui:Button x:Name="LotButton" Grid.Column="2" Content="Prijs per titel" Appearance="Secondary"
+                       Margin="0,0,8,0" Click="LotButton_Click" IsEnabled="False"
+                       ToolTip="Voor een partij: zoekt elke gelezen titel apart op en zet ze van duur naar goedkoop. Zo zie je of er iets waardevols bij zit." />
+            <ui:Button x:Name="CopyButton" Grid.Column="3" Content="Kopiëren" Appearance="Secondary"
                        Margin="0,0,8,0" Click="CopyButton_Click" IsEnabled="False" />
-            <ui:Button Grid.Column="3" Content="Sluiten" Appearance="Secondary" IsCancel="True"
+            <ui:Button Grid.Column="4" Content="Sluiten" Appearance="Secondary" IsCancel="True"
                        Click="CloseButton_Click" />
         </Grid>
     </Grid>
