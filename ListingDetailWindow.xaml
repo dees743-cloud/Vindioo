@@ -36,9 +36,16 @@
         </Style>
 
         <!-- Eén miniatuur. Klikken zet hem in de grote foto eronder; het randje toont
-             welke dat is. -->
+             welke dat is.
+
+             Een VIERKANT vakje met Stretch="Uniform", dus de hele foto past erin - anders dan
+             op de kaarten in de resultatenlijst, waar UniformToFill bijsnijdt zodat alle
+             kaarten er gelijk uitzien. Hier moet je aan een miniatuur kunnen zien wélke foto
+             het is, en bij een staande foto in een liggend vakje zag je enkel een strook uit
+             het midden. Vierkant, want dan blijft een staande én een liggende foto even groot
+             in beeld. -->
         <DataTemplate x:Key="Miniatuur">
-            <Border Width="92" Height="74" Margin="0,0,8,8" CornerRadius="8"
+            <Border Width="88" Height="88" Margin="0,0,8,8" CornerRadius="8"
                     Background="{StaticResource SurfaceHoverBrush}"
                     BorderThickness="2" Cursor="Hand"
                     MouseLeftButtonUp="Miniatuur_Klik">
@@ -53,7 +60,7 @@
                     </Style>
                 </Border.Style>
 
-                <Image Source="{Binding Url}" Stretch="UniformToFill" Margin="1"
+                <Image Source="{Binding Url}" Stretch="Uniform" Margin="2"
                        RenderOptions.BitmapScalingMode="HighQuality" />
             </Border>
         </DataTemplate>
@@ -113,7 +120,7 @@
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
 
-                    <Border x:Name="LoadingTile" Width="92" Height="74"
+                    <Border x:Name="LoadingTile" Width="88" Height="88"
                             Margin="0,0,8,8" CornerRadius="8"
                             Background="{StaticResource SurfaceHoverBrush}"
                             BorderThickness="1" BorderBrush="{StaticResource SurfaceBorderBrush}">

@@ -1511,8 +1511,16 @@ ingelopen. Het muiswiel schuift die rij opzij (`ThumbScroll_MouseWheel`): een wi
 rij die horizontaal schuift uit zichzelf niets, want het verzoek gaat omhoog op zoek naar iets
 dat verticaal schuift.
 
+**Een miniatuur toont de hele foto, niet een strook eruit.** Het vakje is vierkant (88x88) en de
+foto gaat er met `Stretch="Uniform"` in, dus er blijven balken over bij een staande of een liggende
+foto. Dat is met opzet anders dan op de kaarten in de resultatenlijst, waar `UniformToFill`
+bijsnijdt zodat alle kaarten er gelijk uitzien: daar kijk je naar een rij zoekertjes, hier kies je
+wélke foto je groot wil. In een liggend vakje met bijsnijden zag je van een staande foto enkel een
+strook uit het midden - bij een Nintendo op een tapijt was dat het tapijt. Vierkant, want dan
+blijft een staande én een liggende foto even groot in beeld.
+
 Nagemeten met het venster buiten beeld op een echt zoekertje van 11 foto's: rij 780 breed,
-inhoud 1100, schuifbalk zichtbaar, de laatste miniatuur bereikbaar, het wiel schuift, en alle 11
+inhoud 1056, schuifbalk zichtbaar, de laatste miniatuur bereikbaar, het wiel schuift, en alle 11
 zijn getekend. Met een zoekertje van 2 foto's staat er geen balk.
 
 **De grote foto krijgt de vrije ruimte** en groeit dus mee met het venster; een klik erop legt
