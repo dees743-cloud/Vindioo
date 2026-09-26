@@ -135,6 +135,12 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
             ? "De pagina van dit zoekertje ophalen in de aangemelde browser; dat duurt een paar seconden..."
             : "De pagina van dit zoekertje ophalen...";
 
+        // Zichtbaar maken dat er nog foto's onderweg zijn. Zonder dit zag je één miniatuur en
+        // één grote foto, en niets dat zei dat er nog iets kwam - bij Facebook vier seconden
+        // lang, en dan verscheen er ineens een rij bij.
+        LoadingTile.Visibility = Visibility.Visible;
+        PhotoStatus.Text = "De andere foto's van deze advertentie ophalen...";
+
         try
         {
             var klok = System.Diagnostics.Stopwatch.StartNew();
@@ -143,12 +149,7 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
 
             if (cts.IsCancellationRequested) return;
 
-            // De foto die we al hadden staat vooraan en is er al; de rest komt erachter.
-            foreach (var url in details.Fotos)
-                if (!_fotos.Any(f => string.Equals(f.Url, url, StringComparison.OrdinalIgnoreCase)))
-                    _fotos.Add(new FotoView { Url = url });
-
-            if (_fotos.Count > 0 && !_fotos.Any(f => f.IsActief)) ZetGroot(_fotos[0]);
+            ZetFotos(details.PaginaFotos);
 
             if (details.Verkoper.Length > 0) SellerText.Text = details.Verkoper;
             if (details.Sinds.Length > 0) PostedText.Text = details.Sinds;
@@ -157,14 +158,6 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
             // een site die niets extra's geeft mag de tekst niet wissen.
             if (details.Beschrijving.Length > DescriptionText.Text.Length)
                 ZetBeschrijving(details.Beschrijving);
-
-            PhotoStatus.Text = _fotos.Count switch
-            {
-                0 => "Dit zoekertje heeft geen foto.",
-                1 => "Eén foto; deze site geeft er niet meer, of het sitebestand zegt nog niet waar ze staan.",
-                var n => $"{n} foto's. Klik op een miniatuur om ze groot te zien, en op de grote " +
-                         "foto om ze schermvullend te bekijken."
-            };
 
             StatusText.Text = details.Fout ?? $"Opgehaald in {klok.ElapsedMilliseconds} ms.";
         }
@@ -177,6 +170,55 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
             StatusText.Text = FriendlyError.Describe(ex);
             Log.Write($"detailvenster: '{_listing.Title}' - {ex.Message}");
         }
+        finally
+        {
+            // Ook wanneer het misging: een wieltje dat blijft draaien belooft iets dat niet
+            // meer komt, en "aan het ophalen" blijven zeggen is dan even onwaar.
+            if (!cts.IsCancellationRequested)
+            {
+                LoadingTile.Visibility = Visibility.Collapsed;
+
+                PhotoStatus.Text = _fotos.Count switch
+                {
+                    0 => "Dit zoekertje heeft geen foto.",
+                    1 => "Eén foto; deze site geeft er niet meer, of het sitebestand zegt nog " +
+                         "niet waar ze staan.",
+                    var n => $"{n} foto's. Klik op een miniatuur om ze groot te zien, en op de " +
+                             "grote foto om ze schermvullend te bekijken."
+                };
+            }
+        }
+    }
+
+    /// <summary>
+    /// De foto's die de pagina gaf in de plaats van wat er stond.
+    ///
+    /// **De miniatuur van de zoekpagina verdwijnt zodra de pagina foto's geeft**, en dat is met
+    /// opzet: het is dezelfde foto, alleen kleiner. Bij Facebook stond ze zo twee keer in de rij
+    /// - eerst als 260x260 en meteen erna als 960x720 - en de grote foto eronder toonde dan de
+    /// slechtste van de twee. Geeft de pagina niets, dan blijft ze natuurlijk staan: dan is ze
+    /// het enige wat we hebben.
+    ///
+    /// Bij de meeste sites valt er niets te verwijderen: daar is het adres van de zoekpagina
+    /// letterlijk hetzelfde als op de pagina, en stond ze er dus al maar één keer in.
+    /// </summary>
+    private void ZetFotos(IReadOnlyList<string> vanDePagina)
+    {
+        if (vanDePagina.Count == 0) return;
+
+        var stondGroot = _fotos.FirstOrDefault(f => f.IsActief)?.Url ?? "";
+
+        _fotos.Clear();
+        foreach (var url in vanDePagina)
+            if (!_fotos.Any(f => string.Equals(f.Url, url, StringComparison.OrdinalIgnoreCase)))
+                _fotos.Add(new FotoView { Url = url });
+
+        if (_fotos.Count == 0) return;
+
+        // Stond er een foto groot die er nog is, dan blijft die staan; anders de eerste. Zo
+        // springt het beeld niet weg onder iemand die net op een miniatuur geklikt had.
+        var houden = _fotos.FirstOrDefault(f => string.Equals(f.Url, stondGroot, StringComparison.OrdinalIgnoreCase));
+        ZetGroot(houden ?? _fotos[0]);
     }
 
     /// <summary>

@@ -293,6 +293,13 @@ public static class FotoChecks
 
             Check.Dat(verzoeken == 1, $"één verzoek voor alle vier ({verzoeken})");
             Check.Dat(det.Fotos.Count == 3, $"de foto's: die van de lijst plus twee ({det.Fotos.Count})");
+
+            // Het detailvenster laat de foto van de zoekpagina vallen zodra de pagina er geeft,
+            // en heeft daarvoor de lijst zónder die foto nodig. Uit de samengevoegde lijst is
+            // dat niet af te leiden: bij 2dehands ís het hetzelfde adres.
+            Check.Dat(det.PaginaFotos.Count == 2 &&
+                      !det.PaginaFotos.Contains("https://voorbeeld.be/uit-de-lijst.jpg"),
+                $"PaginaFotos is enkel wat op de pagina stond ({det.PaginaFotos.Count})");
             Check.Dat(det.Verkoper == "Japoto", $"de verkoper ('{det.Verkoper}')");
             Check.Dat(det.Sinds == "24 sep. '26", $"en sinds wanneer ('{det.Sinds}')");
             Check.Dat(det.Fout is null, "zonder klacht");

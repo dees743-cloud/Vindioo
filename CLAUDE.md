@@ -1556,6 +1556,26 @@ het zoekertje zelf, en de foto van de zoekpagina staat er meteen groot - het ven
 leeg. De andere foto's, de verkoper en "online sinds" staan op de pagina van het zoekertje, en die
 wordt opgehaald zodra het venster opengaat.
 
+**Dat ophalen is zichtbaar** (26 september 2026). Achter de miniaturen staat een vakje van dezelfde
+maat met een draaiend wieltje erin, en de regel eronder zegt "De andere foto's van deze advertentie
+ophalen...". Zonder dat zag je één miniatuur en één grote foto, en niets dat zei dat er nog iets
+kwam - bij Facebook vier seconden lang, en dan verscheen er ineens een rij bij. Het wieltje gaat ook
+weg wanneer het misging: een wieltje dat blijft draaien belooft iets dat niet meer komt.
+
+**En zodra de pagina foto's geeft, verdwijnt die van de zoekpagina** (`ZetFotos`). Bij Facebook
+stond ze er anders twee keer: eerst als 260x260 en meteen erna dezelfde foto als 960x720 - en de
+grote foto eronder toonde dan de slechtste van de twee. Geeft de pagina niets, dan blijft ze staan;
+dan is ze het enige wat we hebben.
+
+Dat verschil is **niet** af te leiden uit de lijst die `DetailsAsync` teruggeeft, want daar staat
+ze vooraan tússen de andere. Bij 2dehands ís het adres van de zoekpagina letterlijk de eerste foto
+van de pagina, en die mag dus juist niet weg. Vandaar `ListingDetails.PaginaFotos`: enkel wat op de
+pagina stond. `Fotos` blijft de samengevoegde lijst, want de AI-controle wil beginnen met de foto
+die er zeker is.
+
+Stond er een foto groot die er nog is, dan blijft die staan; anders de eerste van de pagina. Zo
+springt het beeld niet weg onder iemand die net op een miniatuur geklikt had.
+
 **In één verzoek, niet drie** (`DetailFetcher.DetailsAsync`). Het zijn drie gegevens van dezelfde
 pagina; die drie keer ophalen zou bij een brugsite twaalf seconden kosten. `FotosAsync` (de
 AI-controle) loopt sindsdien over dezelfde weg, met enkel de foto's eruit. Wat opgehaald is, blijft
@@ -1615,6 +1635,12 @@ vak waarvan niemand weet of het aan het laden is.
 
 **De prijs komt uit `PriceTextConverter`**, dezelfde als op de kaart. Rekende dit venster zelf, dan
 stond hetzelfde zoekertje hier op "€ 40" en in de lijst op "€ 39,95".
+
+Nagemeten met het venster buiten beeld op drie echte Facebook-zoekertjes: tijdens het ophalen
+draait het wieltje en staat de foto van de zoekpagina er al (groot, dus het venster is niet leeg),
+en na 3,7 tot 4,4 s zijn het er 2 tot 4 van de pagina, is de miniatuur van de zoekpagina weg, staat
+de eerste van de pagina groot en zit er geen dubbel bij. Met de tegenproef op 2dehands, waar die
+foto juist moet blijven: daar staan het er nog altijd 3 met die van de zoekpagina vooraan.
 
 Nagemeten met het venster buiten beeld en een vers zoekertje uit de zoek-API van 2dehands (een
 advertentie van gisteren kan al weg zijn): **3 foto's in 369 ms**, verkoper "Japoto", "24 sep. '26",
@@ -2818,14 +2844,14 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel` en Zentrix dicht waren dat er 337 op 26 september 2026, met Chrome open - dus 339 met
+`--snel` en Zentrix dicht waren dat er 338 op 26 september 2026, met Chrome open - dus 340 met
 alles dicht. Twee dingen op deze pc laten controles wegvallen, en allebei zeggen ze dat ook:
 
 - **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (23).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
   Het controleproject heeft een eigen gegevensmap en dus een andere code, dus voor zijn brug is
   dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
-  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (337 in plaats van 339).
+  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (338 in plaats van 340).
 
 Drie regels waar het aan vastzit:
 

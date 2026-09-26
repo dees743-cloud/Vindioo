@@ -92,15 +92,38 @@
                            Foreground="{StaticResource TextSubtleBrush}" />
             </StackPanel>
 
-            <!-- ==================== de miniaturen ==================== -->
-            <ItemsControl Grid.Row="1" x:Name="Thumbs" ItemTemplate="{StaticResource Miniatuur}"
-                          Margin="0,0,0,2">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-            </ItemsControl>
+            <!-- ==================== de miniaturen ====================
+                 Achteraan een vakje dat draait zolang de andere foto's opgehaald worden. Het
+                 staat in dezelfde WrapPanel als de miniaturen, dus het schuift netjes mee
+                 achter wat er al is - en het heeft de maat van een miniatuur, zodat je ziet
+                 dat er nog iets komt en waar. -->
+            <Grid Grid.Row="1" Margin="0,0,0,2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <ItemsControl x:Name="Thumbs" ItemTemplate="{StaticResource Miniatuur}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+
+                <Border Grid.Column="1" x:Name="LoadingTile" Width="92" Height="74"
+                        Margin="0,0,8,8" CornerRadius="8" HorizontalAlignment="Left"
+                        Background="{StaticResource SurfaceHoverBrush}"
+                        BorderThickness="1" BorderBrush="{StaticResource SurfaceBorderBrush}">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <ui:ProgressRing IsIndeterminate="True" Width="20" Height="20"
+                                         Foreground="{StaticResource AccentOnDarkBrush}" />
+                        <TextBlock Text="foto's" FontSize="10" Margin="0,4,0,0"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{StaticResource TextSubtleBrush}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
 
             <!-- ==================== de grote foto ==================== -->
             <Border Grid.Row="2" Background="{StaticResource SurfaceHoverBrush}" CornerRadius="10"

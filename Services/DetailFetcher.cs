@@ -308,7 +308,21 @@ public static class DetailFetcher
     /// geeft; <see cref="Fout"/> zegt waarom er niets kwam, of null wanneer alles lukte.
     /// </summary>
     public record ListingDetails(IReadOnlyList<string> Fotos, string Verkoper, string Sinds,
-                                 string Beschrijving = "", string? Fout = null);
+                                 string Beschrijving = "", string? Fout = null)
+    {
+        /// <summary>
+        /// Enkel wat op de pagina zelf stond, zonder de foto van de zoekpagina ervoor.
+        /// <see cref="Fotos"/> heeft die er wél bij, want de AI-controle wil meteen kunnen
+        /// beginnen met de foto die er zeker is.
+        ///
+        /// Het detailvenster heeft juist dit nodig: de foto van de zoekpagina moet verdwijnen
+        /// zodra de pagina er betere geeft. Het verschil is niet af te leiden uit de
+        /// samengevoegde lijst - bij 2dehands ís de foto van de zoekpagina letterlijk de eerste
+        /// van de pagina, en die mag dus blijven; bij Facebook is het een ander adres van
+        /// dezelfde foto, 260 px in plaats van 960, en die moet weg.
+        /// </summary>
+        public IReadOnlyList<string> PaginaFotos { get; init; } = Array.Empty<string>();
+    }
 
     /// <summary>
     /// Alles van de pagina van één zoekertje in <b>één</b> verzoek: de foto's, de verkoper en
@@ -383,7 +397,11 @@ public static class DetailFetcher
                 : Opschonen(await GenericSource.ReadFieldAsync(
                     MetRegeleindes(html), def.DetailDescriptionSelector, ct));
 
-            var uitkomst = new ListingDetails(volledig, verkoper, sinds, beschrijving);
+            var uitkomst = new ListingDetails(volledig, verkoper, sinds, beschrijving)
+            {
+                PaginaFotos = volledig
+            };
+
             OnthoudenDetails[listing.Url] = uitkomst;
 
             Voeg(fotos, volledig);
