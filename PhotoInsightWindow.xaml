@@ -184,15 +184,21 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="11" TextWrapping="Wrap"
                        Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,12,0"
                        Text="Dit draait op je eigen grafische kaart; er gaat geen foto de deur uit. Het model kan lezen, maar niet tellen: een aantal is altijd een schatting." />
 
-            <ui:Button x:Name="CopyButton" Grid.Column="1" Content="Kopiëren" Appearance="Secondary"
+            <!-- Pas bruikbaar zodra er gelezen is: dan kent de app het merk en het typenummer
+                 van het toestel, en dat is een betere zoekterm dan de titel. -->
+            <ui:Button x:Name="PriceButton" Grid.Column="1" Content="Prijsindicatie" Appearance="Secondary"
+                       Margin="0,0,8,0" Click="PriceButton_Click" IsEnabled="False"
+                       ToolTip="Wat is dit ongeveer waard? Zoekt op het merk en het typenummer die van de foto's gelezen zijn, in plaats van op de woorden uit de titel." />
+            <ui:Button x:Name="CopyButton" Grid.Column="2" Content="Kopiëren" Appearance="Secondary"
                        Margin="0,0,8,0" Click="CopyButton_Click" IsEnabled="False" />
-            <ui:Button Grid.Column="2" Content="Sluiten" Appearance="Secondary" IsCancel="True"
+            <ui:Button Grid.Column="3" Content="Sluiten" Appearance="Secondary" IsCancel="True"
                        Click="CloseButton_Click" />
         </Grid>
     </Grid>

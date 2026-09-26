@@ -444,6 +444,36 @@ public static class FotoChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("De gelezen namen als voorstel voor de prijsindicatie");
+        {
+            // De AI-controle geeft haar gelezen namen door aan het prijsvenster, als chipjes om
+            // aan te klikken. De app kiest er zelf GEEN zoekterm uit, en dat is gemeten: op zes
+            // zoekertjes zonder modelnummer in de titel kwam er één marktwaarde uit, en die ging
+            // over een Xbox 360 die op de achtergrond van een stereoset stond.
+            string[] gelezen = ["KENWOOD", "STEREO DOUBLE CASSETTE DECK KX-W407D", "Xbox 360",
+                               "TAPE A", "1BIT", "+", "a", "kenwood", "Xbox 360"];
+
+            var voorstellen = PriceIndicator.AlsZoektermen(gelezen);
+
+            Check.Dat(!voorstellen.Contains("+") && !voorstellen.Contains("a"),
+                "een los teken of één letter is geen zoekterm");
+            Check.Dat(voorstellen.Count(n => n.Equals("kenwood", StringComparison.OrdinalIgnoreCase)) == 1,
+                "dezelfde naam telt één keer, ook met andere hoofdletters");
+            Check.Dat(voorstellen[0] == "Xbox 360" || voorstellen[0].Contains("KX-W407D"),
+                $"wat op een typenummer lijkt, staat vooraan ('{voorstellen[0]}')");
+            Check.Dat(voorstellen.Contains("KENWOOD"), "en de rest blijft er gewoon bij staan");
+
+            var lang = new[] { new string('x', 60), "DCD-520" };
+
+            Check.Dat(PriceIndicator.AlsZoektermen(lang).Count == 1,
+                "een halve zin van zestig tekens is geen zoekterm");
+            Check.Dat(PriceIndicator.AlsZoektermen(Enumerable.Range(1, 40).Select(i => $"Naam{i}")).Count == 15,
+                "en er worden er hoogstens vijftien aangeboden");
+            Check.Dat(PriceIndicator.AlsZoektermen(Array.Empty<string>()).Count == 0,
+                "niets gelezen: niets voorgesteld");
+        }
+
+        // ---------------------------------------------------------------------------
         Check.Groep("AI-controle op één foto: te klein om te lezen, dan die van de pagina");
         {
             // Zo ligt het bij Facebook: de zoekpagina geeft dezelfde foto op 261 px en de
@@ -644,6 +674,7 @@ public sealed class NepOllama : IDisposable
 
                 // Wat Ollama teruggeeft: het antwoord van het model als tekst, in een veld.
                 var laatste = json["format"]?["properties"]?["beschrijving"] is not null;
+
                 var binnenin = nummer == RommelBijVraag
                     ? "{dit is geen json"
                     : laatste

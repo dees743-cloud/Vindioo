@@ -77,6 +77,12 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
     private bool _bezig;
 
     /// <summary>
+    /// Wat er over alle foto's samen gelezen is. Blijft staan na het kijken: de knop
+    /// Prijsindicatie geeft die namen mee als voorstellen om aan te klikken.
+    /// </summary>
+    private readonly List<string> _gelezenSamen = new();
+
+    /// <summary>
     /// Er is op Stoppen gedrukt. Nodig naast de token: die staat ook op "geannuleerd" wanneer
     /// het venster dichtgaat of wanneer er opnieuw gekeken wordt, en dan hoort er geen
     /// "Gestopt" in de statusregel te komen.
@@ -132,6 +138,18 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
     private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 
     /// <summary>
+    /// Wat is dit ongeveer waard? Hetzelfde venster als elders, maar met een betere zoekterm:
+    /// de prijsindicatie leidt die anders af uit de <i>titel</i>, en daar staat meestal geen
+    /// modelnummer in (op 2dehands 78 tot 98% van de titels niet). Op het toestel staat het wel,
+    /// en dat is net wat er hier gelezen is.
+    ///
+    /// De gelezen namen gaan mee als <b>voorstellen om aan te klikken</b>. De app kiest er zelf
+    /// geen zoekterm uit, en dat is gemeten: zie <see cref="PriceIndicator.AlsZoektermen"/>.
+    /// </summary>
+    private void PriceButton_Click(object sender, RoutedEventArgs e) =>
+        new PriceIndicationWindow(_listing, _sites, _gelezenSamen) { Owner = this }.Show();
+
+    /// <summary>
     /// Alles wat er staat naar het klembord: bij een doos vol dvd's is die namenlijst juist het
     /// ding dat je ergens anders wil plakken.
     /// </summary>
@@ -182,6 +200,7 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
         RunButton.ToolTip = "Het kijken afbreken. Wat al bekeken is, blijft staan.";
 
         CopyButton.IsEnabled = false;
+        PriceButton.IsEnabled = false;
         _uitkomsten.Clear();
 
         SamenvattingBlok.Visibility = Visibility.Collapsed;
@@ -254,7 +273,9 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
             // Alles wat er tot hier gelezen is, over de foto's heen. Daaruit wordt telkens één
             // verhaal geschreven - niet één per foto. En de eerste foto gaat mee naar dat
             // vertellen: het model moet de namen in hun verband zien.
-            var samen = new List<string>();
+            var samen = _gelezenSamen;
+            samen.Clear();
+
             byte[]? hoofdfoto = null;
 
             for (var i = 0; i < fotos.Count; i++)
@@ -302,6 +323,7 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
                 });
 
                 CopyButton.IsEnabled = true;
+                PriceButton.IsEnabled = true;
 
                 // Bracht deze foto geen enkele nieuwe naam, dan kan het verhaal niet veranderen;
                 // die vraag aan het model wordt dan overgeslagen. Bij de eerste foto altijd wel,
@@ -366,7 +388,11 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
                 RunButton.IsEnabled = true;
             }
 
-            if (_uitkomsten.Count > 0) CopyButton.IsEnabled = true;
+            if (_uitkomsten.Count > 0)
+            {
+                CopyButton.IsEnabled = true;
+                PriceButton.IsEnabled = true;
+            }
         }
     }
 

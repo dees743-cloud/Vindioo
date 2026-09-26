@@ -143,6 +143,45 @@ public static class PriceIndicator
     // ==================== zoekterm ====================
 
     /// <summary>
+    /// Welke van de namen die de AI-controle van de foto's las, de moeite zijn om als zoekterm
+    /// aan te bieden. Wat eruit komt zijn <b>voorstellen om aan te klikken</b>, geen zoekterm:
+    /// de app kiest er zelf geen, en dat is met opzet.
+    ///
+    /// **Waarom niet automatisch**, gemeten op 26 september 2026 op zes echte zoekertjes waarvan
+    /// de titel geen modelnummer gaf: er kwam precies één marktwaarde uit, en die ging over een
+    /// <b>Xbox 360 die op de achtergrond van een stereoset stond</b> (± € 7,98 uit 127
+    /// vraagprijzen). De twee keer dat de foto het juiste typenummer wél gaf - "C77ES" en
+    /// "KX-W407D" - leverde de prijsindicatie 0 vergelijkingen op, want de sites schrijven dat
+    /// anders of hebben er niets van te koop. Een foto toont nu eenmaal meer dan het voorwerp,
+    /// en welke naam het voorwerp is, ziet een mens in één oogopslag en een model niet.
+    ///
+    /// Wat het wél doet: de namen op een zinnige volgorde zetten. Wat op een typenummer lijkt
+    /// eerst (dezelfde herkenner als hierboven), want dat is wat je zoekt en juist wat je op een
+    /// kleine foto niet kan lezen.
+    /// </summary>
+    public static List<string> AlsZoektermen(IEnumerable<string> gelezen, int hoogstens = 15)
+    {
+        var schoon = new List<string>();
+
+        foreach (var naam in gelezen ?? Array.Empty<string>())
+        {
+            var kort = Regex.Replace(naam ?? "", @"\s+", " ").Trim();
+
+            // Een losse letter of een teken zegt niets, en een halve zin is geen zoekterm.
+            if (kort.Length < 2 || kort.Length > 40) continue;
+            if (!kort.Any(char.IsLetterOrDigit)) continue;
+            if (schoon.Contains(kort, StringComparer.OrdinalIgnoreCase)) continue;
+
+            schoon.Add(kort);
+        }
+
+        return schoon
+            .OrderByDescending(n => ParseTerm(n).HasModel)
+            .Take(hoogstens)
+            .ToList();
+    }
+
+    /// <summary>
     /// Een voorstel voor de zoekterm uit de titel van een zoekertje: het merk en het model,
     /// bv. "Denon DCD-520" uit "Denon - DCD-520 - Lecteur de CD". Zonder modelnummer de eerste
     /// woorden die iets zeggen. De gebruiker kan het voorstel altijd aanpassen.

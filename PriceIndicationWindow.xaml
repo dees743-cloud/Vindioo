@@ -110,7 +110,10 @@
                 <Border Style="{StaticResource Section}">
                     <StackPanel>
                         <TextBlock Text="Zoeken op" Style="{StaticResource SectionTitle}" />
-                        <TextBlock Style="{StaticResource Uitleg}"
+                        <!-- De code vervangt deze tekst wanneer de zoekterm van de foto's komt
+                             in plaats van uit de titel; dan hoor je te zien waarom er iets
+                             anders staat dan wat je in de titel las. -->
+                        <TextBlock x:Name="TermUitleg" Style="{StaticResource Uitleg}"
                                    Text="Het merk en het model uit de titel. Klopt het niet, pas het dan aan: elk woord moet in de titel van een vergelijking staan, en een ander achtervoegsel (zoals AE bij DCD-520AE) is een ander model." />
 
                         <Grid>
@@ -123,6 +126,34 @@
                             <ui:Button x:Name="SearchButton" Grid.Column="1" Content="Zoeken" Appearance="Primary"
                                        Margin="8,0,0,0" IsDefault="True" Click="SearchButton_Click" />
                         </Grid>
+
+                        <!-- ==================== wat de AI van de foto's las ====================
+                             Voorstellen om aan te klikken, geen zoekterm: welke naam het
+                             voorwerp is, ziet een mens meteen en een model niet. Zie
+                             PriceIndicator.AlsZoektermen voor wat er gebeurde toen de app zelf
+                             koos. -->
+                        <StackPanel x:Name="GelezenBlok" Margin="0,12,0,0" Visibility="Collapsed">
+                            <TextBlock x:Name="GelezenKop" Style="{StaticResource Uitleg}" Margin="0,0,0,6"
+                                       Text="Van de foto's gelezen - klik erop om het bij de zoekterm te zetten:" />
+
+                            <ItemsControl x:Name="GelezenNamen">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource SurfaceHoverBrush}" CornerRadius="6"
+                                                Padding="8,3" Margin="0,0,6,6" Cursor="Hand"
+                                                MouseLeftButtonUp="GelezenNaam_Klik"
+                                                ToolTip="Klik om dit bij de zoekterm te zetten.">
+                                            <TextBlock Text="{Binding}" FontSize="12" />
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
 
                         <TextBlock x:Name="StatusText" Style="{StaticResource Uitleg}" Margin="0,10,0,0" />
                     </StackPanel>

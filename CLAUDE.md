@@ -1364,6 +1364,38 @@ pagina), eBay gaf bij de laatste beurt 0 resultaten, eBay mengt veilingen met "N
 zou dan als vraagprijs tellen), en Facebook zoekt enkel in je eigen regio. Het vinkje kan in Sites
 beheren, maar dat is nog niet nagemeten.
 
+**Wat de AI-controle eraan toevoegt: voorstellen, geen zoekterm** (26 september 2026,
+`PriceIndicator.AlsZoektermen`). Heb je een zoekertje door de AI-controle gehaald, dan staat er
+in dat venster een knop *Prijsindicatie*; het prijsvenster krijgt dan de namen mee die van de
+foto's gelezen zijn, als **chipjes om aan te klikken**. Klikken zet zo'n naam achter de
+zoekterm - erbij en niet in de plaats van, want meestal klopt het merk uit de titel en ontbreekt
+enkel het typenummer. Staat de naam er al in, dan zegt de statusregel dat en verandert er niets.
+Wat op een typenummer lijkt staat vooraan, hoogstens vijftien, dubbels en losse tekens eruit.
+
+**Waarom de app er zelf geen kiest, en dat is gemeten.** De eerste versie deed dat wél: ze vroeg
+het model welk merk en typenummer er op het voorwerp stonden en zette dat als zoekterm klaar.
+Op zes echte zoekertjes waarvan de titel geen modelnummer gaf, leverde dat **één** marktwaarde
+op - en die ging over een **Xbox 360 die op de achtergrond van een stereoset stond** (± € 7,98
+uit 127 vraagprijzen). Twee keer las de foto het juiste typenummer ("C77ES" van een Sony,
+"KX-W407D" van een Kenwood), en toen gaf de prijsindicatie 0 vergelijkingen op 16 en 29 treffers:
+de sites schrijven dat anders (CDP-C77ES) of hebben er niets van te koop.
+
+Twee dingen die daar los van elkaar misgingen, en die allebei blijven bestaan:
+
+- **Een foto toont meer dan het voorwerp.** Welke gelezen naam het voorwerp ís, ziet een mens in
+  één oogopslag en een model niet.
+- **Een juist typenummer is nog geen vergelijking.** Zeldzame toestellen staan gewoon niet te
+  koop, en dan blijft het bij "te weinig gegevens" - terecht.
+
+Daarom leest de app en kies jij. Het scheelt ook een vraag aan het model: het venster gaat
+meteen open in plaats van na vier seconden.
+
+**Waarom dat gemeten moest worden:** de prijsindicatie leidt haar zoekterm af uit de **titel**,
+en daar staat meestal geen modelnummer in. Geteld op 2dehands, zestig zoekertjes per term: bij
+"cd speler" hadden er **47 van de 60** geen modelnummer in de titel, bij "versterker" 52, bij
+"platenspeler" 47 en bij "spelcomputer" 59. Dat gat is echt; het is enkel niet automatisch te
+dichten.
+
 **Wat het niet is:** een verkoopprijs. Het zijn vraagprijzen van vandaag, en een vraagprijs is wat
 een verkoper hoopt. Verkochte prijzen (eBay heeft een filter "verkochte artikelen") zouden sterker
 zijn, maar eBay weigert een gewoon verzoek en loopt in Zentrix via de browser; dat is een volgende
@@ -1435,6 +1467,10 @@ verder kunnen. Vier dingen die het eerlijk moet zeggen, want anders lijkt het st
   op de zes klopt. De alinea erboven is wat je leest; die lijst is waarmee je het kan nagaan.
 - **Onderaan staat wat het niet kan**: het draait op je eigen kaart, er gaat geen foto de deur
   uit, en een aantal is altijd een schatting.
+
+Naast *Kopiëren* staat **Prijsindicatie**, die aangaat zodra er gelezen is. Die geeft de gelezen
+namen mee aan het prijsvenster, als voorstellen om aan te klikken; zie "Prijsindicatie" hierboven
+voor waarom de app er zelf geen zoekterm uit kiest.
 
 **Het kijken is te onderbreken** (26 september 2026). *Opnieuw kijken* wordt *Stoppen* zodra er
 gekeken wordt, in amber - dezelfde vorm als het vergrootglas dat een stopknop wordt op het
@@ -3015,15 +3051,15 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel` en alles dicht waren dat er 360 op 26 september 2026; draait Chrome met de
-brug-extensie erbij, dan zijn het er 358. Twee dingen op deze pc laten controles wegvallen, en
+`--snel` en alles dicht waren dat er 367 op 26 september 2026; draait Chrome met de
+brug-extensie erbij, dan zijn het er 365. Twee dingen op deze pc laten controles wegvallen, en
 allebei zeggen ze dat ook:
 
 - **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (23).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
   Het controleproject heeft een eigen gegevensmap en dus een andere code, dus voor zijn brug is
   dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
-  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (358 in plaats van 360).
+  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (365 in plaats van 367).
 
 Drie regels waar het aan vastzit:
 
@@ -3421,9 +3457,11 @@ witte tekst leesbaar blijft.
   kortere naam voor zijn tab opgeven
 - **Sorteren** op prijs (beide richtingen), op nieuwste of op de veiling die het eerst
   afloopt (over Catawiki, eBay en AlleVeilingen heen); de keuze wordt onthouden tussen twee starts
-- **Prijsindicatie**: rechtsklik op een foto geeft de marktwaarde van dat model uit de
-  vraagprijzen op de sites met het vinkje, met varianten apart, zonder veilingen, sets en
-  toebehoren, en verbreed naar de reeks als er te weinig zijn
+- **Prijsindicatie**: rechtsklik op een foto - of de knop in het detailvenster - geeft de
+  marktwaarde van dat model uit de vraagprijzen op de sites met het vinkje, met varianten apart,
+  zonder veilingen, sets en toebehoren, en verbreed naar de reeks als er te weinig zijn. Kwam je
+  er via de AI-controle, dan staan de namen die van de foto's gelezen zijn erbij als klikbare
+  voorstellen voor de zoekterm
 - **AI-controle op een foto**: rechtsklik op een foto laat een model op je eigen grafische kaart
   lezen wat er op de voorwerpen staat, en erover vertellen in gewone taal - voor een doos vol
   dvd's waarvan de titels te klein zijn, of het typenummer op een label. Lokaal, dus er gaat geen

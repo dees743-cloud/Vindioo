@@ -28,7 +28,15 @@ public partial class PriceIndicationWindow : Wpf.Ui.Controls.FluentWindow
     private readonly IReadOnlyList<SiteDefinition> _sites;
     private CancellationTokenSource? _cts;
 
-    public PriceIndicationWindow(Listing listing, IReadOnlyList<SiteDefinition> sites)
+    /// <param name="vanDeFotos">
+    /// Wat de AI-controle van de foto's las. Die namen komen er als chipjes bij te staan om aan
+    /// te klikken; de zoekterm blijft die uit de titel. Waarom de app er zelf geen kiest, staat
+    /// bij <see cref="PriceIndicator.AlsZoektermen"/> - kort: op een foto staat meer dan het
+    /// voorwerp, en de enige marktwaarde die er bij het meten uitkwam ging over een Xbox op de
+    /// achtergrond van een stereoset.
+    /// </param>
+    public PriceIndicationWindow(Listing listing, IReadOnlyList<SiteDefinition> sites,
+                                 IReadOnlyList<string>? vanDeFotos = null)
     {
         InitializeComponent();
 
@@ -38,8 +46,42 @@ public partial class PriceIndicationWindow : Wpf.Ui.Controls.FluentWindow
         ToonZoekertje();
         TermBox.Text = PriceIndicator.SuggestTerm(listing.Title);
 
+        var voorstellen = PriceIndicator.AlsZoektermen(vanDeFotos ?? Array.Empty<string>());
+
+        if (voorstellen.Count > 0)
+        {
+            GelezenNamen.ItemsSource = voorstellen;
+            GelezenBlok.Visibility = Visibility.Visible;
+
+            GelezenKop.Text = $"Van de foto's gelezen ({voorstellen.Count}) - klik erop om het bij " +
+                              "de zoekterm te zetten. Wat op een typenummer lijkt, staat vooraan.";
+        }
+
         Loaded += async (_, _) => await ZoekAsync();
         Closed += (_, _) => _cts?.Cancel();
+    }
+
+    /// <summary>
+    /// Een gelezen naam bij de zoekterm zetten. Erbij en niet in de plaats van: meestal is het
+    /// merk uit de titel juist en ontbreekt enkel het typenummer, en dan wil je "Sony" plus
+    /// "C77ES". Wie het anders wil, tikt het vak gewoon leeg - het is een tekstvak.
+    /// </summary>
+    private void GelezenNaam_Klik(object sender, MouseButtonEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not string naam) return;
+
+        var nu = TermBox.Text.Trim();
+
+        if (nu.Contains(naam, StringComparison.OrdinalIgnoreCase))
+        {
+            StatusText.Text = $"'{naam}' staat al in de zoekterm.";
+            return;
+        }
+
+        TermBox.Text = nu.Length > 0 ? nu + " " + naam : naam;
+        TermBox.CaretIndex = TermBox.Text.Length;
+
+        StatusText.Text = $"'{naam}' erbij gezet. Klik op Zoeken om het te proberen.";
     }
 
     private void ToonZoekertje()
