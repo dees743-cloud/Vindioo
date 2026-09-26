@@ -205,18 +205,25 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Column="0" x:Name="StatusText" VerticalAlignment="Center" FontSize="12"
                        TextTrimming="CharacterEllipsis" Margin="0,0,12,0"
                        Foreground="{StaticResource TextSubtleBrush}" />
 
-            <ui:Button Grid.Column="1" x:Name="AiButton" Content="AI-controle" Appearance="Secondary"
+            <!-- Dezelfde twee vensters als de rechtsklik op een foto in de resultatenlijst. Ze
+                 horen ook hier: dit venster is waar je een zoekertje bekijkt, en dan is "wat is
+                 het waard" de eerstvolgende vraag. -->
+            <ui:Button Grid.Column="1" x:Name="PriceButton" Content="Prijsindicatie" Appearance="Secondary"
+                       Margin="0,0,8,0" Click="PriceButton_Click"
+                       ToolTip="Wat is dit ongeveer waard? Vergelijkt de vraagprijzen van hetzelfde model op de sites die daarvoor aanstaan." />
+            <ui:Button Grid.Column="2" x:Name="AiButton" Content="AI-controle" Appearance="Secondary"
                        Margin="0,0,8,0" Click="AiButton_Click"
                        ToolTip="Laat een model op je eigen grafische kaart lezen wat er op de foto's staat." />
-            <ui:Button Grid.Column="2" x:Name="OpenButton" Content="Openen op de site" Appearance="Primary"
+            <ui:Button Grid.Column="3" x:Name="OpenButton" Content="Openen op de site" Appearance="Primary"
                        Margin="0,0,8,0" Click="OpenButton_Click" />
-            <ui:Button Grid.Column="3" Content="Sluiten" Appearance="Secondary" IsCancel="True"
+            <ui:Button Grid.Column="4" Content="Sluiten" Appearance="Secondary" IsCancel="True"
                        Click="CloseButton_Click" />
         </Grid>
 

@@ -366,6 +366,14 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
         }
     }
 
+    /// <summary>
+    /// Wat is dit ongeveer waard? Hetzelfde venster als de rechtsklik op een foto in de
+    /// resultatenlijst; het zoekt zijn eigen vergelijkingen op, dus het krijgt enkel het
+    /// zoekertje en de sites mee.
+    /// </summary>
+    private void PriceButton_Click(object sender, RoutedEventArgs e) =>
+        new PriceIndicationWindow(_listing, _sites) { Owner = this }.Show();
+
     /// <summary>Doorsturen naar de AI-controle, met alle foto's die we hier al kennen.</summary>
     private void AiButton_Click(object sender, RoutedEventArgs e) =>
         new PhotoInsightWindow(_listing, _sites, alleFotos: true) { Owner = this }.Show();

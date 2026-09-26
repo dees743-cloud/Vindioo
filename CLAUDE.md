@@ -1607,7 +1607,14 @@ AlleVeilingen **2 in 136 ms**.
 het verkoopt en hoelang het er al staat - precies wat je wil weten om te beslissen of je verder
 kijkt. De browser openen, de cookiemelding wegklikken en de pagina laten laden was daarvoor een
 omweg van een tien seconden per zoekertje. *Openen op de site* staat als knop in dat venster, dus
-die weg blijft; ernaast staat *AI-controle*, die doorstuurt naar `PhotoInsightWindow`.
+die weg blijft; ernaast staan *AI-controle* en *Prijsindicatie*, die doorsturen naar
+`PhotoInsightWindow` en `PriceIndicationWindow`.
+
+Die twee stonden eerst enkel achter een rechtsklik op een foto in de resultatenlijst
+(26 september 2026 kwam *Prijsindicatie* erbij, gevraagd door de eigenaar). Ze horen ook hier:
+dit venster is waar je een zoekertje bekijkt, en "wat is het waard" is dan de eerstvolgende
+vraag. Nagemeten met het venster buiten beeld: vier knoppen naast elkaar nemen 335 van de 820
+beeldpunten, dus de statusregel ernaast houdt ruim plaats over.
 
 **De foto's: miniaturen boven, één grote eronder.** Een klik op een miniatuur wisselt de grote
 foto, en een randje in het accent toont welke dat is. Dat ging eerst bij het zweven met de muis,
