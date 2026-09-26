@@ -1502,6 +1502,19 @@ foto, en een randje in het accent toont welke dat is. Dat ging eerst bij het zwe
 maar die passeert die rij ook op weg naar iets anders, en dan wisselde de foto ongevraagd - de
 eigenaar vroeg er op 25 september 2026 een klik van te maken.
 
+**De miniaturen staan op één rij die opzij schuift** (26 september 2026, `ThumbScroll`). Een
+advertentie met vijftien foto's zou anders drie rijen hoog worden en de grote foto wegduwen. En
+het stond er eerst in een `WrapPanel` in een kolom op `Auto`: die krijgt oneindige breedte en
+breekt dus nooit af, dus de rij liep gewoon de vensterrand uit met de laatste foto half
+afgesneden - precies de valkuil die een paar regels lager bij de UI-conventies staat, en toch
+ingelopen. Het muiswiel schuift die rij opzij (`ThumbScroll_MouseWheel`): een wiel doet in een
+rij die horizontaal schuift uit zichzelf niets, want het verzoek gaat omhoog op zoek naar iets
+dat verticaal schuift.
+
+Nagemeten met het venster buiten beeld op een echt zoekertje van 11 foto's: rij 780 breed,
+inhoud 1100, schuifbalk zichtbaar, de laatste miniatuur bereikbaar, het wiel schuift, en alle 11
+zijn getekend. Met een zoekertje van 2 foto's staat er geen balk.
+
 **De grote foto krijgt de vrije ruimte** en groeit dus mee met het venster; een klik erop legt
 hem schermvullend over het venster, met eronder hoeveel beeldpunten hij werkelijk heeft. Esc of
 nog een klik sluit dat weer - Esc sluit eerst die laag en pas daarna het venster, anders valt bij
@@ -1634,7 +1647,10 @@ zegt nog niet waar de foto's en de verkoper staan") en wordt er niets opgehaald.
 vak waarvan niemand weet of het aan het laden is.
 
 **De prijs komt uit `PriceTextConverter`**, dezelfde als op de kaart. Rekende dit venster zelf, dan
-stond hetzelfde zoekertje hier op "€ 40" en in de lijst op "€ 39,95".
+stond hetzelfde zoekertje hier op "€ 40" en in de lijst op "€ 39,95". Ook een **nul** gaat door die
+converter, want de kaart doet dat ook: anders stond een zoekertje zonder prijs hier op "0" (de
+eigen tekst van de site) en in de lijst op "€ 0". De eigen tekst is enkel de terugval wanneer er
+helemaal geen prijs is.
 
 Nagemeten met het venster buiten beeld op drie echte Facebook-zoekertjes: tijdens het ophalen
 draait het wieltje en staat de foto van de zoekpagina er al (groot, dus het venster is niet leeg),
@@ -3088,8 +3104,12 @@ witte tekst leesbaar blijft.
   `*`-kolommen zodat alles zichtbaar blijft als het venster wordt verkleind.
 - Let op: een `WrapPanel` breekt alleen af als hij een begrensde breedte heeft.
   In een horizontale `StackPanel` krijgt hij oneindige breedte en breekt hij
-  nooit af. Voor een vast aantal per rij (los van de vensterbreedte) is een
-  `UniformGrid` met een vast `Columns` de juiste keuze.
+  nooit af, en in een `Grid`-kolom op `Auto` net zomin - dan loopt hij de
+  vensterrand uit en wordt het laatste kind half afgesneden (zo ging het bij de
+  miniaturen in `ListingDetailWindow`). Voor een vast aantal per rij (los van de
+  vensterbreedte) is een `UniformGrid` met een vast `Columns` de juiste keuze;
+  moet alles op één rij blijven, dan een `ScrollViewer` met een horizontale
+  `StackPanel` erin.
 - WPF-UI stijlt de koppen van een `TabControl` niet vanzelf tot herkenbare
   tabs. Geef `TabItem` een eigen `ControlTemplate` (afgeronde bovenhoeken,
   rand, accentkleur bij `IsSelected`) — zie de stijl in `SettingsWindow.xaml`.

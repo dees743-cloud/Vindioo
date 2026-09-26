@@ -86,7 +86,10 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
         // Dezelfde opmaak als op de kaart in de lijst: dat is één plaats die beslist hoe een
         // prijs eruitziet. Deed dit venster het zelf, dan stond hetzelfde zoekertje hier op
         // "€ 40" en in de lijst op "€ 39,95".
-        var prijs = _listing.Price is { } p && p > 0
+        // Is er een prijs, dan altijd via de converter - ook een nul. De kaart doet dat ook, en
+        // anders staat hetzelfde zoekertje hier op "0" en in de lijst op "€ 0". De eigen tekst
+        // van de site is enkel de terugval wanneer er helemaal geen prijs is.
+        var prijs = _listing.Price is { } p
             ? (string)new Converters.PriceTextConverter()
                 .Convert(p, typeof(string), null!, CultureInfo.CurrentCulture)
             : _listing.PriceLabel.Length > 0 ? _listing.PriceLabel : "geen prijs";
@@ -219,6 +222,9 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
         // springt het beeld niet weg onder iemand die net op een miniatuur geklikt had.
         var houden = _fotos.FirstOrDefault(f => string.Equals(f.Url, stondGroot, StringComparison.OrdinalIgnoreCase));
         ZetGroot(houden ?? _fotos[0]);
+
+        // De rij begint vooraan: er stond er net één, en nu staan er vijftien.
+        ThumbScroll.ScrollToHorizontalOffset(0);
     }
 
     /// <summary>
@@ -249,6 +255,19 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
     private void VolgVensterhoogte()
     {
         InfoBlock.MaxHeight = Math.Max(200, ActualHeight * 0.45);
+    }
+
+    /// <summary>
+    /// Het muiswiel schuift de rij miniaturen opzij. Die rij schuift horizontaal, en een wiel
+    /// doet daar uit zichzelf niets: het verzoek gaat omhoog naar iets dat verticaal schuift,
+    /// en dat is er hier niet. Bij vijftien foto's blijft er dan enkel de schuifbalk over.
+    /// </summary>
+    private void ThumbScroll_MouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (ThumbScroll.ScrollableWidth <= 0) return;
+
+        ThumbScroll.ScrollToHorizontalOffset(ThumbScroll.HorizontalOffset - e.Delta);
+        e.Handled = true;
     }
 
     /// <summary>Een klik op een miniatuur zet die foto groot.</summary>

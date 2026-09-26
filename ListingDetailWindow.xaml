@@ -93,37 +93,40 @@
             </StackPanel>
 
             <!-- ==================== de miniaturen ====================
-                 Achteraan een vakje dat draait zolang de andere foto's opgehaald worden. Het
-                 staat in dezelfde WrapPanel als de miniaturen, dus het schuift netjes mee
-                 achter wat er al is - en het heeft de maat van een miniatuur, zodat je ziet
-                 dat er nog iets komt en waar. -->
-            <Grid Grid.Row="1" Margin="0,0,0,2">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+                 Eén rij die opzij schuift, geen WrapPanel. Een advertentie met vijftien foto's
+                 zou anders drie rijen hoog worden en de grote foto wegduwen - en een WrapPanel
+                 zonder begrensde breedte breekt sowieso nooit af: die liep gewoon de vensterrand
+                 uit, met de laatste foto half afgesneden.
 
-                <ItemsControl x:Name="Thumbs" ItemTemplate="{StaticResource Miniatuur}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <WrapPanel />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                </ItemsControl>
+                 Het wieltje staat IN diezelfde rij, achter de laatste foto, zodat het meeschuift
+                 en je ziet waar het volgende verschijnt. -->
+            <ScrollViewer Grid.Row="1" x:Name="ThumbScroll" Margin="0,0,0,2"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled"
+                          PreviewMouseWheel="ThumbScroll_MouseWheel">
+                <StackPanel Orientation="Horizontal">
+                    <ItemsControl x:Name="Thumbs" ItemTemplate="{StaticResource Miniatuur}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
 
-                <Border Grid.Column="1" x:Name="LoadingTile" Width="92" Height="74"
-                        Margin="0,0,8,8" CornerRadius="8" HorizontalAlignment="Left"
-                        Background="{StaticResource SurfaceHoverBrush}"
-                        BorderThickness="1" BorderBrush="{StaticResource SurfaceBorderBrush}">
-                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                        <ui:ProgressRing IsIndeterminate="True" Width="20" Height="20"
-                                         Foreground="{StaticResource AccentOnDarkBrush}" />
-                        <TextBlock Text="foto's" FontSize="10" Margin="0,4,0,0"
-                                   HorizontalAlignment="Center"
-                                   Foreground="{StaticResource TextSubtleBrush}" />
-                    </StackPanel>
-                </Border>
-            </Grid>
+                    <Border x:Name="LoadingTile" Width="92" Height="74"
+                            Margin="0,0,8,8" CornerRadius="8"
+                            Background="{StaticResource SurfaceHoverBrush}"
+                            BorderThickness="1" BorderBrush="{StaticResource SurfaceBorderBrush}">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <ui:ProgressRing IsIndeterminate="True" Width="20" Height="20"
+                                             Foreground="{StaticResource AccentOnDarkBrush}" />
+                            <TextBlock Text="foto's" FontSize="10" Margin="0,4,0,0"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{StaticResource TextSubtleBrush}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
 
             <!-- ==================== de grote foto ==================== -->
             <Border Grid.Row="2" Background="{StaticResource SurfaceHoverBrush}" CornerRadius="10"
