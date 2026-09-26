@@ -1621,6 +1621,12 @@ pagina; die drie keer ophalen zou bij een brugsite twaalf seconden kosten. `Foto
 AI-controle) loopt sindsdien over dezelfde weg, met enkel de foto's eruit. Wat opgehaald is, blijft
 onthouden op het adres van de pagina.
 
+**Ingevuld voor zes sites** (26 september 2026): 2dehands, Marktplaats, AlleVeilingen, Facebook,
+Catawiki en eBay. Welke selector en wat er gemeten is, staat in `SITES.md` van `zentrix-sites`.
+Catawiki geeft 5 foto's van 1800 px waar de zoekpagina er één gaf, eBay 5 van 1600 px, allebei in
+ongeveer 4,5 s via de brug; van allebei komt ook de verkoper mee, en van Catawiki de volledige
+beschrijving.
+
 Waar het staat, zegt het sitebestand - drie velden, alle drie ook in *Sites beheren*:
 
 | Veld | Waarvoor |
@@ -3373,9 +3379,8 @@ Hieronder enkel wat aan de app zelf te doen valt.
      *Prijsindicatie*, met `PhotoInsightWindow`.
    - ~~Alle foto's van dat zoekertje.~~ Gedaan op 24 september 2026: `DetailImagesSelector` in het
      sitebestand, opgehaald door `DetailFetcher.FotosAsync`. Ingevuld op 25 september voor
-     2dehands, Marktplaats en AlleVeilingen. **Nog open**: Catawiki en eBay lopen via de brug, en
-     dat vraagt een draaiende Zentrix met de extensie om na te meten; Facebook, Discogs,
-     leboncoin, Kleinanzeigen en AutoScout24 zijn nog niet bekeken.
+     2dehands, Marktplaats en AlleVeilingen, op 26 september voor Facebook, Catawiki en eBay.
+     **Nog open**: Discogs, leboncoin, Kleinanzeigen en AutoScout24 zijn nog niet bekeken.
    - **Meerdere zoekertjes tegelijk**, met vooraf een schermpje dat zegt hoeveel foto's en
      hoelang. Vraagt dat de lijst en het raster meervoudige selectie aankunnen; nog na te kijken.
 
@@ -3425,9 +3430,11 @@ Hieronder enkel wat aan de app zelf te doen valt.
    de brug in golven, pagina 1 meteen, gecomprimeerde antwoorden, IdPattern, de linkmotor,
    Discogs met een aanhalingsteken, de weergave (contrast, afknippen, smal venster,
    pictogrammen, knopstijlen) en het controleproject. Nog te doen:
-   - **Enkel live na te gaan**: of eBay via de brug werkt (de 0 resultaten van toen waren zijn
-     robotbeveiliging, zie `SITES.md`), of Kleinanzeigen pagineert met `s-seite:{page}` in het pad, of Catawiki een datum
-     heeft in `time@datetime`, en of de brug met extensie 1.7 werkt.
+   - **Enkel live na te gaan**: of Kleinanzeigen pagineert met `s-seite:{page}` in het pad, of
+     Catawiki een datum heeft in `time@datetime`, en of de brug met extensie 1.7 werkt.
+     (**eBay via de brug werkt**, nagemeten op 26 september 2026: "cd speler" gaf 15 resultaten,
+     en een kavelpagina kwam binnen in 4,6 s. De 0 resultaten van september waren dus niet
+     blijvend.)
    - **Tekststijlen** (punt 7) en het opruimen van ongebruikte sleutels in `App.xaml`.
    - **Snelheid**: zie "Wat er nog te halen valt".
    - **Toetsenbord**: het sitechipje en de tabs zijn niet met Tab te bereiken.
