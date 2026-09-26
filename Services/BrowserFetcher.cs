@@ -401,10 +401,35 @@ public class BrowserFetcher : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Eén tegelijk mag Chrome starten. De browser wordt gedeeld (<see cref="BrowserPool"/>),
+    /// en sinds het detailvenster kan er een tweede aanroeper zijn terwijl er gezocht wordt.
+    /// Zonder dit slot starten die er allebei een op dezelfde profielmap, en dat gaat mis:
+    /// een profiel kan maar door één Chrome tegelijk geopend worden.
+    ///
+    /// Het slot staat enkel rond het *starten*. Tabbladen in een draaiende context mogen
+    /// gerust naast elkaar.
+    /// </summary>
+    private readonly SemaphoreSlim _startSlot = new(1, 1);
+
     private async Task<IBrowserContext> GetContextAsync()
     {
         if (_context is not null) return _context;
 
+        await _startSlot.WaitAsync();
+
+        try
+        {
+            return _context ??= await StartContextAsync();
+        }
+        finally
+        {
+            _startSlot.Release();
+        }
+    }
+
+    private async Task<IBrowserContext> StartContextAsync()
+    {
         Directory.CreateDirectory(ProfilePath);
         _playwright = await Playwright.CreateAsync();
 
@@ -412,7 +437,7 @@ public class BrowserFetcher : IAsyncDisposable
         // waardoor cookies en logins bewaard blijven.
         SluitAchtergeblevenChrome();
 
-        _context = await _playwright.Chromium.LaunchPersistentContextAsync(ProfilePath,
+        return await _playwright.Chromium.LaunchPersistentContextAsync(ProfilePath,
             new BrowserTypeLaunchPersistentContextOptions
             {
                 Headless = !Visible,
@@ -422,8 +447,6 @@ public class BrowserFetcher : IAsyncDisposable
                 TimezoneId = "Europe/Brussels",
                 Args = new[] { "--disable-blink-features=AutomationControlled" }
             });
-
-        return _context;
     }
 
     /// <summary>

@@ -124,7 +124,16 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
         _cts?.Cancel();
         var cts = _cts = new CancellationTokenSource();
 
-        StatusText.Text = "De pagina van dit zoekertje ophalen...";
+        // Een site die een aangemelde browser vraagt (Facebook) kost seconden in plaats van
+        // tienden: Chrome moet mogelijk eerst starten en de pagina moet echt gebouwd worden.
+        // Dat hoort er te staan vóór het wachten, niet erna.
+        var viaBrowser = _sites.FirstOrDefault(s =>
+            string.Equals(s.Name, _listing.Source, StringComparison.OrdinalIgnoreCase))
+            is { NeedsBrowser: true, UseBridge: false };
+
+        StatusText.Text = viaBrowser
+            ? "De pagina van dit zoekertje ophalen in de aangemelde browser; dat duurt een paar seconden..."
+            : "De pagina van dit zoekertje ophalen...";
 
         try
         {

@@ -362,6 +362,20 @@ public static class FotoChecks
             var alleenFotos = await DetailFetcher.FotosAsync(zoekertje, lijst);
 
             Check.Dat(alleenFotos.Count == 3, $"de AI-controle loopt over dezelfde weg ({alleenFotos.Count})");
+
+            // Het kale CSS-stuk van een selector: daarmee wacht de browser tot de foto er echt
+            // staat. Zonder dat lees je een pagina die nog niet af is - bij Facebook stond er
+            // dan geen énkele img op, terwijl er 9 MB omhulsel al binnen was.
+            Check.Dat(DetailFetcher.CssDeel("img[alt^='Productfoto van']@src") == "img[alt^='Productfoto van']",
+                "het @attribuut valt weg voor het wachten");
+            Check.Dat(DetailFetcher.CssDeel(".gallery img@src::replace(_klein,_groot)") == ".gallery img",
+                "de opschoonregels ook");
+            Check.Dat(DetailFetcher.CssDeel("script[type='application/ld+json']::match(https://a\\.be/x)")
+                      == "script[type='application/ld+json']",
+                "een ::match met een adres erin knipt niet te vroeg");
+            Check.Dat(DetailFetcher.CssDeel("div.tekst") == "div.tekst", "een kale selector blijft heel");
+            Check.Dat(DetailFetcher.CssDeel("") is null && DetailFetcher.CssDeel("   ") is null,
+                "niets ingevuld: dan valt er ook niets te wachten");
         }
 
         PhotoAnalyzer.UrlVoorControles = null;

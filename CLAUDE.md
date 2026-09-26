@@ -1530,13 +1530,26 @@ Bij `DetailImagesSelector` stopt het patroon nu ook vóór het vraagteken. Dat g
 foto's: Marktplaats ging van **1 naar 8** (elk 1200x1600), 2dehands van 3 naar 3 maar in 1024x768
 in plaats van 800x800.
 
-**Bij Facebook is het nog niet opgelost.** Wat de app daar bewaart, is `stp=dst-jpg_s261x260_tt6` -
-een miniatuur van **261x260**. Of die maat op te drijven is, viel niet na te meten: alle bewaarde
-adressen waren verlopen (`oe` stond op 14 september), en fbcdn geeft dan 403 op élke variant. Dat
-verlopen is op zich al iets om te weten - **een favoriet van Facebook verliest na een week of twee
-zijn foto**. Het vraagt een verse Facebook-beurt om verder te kijken. Meer foto's van één
-advertentie kan daar sowieso niet langs deze weg: die staan op de pagina van het zoekertje, en die
-is enkel met een aangemelde browser te openen (zie hieronder).
+**Bij Facebook valt er op de zoekpagina niets te winnen, en dat is bewezen** (26 september 2026).
+Wat de app daar krijgt is `stp=dst-jpg_p261x260_tt6`: een miniatuur van **261x261, 16 kB**. Gemeten
+met verse adressen uit de databank:
+
+| Wat er geprobeerd is | Antwoord van fbcdn |
+|---|---|
+| het adres zoals bewaard | 261x261, 16 kB |
+| `p480x480`, `p720x720`, `p960x960`, `p2048x2048` | **403** |
+| de uitsnede (`c0.152.261.261a_`) eruit | **403** |
+| de `stp`-parameter helemaal weg | **403** |
+
+**Facebook ondertekent de fotomaat mee.** De `oh=`-handtekening in het adres dekt die parameter,
+dus elke wijziging maakt hem ongeldig. Bij 2dehands kon het formaat wél opgedreven worden omdat
+hun CDN niet ondertekent; hier kan dat principieel niet. Die 261 px *is* wat de zoekpagina geeft.
+
+Een eerdere poging kwam niet verder dan "onbekend", omdat élk bewaard adres toen verlopen was en
+fbcdn dan ook op het origineel 403 geeft. Dat verlopen is op zich iets om te weten: **een favoriet
+van Facebook verliest na een week of twee zijn foto** - de `oe`-parameter is een vervaldatum.
+
+De weg naar grotere foto's, en naar meer dan één, is dus de advertentiepagina - zie hieronder.
 
 **Wat er meteen staat en wat opgehaald wordt.** De titel, de prijs, de plaats en de site komen uit
 het zoekertje zelf, en de foto van de zoekpagina staat er meteen groot - het venster is dus nooit
@@ -1616,10 +1629,41 @@ punt - en een vaste pagina voor de regelindeling van de beschrijving.
 per site). 2dehands zet er trouwens ook "7x bekeken" en "0x bewaard" bij; dat is er met dezelfde
 selector uit te halen.
 
-**Een site die een aangemelde browser vraagt, kan hier nog niet bij.** `DetailsAsync` haalt de
-pagina met een gewoon verzoek op, of via de brug bij een brugsite. Facebook loopt via Playwright
-met een eigen, aangemeld profiel (`NeedsBrowser`), en daar is dus geen weg naartoe - dat zou
-`BrowserPool` erbij vragen, en die deelt zijn slot met een lopende zoekopdracht.
+### De derde weg: de aangemelde browser
+
+**Sinds 26 september 2026 haalt `DetailsAsync` een pagina ook via de browser op**, naast de brug en
+het gewone verzoek. Dat was nodig voor Facebook: zijn advertentiepagina is enkel met een aangemeld
+profiel te openen, en dat profiel heeft `BrowserFetcher` al - het is hetzelfde waarmee Zentrix daar
+zoekt. Het kost meer dan de andere twee wegen (seconden in plaats van tienden), en dat is te
+verantwoorden omdat het pas gebeurt wanneer je zélf dubbelklikt.
+
+Wat de opbrengst is, gemeten op vier echte Facebook-zoekertjes: **3 van de 4 gaven 4 tot 8 foto's
+van 960x720** (tot 107 kB) waar de zoekpagina er één van 260x260 (13 kB) gaf, in 3,8 tot 5,4
+seconden. De vierde gaf niets extra en deed er 20 s over: Facebook bouwt zijn pagina niet altijd
+af, zeker niet bij vier keer laden na elkaar. Het venster toont dan gewoon de ene foto die er wel
+is.
+
+Drie dingen die daarbij hoorden:
+
+- **Er moet gewacht worden tot de foto er staat.** Zonder dat lees je een pagina die nog niet af
+  is, en bij Facebook is dat geen randgeval: op een van de opgehaalde pagina's stond **geen enkele
+  `img`**, terwijl er al 9 MB omhulsel binnen was. Het CSS-stuk van `DetailImagesSelector` gaat nu
+  mee als wachtselector (`CssDeel`: alles vóór `@attribuut` en vóór `::replace`/`::match`).
+- **De maat van een Facebook-foto is geen bruikbaar kenmerk.** Op drie pagina's stonden er drie
+  verschillende: `p960x960`, `s960x960` en `p720x720`. Het `alt`-label wel: de foto's van díe
+  advertentie heten "Productfoto van ...", en de kaarten van de vergelijkbare items eronder
+  "&lt;titel&gt; in &lt;plaats&gt;, VLG". Vandaar `img[alt^='Productfoto van']@src`. Dat leunt op
+  de Nederlandse taal van Facebook, maar de app zet zelf `Locale = "nl-BE"` in `BrowserFetcher`,
+  dus dat ligt vast.
+- **Twee aanroepers konden allebei een Chrome starten** op dezelfde profielmap, en een profiel kan
+  maar door één Chrome tegelijk geopend worden. Dat stond al als open punt bij "Wat er nog te halen
+  valt"; met dit venster erbij werd het waarschijnlijk, want je kan dubbelklikken terwijl er
+  gezocht wordt. Er staat nu een slot rond het *starten* (`BrowserFetcher._startSlot`); tabbladen
+  in een draaiende Chrome mogen gewoon naast elkaar.
+
+**De einddatum van AlleVeilingen loopt hier niet langs.** Die gaat via `FillAsync`, met een gewoon
+verzoek, en dat blijft zo - dat draait automatisch voor elk zoekertje in beeld, en daar hoort geen
+browser bij te komen.
 
 ## Hoe een site binnenkomt — drie wegen
 
@@ -2774,14 +2818,14 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel` en Zentrix dicht waren dat er 332 op 25 september 2026, met Chrome open - dus 334 met
+`--snel` en Zentrix dicht waren dat er 337 op 26 september 2026, met Chrome open - dus 339 met
 alles dicht. Twee dingen op deze pc laten controles wegvallen, en allebei zeggen ze dat ook:
 
 - **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (23).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
   Het controleproject heeft een eigen gegevensmap en dus een andere code, dus voor zijn brug is
   dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
-  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (332 in plaats van 334).
+  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (337 in plaats van 339).
 
 Drie regels waar het aan vastzit:
 

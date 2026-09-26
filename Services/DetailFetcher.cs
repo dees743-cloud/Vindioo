@@ -355,18 +355,7 @@ public static class DetailFetcher
 
         try
         {
-            string html;
-
-            if (def.UseBridge)
-            {
-                html = await BridgeServer.Instance.FetchAsync(listing.Url, ct, headers: def.Headers);
-            }
-            else
-            {
-                using var antwoord = await Http.GetAsync(listing.Url, ct);
-                antwoord.EnsureSuccessStatusCode();
-                html = await antwoord.Content.ReadAsStringAsync(ct);
-            }
+            var html = await HaalPaginaAsync(def, listing.Url, ct);
 
             var gevonden = string.IsNullOrWhiteSpace(def.DetailImagesSelector)
                 ? new List<string>()
@@ -442,6 +431,61 @@ public static class DetailFetcher
     }
 
     private static string Kort(string titel) => titel.Length <= 40 ? titel : titel[..40] + "...";
+
+    /// <summary>
+    /// De pagina van een zoekertje, langs dezelfde weg als de zoekpagina van die site:
+    /// via de brug, via de aangemelde browser, of gewoon.
+    ///
+    /// Die derde weg - de browser - kwam er voor Facebook (26 september 2026). Zijn
+    /// advertentiepagina is enkel met een aangemeld profiel te openen, en dat is precies wat
+    /// <see cref="BrowserFetcher"/> heeft. Het kost wel meer: een paar seconden in plaats van
+    /// een paar honderd milliseconden, en Chrome moet mogelijk eerst starten. Dat is te
+    /// verantwoorden omdat het pas gebeurt wanneer je zelf op een zoekertje dubbelklikt -
+    /// niet tijdens het zoeken.
+    /// </summary>
+    private static async Task<string> HaalPaginaAsync(SiteDefinition def, string url, CancellationToken ct)
+    {
+        if (def.UseBridge)
+            return await BridgeServer.Instance.FetchAsync(url, ct, headers: def.Headers);
+
+        if (def.NeedsBrowser)
+        {
+            // Dezelfde gedeelde Chrome als een zoekopdracht; de lener zorgt dat hij weer
+            // dichtgaat wanneer niemand hem nog nodig heeft.
+            using var lening = BrowserPool.Lease();
+            return await BrowserPool.Get().GetHtmlAsync(url, CssDeel(def.DetailImagesSelector), ct);
+        }
+
+        using var antwoord = await Http.GetAsync(url, ct);
+        antwoord.EnsureSuccessStatusCode();
+
+        return await antwoord.Content.ReadAsStringAsync(ct);
+    }
+
+    /// <summary>
+    /// Het kale CSS-stuk van een selector: zonder <c>@attribuut</c> en zonder <c>::replace</c>
+    /// of <c>::match</c>. Daarmee kan de browser wachten tot die foto er echt staat.
+    ///
+    /// Zonder dat wachten lees je een pagina die nog niet af is. Bij Facebook is dat geen
+    /// randgeval: op een pagina die we ophaalden stond geen enkele <c>img</c>, terwijl de
+    /// gewone weg 9 MB aan omhulsel al binnen had.
+    /// </summary>
+    internal static string? CssDeel(string selector)
+    {
+        if (string.IsNullOrWhiteSpace(selector)) return null;
+
+        var kaal = selector;
+
+        var regels = kaal.IndexOf("::", StringComparison.Ordinal);
+        if (regels > 0) kaal = kaal[..regels];
+
+        var at = kaal.LastIndexOf('@');
+        if (at > 0) kaal = kaal[..at];
+
+        kaal = kaal.Trim();
+
+        return kaal.Length > 0 ? kaal : null;
+    }
 
     /// <summary>
     /// Waar een regel eindigde, in een teken dat het opschonen overleeft. Een selector plakt
