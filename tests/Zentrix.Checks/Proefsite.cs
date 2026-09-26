@@ -39,6 +39,13 @@ public sealed class Proefsite : IDisposable
     /// <summary>Welke pagina's er gevraagd zijn, in volgorde.</summary>
     public List<int> Gevraagd { get; } = new();
 
+    /// <summary>
+    /// Echte foto's, op hun pad ("/klein.jpg"). Nodig waar de app een foto <i>nameet</i> in
+    /// plaats van ze enkel door te geven: het formaat is niet aan een adres af te lezen.
+    /// Wint van alles, want een foto is geen HTML.
+    /// </summary>
+    public Dictionary<string, byte[]> Fotos { get; } = new();
+
     public Proefsite()
     {
         _listener.Start();
@@ -85,11 +92,14 @@ public sealed class Proefsite : IDisposable
                 lock (Gevraagd) Gevraagd.Add(pagina);
 
                 var adres = Uri.UnescapeDataString(regel.Split(' ') is { Length: > 1 } delen ? delen[1] : "");
-                var inhoud = VasteInhoud ?? Antwoord?.Invoke(adres) ?? Pagina(pagina);
-                var body = Encoding.UTF8.GetBytes(inhoud);
+
+                var isFoto = Fotos.TryGetValue(adres.Split('?')[0], out var foto);
+                var body = isFoto ? foto! : Encoding.UTF8.GetBytes(
+                    VasteInhoud ?? Antwoord?.Invoke(adres) ?? Pagina(pagina));
 
                 await stream.WriteAsync(Encoding.ASCII.GetBytes(
-                    "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n" +
+                    "HTTP/1.1 200 OK\r\n" +
+                    (isFoto ? "Content-Type: image/jpeg\r\n" : "Content-Type: text/html; charset=utf-8\r\n") +
                     $"Content-Length: {body.Length}\r\nConnection: close\r\n\r\n"));
                 await stream.WriteAsync(body);
             }

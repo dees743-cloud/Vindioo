@@ -1496,13 +1496,40 @@ meer dan een minuut, en dan wil je niet naar een leeg venster kijken.
   Bij 2dehands verandert er niets: daar is het adres van de zoekpagina letterlijk de eerste foto
   van de pagina, dus die stond er sowieso maar één keer in.
 
-  **Wat dit niet oplost:** *AI-controle op deze foto* (zonder het vinkje) kijkt nog altijd naar
-  `Listing.LargeImage`, en bij Facebook is dat die 260 px. Daar is op een stapel spellen weinig
-  van te lezen. Wie bij Facebook iets wil laten lezen, zet het vinkje "Alle foto's" aan.
-
   Nagemeten met het venster buiten beeld, de echte Ollama en twee echte Catawiki-foto's achter een
   proefpagina die Facebook nabootst (de zoekpagina geeft het kleine kaartformaat, de pagina het
   grote): **2 blokken in 24 s**, niet 3, en de koppen tellen tot 2.
+- **Ook zonder het vinkje wordt er naar een leesbare foto gekeken** (26 september 2026,
+  `DetailFetcher.GroteVersieAsync`). *AI-controle op deze foto* nam tot dan `Listing.LargeImage`,
+  en bij Facebook is dat een miniatuur van 260 px waar niets van te lezen valt. Nu wordt die foto
+  eerst **nagemeten** en pas dan gelezen: is ze een miniatuur, dan komt de grotere van de
+  advertentiepagina in haar plaats.
+
+  **De grens is 500 px op de lange zijde, en dat getal komt uit een meting.** Wat de zoekpagina's
+  geven: Facebook **260**, 2dehands **800 tot 2048**, Catawiki 1800, eBay 1600. De eerste versie
+  nam 900 px - de grens waaronder een foto niet meer in stukken geknipt wordt - en dat was fout:
+  bij 2dehands *is* die 800 px het origineel (het adres van de zoekpagina is er letterlijk dat van
+  de eerste foto op de pagina), dus daar viel niets te halen en betaalde **8 van de eerste 14**
+  zoekertjes op "cd speler" 0,7 seconde voor niets. Met 500 px zit de grens boven elke miniatuur
+  die we zagen en onder elk origineel.
+
+  Drie dingen die daarbij horen:
+
+  - **Het venster zegt het**, tijdens ("Deze foto is maar 260 × 260 beeldpunten - te klein om een
+    label van te lezen...") en achteraf ("Bekeken is de foto van de advertentiepagina (960 × 720
+    beeldpunten); die op de kaart is maar 260 × 260"), en het toont die foto erbij. Anders kijkt
+    de AI naar iets anders dan waarop je klikte zonder dat iemand het weet.
+  - **De foto gaat niet twee keer over de lijn.** Ze moet toch opgehaald worden om ze na te meten,
+    dus ze komt mee terug en het venster gebruikt ze.
+  - **Geeft de pagina niets groters, dan blijft de foto van de kaart staan.** Een andere foto
+    tonen dan waarop geklikt is, is erger dan een foto die niet goed leesbaar is.
+
+  Nagemeten op 26 september 2026 met echte zoekertjes: op 2dehands haalden **14 van de 14** geen
+  pagina op (traagste 96 ms, 8 van hen met een foto van 800 px), en een echt Facebook-zoekertje
+  ging van **260 × 260 naar 960 × 720 in 5,7 s** (107 kB). In het venster buiten beeld, met de
+  echte Ollama: één blok, de statusregel die de omschakeling noemt, en de bekeken foto erbij. De
+  logica eromheen staat in `FotoChecks`, met een proefsite die echte foto's serveert - het formaat
+  is niet aan een adres af te lezen, dus er valt niets na te bootsen.
 - **De titel van het venster volgt het vinkje.** Hij stond vast op "AI-controle op deze foto", ook
   wanneer er naar alle foto's gekeken werd.
 
@@ -3325,7 +3352,8 @@ witte tekst leesbaar blijft.
   lezen wat er op de voorwerpen staat, en erover vertellen in gewone taal - voor een doos vol
   dvd's waarvan de titels te klein zijn, of het typenummer op een label. Lokaal, dus er gaat geen
   foto de deur uit. Ook voor alle foto's van een zoekertje tegelijk, zodra het sitebestand zegt
-  waar die staan (`DetailImagesSelector`)
+  waar die staan (`DetailImagesSelector`). Is de foto van de zoekpagina een miniatuur - Facebook
+  geeft er van 260 px - dan wordt de grotere van de advertentiepagina gelezen
 - Naast de prijs de **stad** (en anders het land), en bij een veiling erachter **hoelang er nog
   geboden kan worden**. Past die regel niet, dan vervaagt het einde en schuift ze zodra je er met
   de muis op gaat staan. Staat die tijd niet op de zoekpagina van de site maar wel op de pagina van

@@ -385,6 +385,88 @@ public static class FotoChecks
                 "niets ingevuld: dan valt er ook niets te wachten");
         }
 
+        // ---------------------------------------------------------------------------
+        Check.Groep("AI-controle op één foto: te klein om te lezen, dan die van de pagina");
+        {
+            // Zo ligt het bij Facebook: de zoekpagina geeft dezelfde foto op 261 px en de
+            // advertentiepagina op 960, met twee verschillende adressen. Aan het adres is dat
+            // niet te zien, dus de app meet de foto zelf na - en daarom serveert de proefsite
+            // hier echte foto's in plaats van enkel adressen.
+            var paginas = 0;
+
+            using var site = new Proefsite();
+
+            site.Fotos["/klein.jpg"] = Foto(261, 261);
+            site.Fotos["/paginafoto.jpg"] = Foto(960, 720);
+            site.Fotos["/eigenfoto.jpg"] = Foto(800, 800);
+            site.Fotos["/nogkleiner.jpg"] = Foto(120, 120);
+
+            var adres = $"http://127.0.0.1:{site.Poort}";
+
+            site.Antwoord = vraag =>
+            {
+                Interlocked.Increment(ref paginas);
+
+                // /z/2 speelt een site waarvan de pagina niets beters te bieden heeft.
+                var op = vraag.Contains("/z/2") ? "/nogkleiner.jpg" : "/paginafoto.jpg";
+                return $"<html><body><div class='gallery'><img src='{op}'></div></body></html>";
+            };
+
+            var def = site.Site("Kleinfoto");
+            def.DetailImagesSelector = ".gallery img@src";
+
+            var lijst = new[] { def };
+
+            Listing Zoekertje(string nummer, string foto) => new()
+            {
+                Source = "Kleinfoto", Title = "Stapel spellen",
+                Url = $"{adres}/z/{nummer}", ImageUrls = { adres + foto }
+            };
+
+            var keuze = await DetailFetcher.GroteVersieAsync(Zoekertje("1", "/klein.jpg"), lijst);
+
+            Check.Dat(keuze.Url == adres + "/paginafoto.jpg",
+                $"een foto van 261 px wordt die van de advertentiepagina ({keuze.Url})");
+            Check.Dat(keuze.Maat == "960 × 720" && keuze.VorigeMaat == "261 × 261",
+                $"met beide maten erbij, om het te kunnen zeggen ({keuze.Maat} tegenover {keuze.VorigeMaat})");
+            Check.Dat(keuze.Beeld is not null && keuze.Beeld.Length == site.Fotos["/paginafoto.jpg"].Length,
+                "en de foto komt mee, zodat ze niet twee keer over de lijn gaat");
+
+            // Een foto die de site zelf al als origineel geeft, hoort niets extra te kosten.
+            // Precies dat gaf de eerste versie mis: met een grens van 900 px ging 2dehands elke
+            // keer de pagina halen, en die 800 px ís daar het origineel - het adres van de
+            // zoekpagina is er letterlijk dat van de eerste foto op de pagina. Nagemeten op
+            // 26 september 2026: 7 van de eerste 14 op "cd speler" hadden zo'n foto van 800 px,
+            // en die betaalden elk 0,7 seconde voor niets.
+            paginas = 0;
+            var genoeg = await DetailFetcher.GroteVersieAsync(Zoekertje("3", "/eigenfoto.jpg"), lijst);
+
+            Check.Dat(genoeg.Url == adres + "/eigenfoto.jpg" && genoeg.VorigeMaat is null,
+                $"een foto van 800 px blijft - dat is bij 2dehands het origineel ({genoeg.Maat})");
+            Check.Dat(paginas == 0, $"en de pagina wordt dan niet eens opgehaald ({paginas} verzoeken)");
+
+            // Geeft de pagina niets gróters, dan blijft het bij de kleine. Een andere foto tonen
+            // dan waarop geklikt is, is erger dan een foto die niet goed leesbaar is.
+            var nietBeter = await DetailFetcher.GroteVersieAsync(Zoekertje("2", "/klein.jpg"), lijst);
+
+            Check.Dat(nietBeter.Url == adres + "/klein.jpg" && nietBeter.VorigeMaat is null,
+                $"geeft de pagina niets groters, dan blijft de foto van de kaart ({nietBeter.Url})");
+
+            // En een site die niet zegt waar haar foto's staan, kost ook niets.
+            paginas = 0;
+            var zonder = new Listing
+            {
+                Source = "Zonder", Title = "Iets",
+                Url = $"{adres}/z/4", ImageUrls = { adres + "/klein.jpg" }
+            };
+
+            var geen = await DetailFetcher.GroteVersieAsync(zonder, new[] { site.Site("Zonder") });
+
+            Check.Dat(geen.Url == adres + "/klein.jpg" && geen.Maat == "261 × 261",
+                "zonder selector blijft het bij de foto van de kaart");
+            Check.Dat(paginas == 0, $"en ook daar geen verzoek ({paginas})");
+        }
+
         PhotoAnalyzer.UrlVoorControles = null;
     }
 

@@ -45,7 +45,10 @@ public class PhotoResultView
 /// het geheel meer dan een minuut, en dan wil je niet naar een leeg venster kijken.
 ///
 /// De grote foto gaat voor op de miniatuur (<see cref="Listing.LargeImage"/>): hoe meer
-/// beeldpunten, hoe meer er te lezen valt.
+/// beeldpunten, hoe meer er te lezen valt. En is zelfs díe te klein - bij Facebook is de foto
+/// van de zoekpagina 261 × 261 - dan wordt de grotere van de advertentiepagina gehaald
+/// (<see cref="DetailFetcher.GroteVersieAsync"/>). Het venster zegt dat dan ook, en toont die
+/// foto erbij: anders kijkt de AI naar iets anders dan waarop je klikte.
 /// </summary>
 public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
 {
@@ -175,6 +178,13 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
         {
             var fotos = new List<string>();
 
+            // De eerste foto is bij één foto al opgehaald om ze na te meten; zo gaat ze niet
+            // twee keer over de lijn. En stond er een grotere op de advertentiepagina, dan moet
+            // het venster dat zeggen - anders kijkt de AI naar iets anders dan waarop je klikte.
+            byte[]? alGehaald = null;
+            string? kleinereWas = null;
+            var maat = "";
+
             if (alle)
             {
                 StatusText.Text = "De andere foto's van dit zoekertje opzoeken...";
@@ -192,7 +202,17 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
             }
             else if (!string.IsNullOrWhiteSpace(_listing.LargeImage))
             {
-                fotos.Add(_listing.LargeImage);
+                // Is de foto van de zoekpagina te klein om iets van te lezen - bij Facebook
+                // 261 px - dan haalt dit de grotere van de advertentiepagina. Is ze groot
+                // genoeg, dan gebeurt er niets extra.
+                var keuze = await DetailFetcher.GroteVersieAsync(
+                    _listing, _sites, new Progress<string>(t => StatusText.Text = t), cts.Token);
+
+                fotos.Add(keuze.Url);
+
+                alGehaald = keuze.Beeld;
+                kleinereWas = keuze.VorigeMaat;
+                maat = keuze.Maat;
             }
 
             if (fotos.Count == 0)
@@ -218,7 +238,9 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
                 var nummer = fotos.Count == 1 ? "" : $"Foto {i + 1} van {fotos.Count}: ";
                 var melder = new Progress<string>(tekst => StatusText.Text = nummer + tekst);
 
-                var beeld = await HaalFotoAsync(fotos[i], cts.Token);
+                var beeld = i == 0 && alGehaald is not null
+                    ? alGehaald
+                    : await HaalFotoAsync(fotos[i], cts.Token);
 
                 if (beeld is null)
                 {
@@ -244,7 +266,10 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
                         ? uitkomst.Beschrijving
                         : "Het model zag niets waarover het iets kon zeggen.",
                     Gelezen = uitkomst.Gelezen.ToList(),
-                    Penseel = fotos.Count == 1 ? null : Penseel(fotos[i])
+                    // Bij één foto hoeft er geen miniatuur: je klikte er net zelf op. Tenzij het
+                    // een grotere versie van de advertentiepagina geworden is - dan hoor je te
+                    // zien waar de AI werkelijk naar keek.
+                    Penseel = fotos.Count == 1 && kleinereWas is null ? null : Penseel(fotos[i])
                 });
 
                 CopyButton.IsEnabled = true;
@@ -258,6 +283,10 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
                 1 => $"Klaar in {klok.Elapsed.TotalSeconds:F0} s.",
                 var n => $"Klaar in {klok.Elapsed.TotalSeconds:F0} s, {n} foto's bekeken."
             };
+
+            if (kleinereWas is not null && _uitkomsten.Count > 0)
+                StatusText.Text += $" Bekeken is de foto van de advertentiepagina ({maat} " +
+                                   $"beeldpunten); die op de kaart is maar {kleinereWas}.";
         }
         catch (OperationCanceledException)
         {

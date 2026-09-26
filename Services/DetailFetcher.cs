@@ -1,14 +1,20 @@
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.IO;
 using System.Net.Http;
+using System.Windows.Media.Imaging;
 using Zentrix.Models;
 using Zentrix.Sources;
 
 namespace Zentrix.Services;
 
 /// <summary>
-/// Haalt aan wat niet op de zoekpagina van een site staat. Vandaag is dat één ding: de
-/// sluitingsdatum van een veiling, langs twee wegen:
+/// Haalt aan wat niet op de zoekpagina van een site staat: de sluitingsdatum van een veiling
+/// (hieronder), en alles wat op de pagina van een zoekertje zelf staat - de foto's, de
+/// verkoper, sinds wanneer het online staat en de volledige beschrijving
+/// (<see cref="DetailsAsync"/>, en <see cref="GroteVersieAsync"/> voor één foto in het groot).
+///
+/// De sluitingsdatum gaat langs twee wegen:
 /// <list type="bullet">
 /// <item><see cref="FillAsync"/>: de pagina van elk kavel apart
 /// (<see cref="SiteDefinition.DetailEndDateSelector"/>, AlleVeilingen);</item>
@@ -422,6 +428,138 @@ public static class DetailFetcher
             // Niet onthouden: de volgende keer mag het opnieuw geprobeerd worden.
             Log.Write($"pagina van '{Kort(listing.Title)}' niet op te halen - {ex.Message}");
             return new ListingDetails(fotos, "", "", "", FriendlyError.Describe(ex));
+        }
+    }
+
+    /// <summary>Welke foto de AI-controle te zien krijgt, en hoe groot die werkelijk is.</summary>
+    /// <param name="Url">Het adres van de foto die bekeken wordt.</param>
+    /// <param name="Beeld">
+    /// De foto zelf, al opgehaald. Ze is toch nodig om ze na te meten, en zo gaat ze niet twee
+    /// keer over de lijn. Null wanneer ze niet op te halen was.
+    /// </param>
+    /// <param name="Maat">"960 × 720", om in de statusregel te zetten.</param>
+    /// <param name="VorigeMaat">
+    /// Wat de zoekpagina gaf, wanneer die te klein was en er een grotere gehaald is. Anders null.
+    /// Het venster zegt dat, want anders kijkt de AI naar een andere foto dan waarop je klikte
+    /// zonder dat iemand het weet.
+    /// </param>
+    public record FotoVoorAI(string Url, byte[]? Beeld, string Maat, string? VorigeMaat = null);
+
+    /// <summary>
+    /// Tot deze maat (de lange zijde) is een foto een miniatuur van de zoekpagina, en is het de
+    /// moeite om de advertentiepagina te openen voor een grotere.
+    ///
+    /// Het getal komt uit een meting en niet uit een gevoel. Wat de sites op hun zoekpagina
+    /// geven: Facebook <b>261</b> px, 2dehands <b>800 tot 2048</b>, Catawiki 1800, eBay 1600.
+    /// Die 800 van 2dehands is het origineel - het adres van de zoekpagina is daar letterlijk
+    /// dat van de eerste foto op de advertentiepagina - dus daar valt niets te halen. Met een
+    /// grens van 900 betaalde de helft van de 2dehands-zoekertjes 0,7 seconde voor niets
+    /// (nagemeten op 26 september 2026: 7 van de eerste 14 op "cd speler" hadden 800 px).
+    /// Vandaar 500: boven elke miniatuur die we zagen, onder elk origineel.
+    /// </summary>
+    private const int MiniatuurTot = 500;
+
+    /// <summary>
+    /// De foto voor <i>AI-controle op deze foto</i>: die van de zoekpagina, tenzij daar niets
+    /// van te lezen valt.
+    ///
+    /// Waarom dit nodig is: bij Facebook geeft de zoekpagina <b>261 × 261</b>, en dat formaat is
+    /// daar niet op te drijven - fbcdn ondertekent het mee (zie "Is de grote foto wel de grote
+    /// foto?" in CLAUDE.md). Het model las op zo'n miniatuur niets meer en verzon er iets bij:
+    /// bij een stapel videospellen "ongeveer twintig cd's". De advertentiepagina heeft dezelfde
+    /// foto op 960 px, en dáár is wel wat van te lezen.
+    ///
+    /// Dus wordt er eerst <b>gemeten</b> en pas dan opgehaald. Is de foto van de zoekpagina groot
+    /// genoeg, dan gebeurt er niets extra en kost dit geen seconde: enkel onder
+    /// <see cref="MiniatuurTot"/> wordt de pagina opgehaald, en dan nog enkel wanneer de site
+    /// zegt waar haar foto's staan.
+    ///
+    /// De <b>eerste</b> foto van de pagina is de hoofdfoto, en dat is de foto van de zoekpagina
+    /// in het groot - zo staat het bij elke site die we nagemeten hebben. Levert ze toch niets
+    /// groters op, dan blijft het bij de kleine: een andere foto tonen dan waarop geklikt is,
+    /// is erger dan een foto die niet goed leesbaar is.
+    /// </summary>
+    public static async Task<FotoVoorAI> GroteVersieAsync(Listing listing, IReadOnlyList<SiteDefinition> sites,
+                                                          IProgress<string>? status = null,
+                                                          CancellationToken ct = default)
+    {
+        var url = listing.LargeImage;
+
+        var beeld = await HaalFotoAsync(url, ct);
+        if (beeld is null) return new FotoVoorAI(url, null, "");
+
+        var klein = Afmeting(beeld);
+        if (Math.Max(klein.Breed, klein.Hoog) > MiniatuurTot)
+            return new FotoVoorAI(url, beeld, Maat(klein));
+
+        status?.Report($"Deze foto is maar {Maat(klein)} beeldpunten - te klein om een label van " +
+                       "te lezen. De grotere versie van de advertentiepagina ophalen...");
+
+        var pagina = (await DetailsAsync(listing, sites, ct)).PaginaFotos.FirstOrDefault();
+
+        if (pagina is null || string.Equals(pagina, url, StringComparison.OrdinalIgnoreCase))
+            return new FotoVoorAI(url, beeld, Maat(klein));
+
+        var groter = await HaalFotoAsync(pagina, ct);
+        if (groter is null) return new FotoVoorAI(url, beeld, Maat(klein));
+
+        var groot = Afmeting(groter);
+        if (Math.Max(groot.Breed, groot.Hoog) <= Math.Max(klein.Breed, klein.Hoog))
+            return new FotoVoorAI(url, beeld, Maat(klein));
+
+        Log.Write($"AI-controle: de foto van de zoekpagina is {Maat(klein)}, " +
+                  $"die van de advertentiepagina {Maat(groot)} - die laatste dus");
+
+        return new FotoVoorAI(pagina, groter, Maat(groot), Maat(klein));
+    }
+
+    /// <summary>
+    /// Hoe groot een foto werkelijk is. Niet af te lezen aan het adres: bij 2dehands zit het
+    /// formaat in een parameter, bij Facebook in een ondertekend stukje pad, en beide liegen
+    /// wel eens. Enkel de kop van het bestand wordt gelezen, niet de hele foto ontcijferd.
+    /// </summary>
+    private static (int Breed, int Hoog) Afmeting(byte[] foto)
+    {
+        try
+        {
+            using var stroom = new MemoryStream(foto);
+            var frame = BitmapFrame.Create(stroom, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+
+            return (frame.PixelWidth, frame.PixelHeight);
+        }
+        catch (Exception)
+        {
+            // Geen foto, of een formaat dat Windows niet kent: dan is er niets te vergelijken
+            // en blijft het bij wat er al was.
+            return (0, 0);
+        }
+    }
+
+    private static string Maat((int Breed, int Hoog) maat) => $"{maat.Breed} × {maat.Hoog}";
+
+    /// <summary>
+    /// Een foto ophalen. Dezelfde client als de pagina's, dus met een herkenbare afzender:
+    /// sommige CDN's geven anders een foutcode in plaats van een foto.
+    /// </summary>
+    private static async Task<byte[]?> HaalFotoAsync(string url, CancellationToken ct)
+    {
+        if (!IsWebadres(url)) return null;
+
+        try
+        {
+            using var antwoord = await Http.GetAsync(url, ct);
+            antwoord.EnsureSuccessStatusCode();
+
+            return await antwoord.Content.ReadAsByteArrayAsync(ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Log.Write($"foto niet op te halen - {ex.Message}");
+            return null;
         }
     }
 
