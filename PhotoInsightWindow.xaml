@@ -102,7 +102,9 @@
              effen themakleur; daarom staat het verloop als eigen vlak achter de inhoud. -->
         <Border Grid.RowSpan="3" Background="{StaticResource AppBackgroundBrush}" />
 
-        <ui:TitleBar Grid.Row="0" Title="AI-controle op deze foto" />
+        <!-- De titel zegt waar er gekeken wordt; de code zet hem, want dat hangt af van het
+             vinkje "Alle foto's". Vast op "deze foto" loog hij bij alle andere. -->
+        <ui:TitleBar Grid.Row="0" x:Name="Kop" Title="AI-controle op deze foto" />
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="20,10,20,0">
             <StackPanel>

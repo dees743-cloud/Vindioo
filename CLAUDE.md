@@ -1485,6 +1485,26 @@ meer dan een minuut, en dan wil je niet naar een leeg venster kijken.
 - **Onthouden op het adres van de pagina**, niet op `Listing.Key`. Die is `Source:ExternalId`, en
   bij een leeg id zouden twee zoekertjes van dezelfde site elkaars foto's krijgen. Gevonden door de
   controle die er juist voor staat.
+- **Geeft de pagina foto's, dan kijkt de AI enkel naar díe** (26 september 2026,
+  `DetailFetcher.ListingDetails.PaginaFotos`). Tot dan kreeg ze de samengevoegde lijst, met de
+  foto van de zoekpagina vooraan - en bij Facebook is dat **dezelfde foto op 260 px naast dezelfde
+  op 960 px**, twee verschillende adressen. Gevolg: twee keer wachten op hetzelfde, en in die
+  kleine las het model niets meer, waarop het er iets bij verzon. Bij een stapel videospellen gaf
+  foto 1 "ongeveer twintig cd's" en foto 2 de 43 juiste titels. De eigenaar zag dat meteen: "de
+  gegevens van foto 1 kloppen niet, die van foto 2 wel."
+
+  Bij 2dehands verandert er niets: daar is het adres van de zoekpagina letterlijk de eerste foto
+  van de pagina, dus die stond er sowieso maar één keer in.
+
+  **Wat dit niet oplost:** *AI-controle op deze foto* (zonder het vinkje) kijkt nog altijd naar
+  `Listing.LargeImage`, en bij Facebook is dat die 260 px. Daar is op een stapel spellen weinig
+  van te lezen. Wie bij Facebook iets wil laten lezen, zet het vinkje "Alle foto's" aan.
+
+  Nagemeten met het venster buiten beeld, de echte Ollama en twee echte Catawiki-foto's achter een
+  proefpagina die Facebook nabootst (de zoekpagina geeft het kleine kaartformaat, de pagina het
+  grote): **2 blokken in 24 s**, niet 3, en de koppen tellen tot 2.
+- **De titel van het venster volgt het vinkje.** Hij stond vast op "AI-controle op deze foto", ook
+  wanneer er naar alle foto's gekeken werd.
 
 `GenericSource.ReadFieldsAsync` is de meervoudsvorm van `ReadFieldAsync`: alles wat past in plaats
 van het eerste. Zo blijft er één plaats waar de notatie van een selector uitgelegd wordt. Twee

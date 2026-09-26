@@ -169,6 +169,8 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
         var grondig = ThoroughBox.IsChecked == true;
         var alle = AllPhotosBox.IsChecked == true;
 
+        Kop.Title = alle ? "AI-controle op alle foto's van dit zoekertje" : "AI-controle op deze foto";
+
         try
         {
             var fotos = new List<string>();
@@ -176,7 +178,17 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
             if (alle)
             {
                 StatusText.Text = "De andere foto's van dit zoekertje opzoeken...";
-                fotos = await DetailFetcher.FotosAsync(_listing, _sites, cts.Token);
+
+                var details = await DetailFetcher.DetailsAsync(_listing, _sites, cts.Token);
+
+                // Geeft de pagina foto's, dan kijken we enkel naar díe - niet ook nog naar de
+                // foto van de zoekpagina. Bij Facebook is dat namelijk dezelfde foto op 260 px
+                // naast dezelfde op 960 px, en dan las het model die kleine niet en verzon het
+                // er iets bij: bij een stapel spelletjes "ongeveer twintig cd's". Twee keer
+                // wachten op hetzelfde, met een verkeerd antwoord erbovenop.
+                fotos = details.PaginaFotos.Count > 0
+                    ? details.PaginaFotos.ToList()
+                    : details.Fotos.ToList();
             }
             else if (!string.IsNullOrWhiteSpace(_listing.LargeImage))
             {
