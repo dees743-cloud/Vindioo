@@ -1668,13 +1668,35 @@ pagina; die drie keer ophalen zou bij een brugsite twaalf seconden kosten. `Foto
 AI-controle) loopt sindsdien over dezelfde weg, met enkel de foto's eruit. Wat opgehaald is, blijft
 onthouden op het adres van de pagina.
 
-**Ingevuld voor zes sites** (26 september 2026): 2dehands, Marktplaats, AlleVeilingen, Facebook,
-Catawiki en eBay. Welke selector en wat er gemeten is, staat in `SITES.md` van `zentrix-sites`.
-Catawiki geeft 5 foto's van 1800 px waar de zoekpagina er één gaf, eBay 5 van 1600 px, allebei in
-ongeveer 4,5 s via de brug; van allebei komt ook de verkoper mee, en van Catawiki de volledige
-beschrijving.
+**Ingevuld voor alle tien de sites** (26 september 2026). Welke selector en wat er gemeten is,
+staat in `SITES.md` van `zentrix-sites`. Catawiki geeft 5 foto's van 1800 px waar de zoekpagina er
+één gaf, eBay 5 van 1600 px, allebei in ongeveer 4,5 s via de brug; van allebei komt ook de
+verkoper mee, en van Catawiki de volledige beschrijving.
 
-Waar het staat, zegt het sitebestand - drie velden, alle drie ook in *Sites beheren*:
+De laatste vier kwamen er op dezelfde dag bij, elk nagemeten op vier echte zoekertjes: Kleinanzeigen
+(3 tot 14 foto's, 960 naar **1600 px**), AutoScout24 (7 tot 50, 1024 naar **2048**), leboncoin (2 tot
+10, 613 naar **1200**) en Discogs (1 tot 4, 300 naar **600**). Drie dingen die daar bovenkwamen en
+die bij een volgende site weer kunnen spelen:
+
+- **Eén site kan twee paginasjablonen door elkaar draaien.** Kleinanzeigen is halverwege een
+  verhuizing: van zes advertenties stond er één op het oude sjabloon en vijf op het nieuwe. Een
+  selector die enkel op het nieuwe werkt, faalt dan bij één op zes - zonder fout, gewoon leeg.
+  Vandaar selectors die op allebei passen, met een komma-lijst waar dat nodig is.
+- **De grootste variant staat niet waar je ze verwacht.** In de galerij van Kleinanzeigen staat
+  `rule=$_59.AUTO` (960 px), terwijl `$_57.AUTO` dezelfde foto op **1600** geeft. Meet de varianten
+  die in de pagina staan na, ook die in `data-`attributen; het is niet aan het getal te zien welke
+  de grootste is.
+- **Het origineel is niet altijd de beste keuze.** Bij AutoScout24 geeft het kale adres 5694x3202
+  en **1,65 MB**, en een advertentie heeft daar tot vijftig foto's - in een fotostrook die ze
+  allemaal laadt, is dat onbruikbaar. Daar is het 2048 px (253 kB) geworden.
+
+**React-sites geven hun gegevens in één blok.** AutoScout24 en leboncoin hebben allebei
+`script[id='__NEXT_DATA__']` met de foto's, de verkoper en de datum erin - dezelfde afweging als
+het `ld+json`-blok van 2dehands, en een stuk stabieler dan klassenamen die bij elke uitrol
+veranderen. De beschrijving komt er juist níet uit: in JSON staat ze vol `\u00e9` en `\"`, en in
+de pagina staat ze gewoon.
+
+Waar het staat, zegt het sitebestand - vier velden, alle vier ook in *Sites beheren*:
 
 | Veld | Waarvoor |
 |---|---|
@@ -2940,14 +2962,14 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel` en Zentrix dicht waren dat er 338 op 26 september 2026, met Chrome open - dus 340 met
+`--snel` en Zentrix dicht waren dat er 346 op 26 september 2026, met Chrome open - dus 348 met
 alles dicht. Twee dingen op deze pc laten controles wegvallen, en allebei zeggen ze dat ook:
 
 - **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (23).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
   Het controleproject heeft een eigen gegevensmap en dus een andere code, dus voor zijn brug is
   dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
-  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (338 in plaats van 340).
+  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (346 in plaats van 348).
 
 Drie regels waar het aan vastzit:
 
@@ -3427,8 +3449,8 @@ Hieronder enkel wat aan de app zelf te doen valt.
      *Prijsindicatie*, met `PhotoInsightWindow`.
    - ~~Alle foto's van dat zoekertje.~~ Gedaan op 24 september 2026: `DetailImagesSelector` in het
      sitebestand, opgehaald door `DetailFetcher.FotosAsync`. Ingevuld op 25 september voor
-     2dehands, Marktplaats en AlleVeilingen, op 26 september voor Facebook, Catawiki en eBay.
-     **Nog open**: Discogs, leboncoin, Kleinanzeigen en AutoScout24 zijn nog niet bekeken.
+     2dehands, Marktplaats en AlleVeilingen, op 26 september voor Facebook, Catawiki en eBay, en
+     diezelfde dag voor Kleinanzeigen, AutoScout24, leboncoin en Discogs - dus voor alle tien.
    - **Meerdere zoekertjes tegelijk**, met vooraf een schermpje dat zegt hoeveel foto's en
      hoelang. Vraagt dat de lijst en het raster meervoudige selectie aankunnen; nog na te kijken.
 
