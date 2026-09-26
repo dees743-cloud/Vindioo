@@ -16,6 +16,20 @@ public record PhotoInsight(string Beschrijving, IReadOnlyList<string> Gelezen,
                            TimeSpan Duur, int Stukken, string? Fout = null);
 
 /// <summary>
+/// Wat er van één foto gelezen is: de losse namen, zonder verhaal eromheen. Bij meerdere foto's
+/// van hetzelfde zoekertje wordt er per foto gelezen en pas daarna één keer verteld, over alles
+/// samen - zie <see cref="PhotoAnalyzer.LeesAsync"/>.
+/// </summary>
+/// <param name="Gelezen">De namen en typenummers die letterlijk van de foto gelezen zijn.</param>
+/// <param name="Duur">Hoelang het lezen duurde.</param>
+/// <param name="Stukken">In hoeveel stukken de foto geknipt is; 1 betekent in één keer gelezen.</param>
+/// <param name="Fout">De reden waarom het niet lukte, of null.</param>
+public record PhotoReading(IReadOnlyList<string> Gelezen, TimeSpan Duur, int Stukken, string? Fout = null);
+
+/// <summary>Wat het model van de gelezen namen maakte: één alinea, of de reden waarom niet.</summary>
+public record PhotoStory(string Beschrijving, TimeSpan Duur, string? Fout = null);
+
+/// <summary>
 /// Laat een AI op deze pc naar een foto van een zoekertje kijken en er in gewone taal over
 /// vertellen. Bedoeld voor wat je met het blote oog niet ziet: een doos vol dvd's waarvan je de
 /// titels niet kan lezen, of het typenummer op het label achteraan een oude radio.
@@ -87,7 +101,21 @@ public class PhotoAnalyzer
         "Elke naam één keer, alleen wat je werkelijk kan lezen. Verzin niets.";
 
     /// <summary>
-    /// Bekijkt één foto en vertelt erover.
+    /// Leest één foto: enkel de namen, zonder er al iets over te vertellen.
+    ///
+    /// Dat lezen en vertellen apart staan, is de kern van de opzet (zie de klasse hierboven), en
+    /// het maakt nog iets anders mogelijk: bij een zoekertje met vier foto's wordt er vier keer
+    /// gelezen en pas daarna verteld, over alle namen samen.
+    ///
+    /// Waarom dat beter is dan vier losse alinea's, gemeten op de vier foto's van één DVD-speler:
+    ///
+    /// - **Het zet leesfouten recht.** De losse alinea van foto 3 maakte er "modelnummer 1650"
+    ///   van; met de namen van alle vier de foto's erbij stond er DVD1050, zoals op het toestel.
+    ///   Dat is hetzelfde effect als bij de stukken van één foto, maar dan over de foto's heen.
+    /// - **Het brengt samen wat over de foto's verspreid staat.** Het typenummer en "230V~ 50Hz"
+    ///   staan enkel op foto 4, de labels DOLBY DIGITAL en dts enkel op foto 2. Eén alinea heeft
+    ///   ze allebei; vier alinea's hebben er elk een stuk van.
+    /// - **En het is viermaal hetzelfde verhaal.** Precies waarvoor de eigenaar het vroeg.
     /// </summary>
     /// <param name="foto">De foto zelf, zoals ze van de site kwam.</param>
     /// <param name="grondig">
@@ -95,9 +123,9 @@ public class PhotoAnalyzer
     /// voorwerp, en dan is het een paar seconden in plaats van een halve minuut.
     /// </param>
     /// <param name="status">Welk stuk er nu gelezen wordt, voor de statusregel van het venster.</param>
-    public async Task<PhotoInsight> AnalyseerAsync(byte[] foto, bool grondig = true,
-                                                   IProgress<string>? status = null,
-                                                   CancellationToken ct = default)
+    public async Task<PhotoReading> LeesAsync(byte[] foto, bool grondig = true,
+                                              IProgress<string>? status = null,
+                                              CancellationToken ct = default)
     {
         var klok = System.Diagnostics.Stopwatch.StartNew();
 
@@ -106,7 +134,7 @@ public class PhotoAnalyzer
             var bron = Lees(foto);
             var stukken = grondig ? Knip(bron) : new List<BitmapSource> { bron };
 
-            // Eerst enkel lezen, stuk voor stuk. Wat hier uitkomt zijn losse namen, en dat is met
+            // Enkel lezen, stuk voor stuk. Wat hier uitkomt zijn losse namen, en dat is met
             // opzet: een model dat mag vertellen terwijl het leest, begint te verzinnen.
             var gelezen = new List<string>();
 
@@ -126,16 +154,10 @@ public class PhotoAnalyzer
 
             var uniek = Ontdubbel(gelezen);
 
-            status?.Report("Er een zin van maken...");
-            ct.ThrowIfCancellationRequested();
-
-            var tekst = await VraagAsync(VertelVraag(uniek), bron, TekstVorm, 700, ct);
-            var beschrijving = tekst?["beschrijving"]?.GetValue<string>() ?? "";
-
             Log.Write($"foto: {stukken.Count} stuk(ken), {uniek.Count} namen gelezen " +
                       $"in {klok.Elapsed.TotalSeconds:F1}s met {AppSettings.Current.AiModel}");
 
-            return new PhotoInsight(beschrijving, uniek, klok.Elapsed, stukken.Count);
+            return new PhotoReading(uniek, klok.Elapsed, stukken.Count);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -143,11 +165,75 @@ public class PhotoAnalyzer
         }
         catch (Exception ex)
         {
-            var melding = Beschrijf(ex);
-            Log.Write($"foto: mislukt - {ex.Message}");
-
-            return new PhotoInsight("", Array.Empty<string>(), klok.Elapsed, 0, melding);
+            Log.Write($"foto: lezen mislukt - {ex.Message}");
+            return new PhotoReading(Array.Empty<string>(), klok.Elapsed, 0, Beschrijf(ex));
         }
+    }
+
+    /// <summary>
+    /// Maakt van de gelezen namen één alinea. De foto gaat mee, zodat het model de losse namen in
+    /// hun verband ziet; bij meerdere foto's is dat de eerste - de hoofdfoto van het zoekertje.
+    ///
+    /// Alle foto's meesturen kan ook, maar dat is duur: vier foto's van 1200 px passen niet eens
+    /// in het contextvenster van 4096, en met een venster van 8192 duurde het 26 seconden tegen
+    /// 2,9 met enkel de eerste foto - bij hetzelfde antwoord.
+    /// </summary>
+    /// <param name="gelezen">Wat er van alle foto's samen gelezen is.</param>
+    /// <param name="foto">De foto die het model erbij ziet.</param>
+    /// <param name="aantalFotos">Over hoeveel foto's het gaat; dat staat in de vraag.</param>
+    public async Task<PhotoStory> VertelAsync(IReadOnlyList<string> gelezen, byte[] foto,
+                                              int aantalFotos = 1, IProgress<string>? status = null,
+                                              CancellationToken ct = default)
+    {
+        var klok = System.Diagnostics.Stopwatch.StartNew();
+
+        try
+        {
+            status?.Report(aantalFotos <= 1
+                ? "Er een zin van maken..."
+                : $"Er één verhaal van maken, over {aantalFotos} foto's samen...");
+
+            ct.ThrowIfCancellationRequested();
+
+            var bron = Lees(foto);
+            var tekst = await VraagAsync(VertelVraag(gelezen, aantalFotos), bron, TekstVorm, 700, ct);
+            var beschrijving = tekst?["beschrijving"]?.GetValue<string>() ?? "";
+
+            // Een lege alinea is geen fout van de app maar wel iets om te weten: zo kwam de
+            // brosse formulering hierboven aan het licht.
+            if (beschrijving.Length == 0)
+                Log.Write($"foto: het model gaf een lege beschrijving terug ({gelezen.Count} namen)");
+
+            return new PhotoStory(beschrijving, klok.Elapsed);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Log.Write($"foto: vertellen mislukt - {ex.Message}");
+            return new PhotoStory("", klok.Elapsed, Beschrijf(ex));
+        }
+    }
+
+    /// <summary>
+    /// Eén foto lezen én erover vertellen. De gewone weg voor één foto; bij meerdere foto's
+    /// gebruikt het venster <see cref="LeesAsync"/> en <see cref="VertelAsync"/> apart.
+    /// </summary>
+    public async Task<PhotoInsight> AnalyseerAsync(byte[] foto, bool grondig = true,
+                                                   IProgress<string>? status = null,
+                                                   CancellationToken ct = default)
+    {
+        var lezing = await LeesAsync(foto, grondig, status, ct);
+
+        if (lezing.Fout is not null)
+            return new PhotoInsight("", Array.Empty<string>(), lezing.Duur, 0, lezing.Fout);
+
+        var verhaal = await VertelAsync(lezing.Gelezen, foto, 1, status, ct);
+
+        return new PhotoInsight(verhaal.Beschrijving, lezing.Gelezen,
+                                lezing.Duur + verhaal.Duur, lezing.Stukken, verhaal.Fout);
     }
 
     /// <summary>
@@ -178,15 +264,33 @@ public class PhotoAnalyzer
     /// <summary>
     /// De vraag op het einde. Alles wat gelezen is gaat mee, zodat het model de losse stukken in
     /// hun verband ziet; en het mag niets toevoegen wat het niet gelezen heeft.
+    ///
+    /// Bij meerdere foto's staat er in de vraag dat de namen van al die foto's samen komen. Er
+    /// staat níet bij dat ze hetzelfde voorwerp tonen - dat weten we niet, en bij een partij
+    /// losse spullen is het gewoon één overzicht in plaats van vier halve. Er staat ook niet
+    /// hoevéél foto's het zijn: dan begon het antwoord met "Je kijkt naar een zoekertje met 4
+    /// foto's", en dat is de werking van de app, niet wat er te zien is.
+    ///
+    /// **Deze tekst is met zorg gekozen, en dat is geen stijlkwestie.** Een eerdere formulering
+    /// ("...van een tweedehands-zoekertje met 4 foto's" plus de kopregel "GELEZEN VAN ALLE
+    /// FOTO'S SAMEN") gaf bij temperatuur 0 stelselmatig een <b>lege</b> alinea. Nagemeten met
+    /// zes varianten op dezelfde foto en dezelfde namen: elk van die twee stukken apart gaf een
+    /// gewone alinea, enkel de combinatie liep leeg. Wijzig hier dus niets zonder het na te
+    /// meten, en kijk of er tekst uitkomt.
     /// </summary>
-    private static string VertelVraag(IReadOnlyList<string> gelezen) =>
-        "Je kijkt naar de foto van een tweedehands-zoekertje. Hieronder staat wat er letterlijk " +
-        "van de foto gelezen is. Schrijf daarover één alinea in gewoon Nederlands, zoals je het " +
+    private static string VertelVraag(IReadOnlyList<string> gelezen, int aantalFotos = 1) =>
+        (aantalFotos <= 1
+            ? "Je kijkt naar de foto van een tweedehands-zoekertje. Hieronder staat wat er " +
+              "letterlijk van de foto gelezen is. "
+            : "Je kijkt naar de eerste foto van een tweedehands-zoekertje. Hieronder staat wat " +
+              "er letterlijk van alle foto's van dat zoekertje samen gelezen is. ") +
+        "Schrijf daarover één alinea in gewoon Nederlands, zoals je het " +
         "aan iemand zou vertellen:\n" +
         "- begin met wat voor soort spullen het zijn en ONGEVEER hoeveel het er zijn;\n" +
         "- som daarna de namen op die gelezen zijn, zoveel mogelijk;\n" +
         "- schrijf NIETS over staat, kleur, ouderdom of details die je niet gelezen hebt.\n\n" +
-        "GELEZEN VAN DE FOTO:\n" + string.Join("\n", gelezen);
+        (aantalFotos <= 1 ? "GELEZEN VAN DE FOTO:\n" : "GELEZEN VAN DE FOTO'S:\n") +
+        string.Join("\n", gelezen);
 
     private static readonly JsonObject NamenVorm = new()
     {

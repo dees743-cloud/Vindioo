@@ -9,17 +9,22 @@ using Zentrix.Services;
 
 namespace Zentrix;
 
-/// <summary>Wat de AI van één foto maakte, klaar om te tonen.</summary>
+/// <summary>
+/// Wat er van één foto gelezen is, klaar om te tonen. Het verhaal staat hier niet in: dat is er
+/// één, over alle foto's samen, en het staat bovenaan het venster.
+/// </summary>
 public class PhotoResultView
 {
     public string Kop { get; init; } = "";
-    public string Beschrijving { get; init; } = "";
     public List<string> Gelezen { get; init; } = new();
     public Brush? Penseel { get; init; }
 
     public string GelezenKop => Gelezen.Count == 0
         ? ""
         : $"Gelezen op de foto ({Gelezen.Count}) - ongeveer vijf op de zes klopt:";
+
+    /// <summary>Een foto zonder leesbare tekst zegt dat zelf; anders staat er een leeg blok.</summary>
+    public string NietsGelezen => Gelezen.Count == 0 ? "Niets leesbaars op deze foto." : "";
 
     public Visibility NamenZichtbaar => Gelezen.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     public Visibility FotoZichtbaar => Penseel is null ? Visibility.Collapsed : Visibility.Visible;
@@ -40,9 +45,17 @@ public class PhotoResultView
 ///   seconden. Het vinkje staat aan, en zegt in zijn tooltip waarom je het zou uitzetten.
 ///
 /// **Alle foto's van het zoekertje** (het tweede vinkje) haalt ook de andere foto's van de
-/// advertentie op, van de pagina van het zoekertje zelf - daar staat vaak wat je zoekt. Elke foto
-/// krijgt zijn eigen blok, en dat blok verschijnt zodra die foto klaar is: bij vijf foto's duurt
-/// het geheel meer dan een minuut, en dan wil je niet naar een leeg venster kijken.
+/// advertentie op, van de pagina van het zoekertje zelf - daar staat vaak wat je zoekt.
+///
+/// **Daarvan komt één verhaal, niet één per foto** (26 september 2026). Bovenaan staat wat de AI
+/// ziet, en dat wordt na elke foto opnieuw geschreven met alles wat er tot dan gelezen is; per
+/// foto blijft enkel zijn miniatuur en zijn gelezen namen staan. Vier alinea's over dezelfde
+/// DVD-speler zijn viermaal hetzelfde, en elk ervan kent maar een stuk van het toestel; één
+/// alinea over alle gelezen namen samen zet bovendien leesfouten recht. Zie
+/// <see cref="PhotoAnalyzer.LeesAsync"/> voor de meting.
+///
+/// Het groeit mee terwijl je kijkt: bij vijf foto's duurt het geheel meer dan een minuut, en dan
+/// wil je niet naar een leeg venster kijken.
 ///
 /// De grote foto gaat voor op de miniatuur (<see cref="Listing.LargeImage"/>): hoe meer
 /// beeldpunten, hoe meer er te lezen valt. En is zelfs díe te klein - bij Facebook is de foto
@@ -129,16 +142,18 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
         var tekst = new System.Text.StringBuilder();
         tekst.AppendLine(_listing.Title);
 
-        foreach (var uitkomst in _uitkomsten)
+        if (SamenvattingTekst.Text.Length > 0)
         {
             tekst.AppendLine();
-            tekst.AppendLine(uitkomst.Kop);
-            tekst.AppendLine(uitkomst.Beschrijving);
+            tekst.AppendLine(SamenvattingTekst.Text);
+        }
 
+        foreach (var uitkomst in _uitkomsten)
+        {
             if (uitkomst.Gelezen.Count == 0) continue;
 
             tekst.AppendLine();
-            tekst.AppendLine("Gelezen op de foto:");
+            tekst.AppendLine(uitkomst.Kop + ", gelezen:");
             foreach (var naam in uitkomst.Gelezen) tekst.AppendLine(naam);
         }
 
@@ -168,6 +183,9 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
 
         CopyButton.IsEnabled = false;
         _uitkomsten.Clear();
+
+        SamenvattingBlok.Visibility = Visibility.Collapsed;
+        SamenvattingTekst.Text = "";
 
         var grondig = ThoroughBox.IsChecked == true;
         var alle = AllPhotosBox.IsChecked == true;
@@ -233,6 +251,12 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
 
             var klok = System.Diagnostics.Stopwatch.StartNew();
 
+            // Alles wat er tot hier gelezen is, over de foto's heen. Daaruit wordt telkens één
+            // verhaal geschreven - niet één per foto. En de eerste foto gaat mee naar dat
+            // vertellen: het model moet de namen in hun verband zien.
+            var samen = new List<string>();
+            byte[]? hoofdfoto = null;
+
             for (var i = 0; i < fotos.Count; i++)
             {
                 var nummer = fotos.Count == 1 ? "" : $"Foto {i + 1} van {fotos.Count}: ";
@@ -248,24 +272,29 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
                     continue;
                 }
 
-                var uitkomst = await new PhotoAnalyzer().AnalyseerAsync(beeld, grondig, melder, cts.Token);
+                hoofdfoto ??= beeld;
+
+                var lezing = await new PhotoAnalyzer().LeesAsync(beeld, grondig, melder, cts.Token);
 
                 if (cts.IsCancellationRequested) return;
 
-                if (uitkomst.Fout is not null)
+                if (lezing.Fout is not null)
                 {
-                    StatusText.Text = uitkomst.Fout;
+                    StatusText.Text = lezing.Fout;
                     return;
                 }
+
+                var nieuw = lezing.Gelezen
+                    .Where(n => !samen.Contains(n, StringComparer.OrdinalIgnoreCase))
+                    .ToList();
+
+                samen.AddRange(nieuw);
 
                 // Meteen tonen: bij vijf foto's duurt het geheel meer dan een minuut.
                 _uitkomsten.Add(new PhotoResultView
                 {
-                    Kop = fotos.Count == 1 ? "Wat de AI ziet" : $"Foto {i + 1} van {fotos.Count}",
-                    Beschrijving = uitkomst.Beschrijving.Length > 0
-                        ? uitkomst.Beschrijving
-                        : "Het model zag niets waarover het iets kon zeggen.",
-                    Gelezen = uitkomst.Gelezen.ToList(),
+                    Kop = fotos.Count == 1 ? "Wat er op de foto staat" : $"Foto {i + 1} van {fotos.Count}",
+                    Gelezen = lezing.Gelezen.ToList(),
                     // Bij één foto hoeft er geen miniatuur: je klikte er net zelf op. Tenzij het
                     // een grotere versie van de advertentiepagina geworden is - dan hoor je te
                     // zien waar de AI werkelijk naar keek.
@@ -273,9 +302,32 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
                 });
 
                 CopyButton.IsEnabled = true;
+
+                // Bracht deze foto geen enkele nieuwe naam, dan kan het verhaal niet veranderen;
+                // die vraag aan het model wordt dan overgeslagen. Bij de eerste foto altijd wel,
+                // ook als er niets gelezen is - anders blijft het vak leeg.
+                if (nieuw.Count == 0 && i > 0) continue;
+
+                var verhaal = await new PhotoAnalyzer()
+                    .VertelAsync(samen, hoofdfoto, fotos.Count, melder, cts.Token);
+
+                if (cts.IsCancellationRequested) return;
+
+                if (verhaal.Fout is not null)
+                {
+                    StatusText.Text = verhaal.Fout;
+                    return;
+                }
+
+                ToonSamenvatting(verhaal.Beschrijving, fotos.Count);
             }
 
             klok.Stop();
+
+            // Kwam er van begin tot einde geen zin uit, dan hoort dat er te staan: anders zie
+            // je wel de gelezen namen maar nergens waarom er geen verhaal bij staat.
+            if (_uitkomsten.Count > 0 && SamenvattingTekst.Text.Length == 0)
+                ToonSamenvatting("Het model zag niets waarover het iets kon zeggen.", fotos.Count);
 
             StatusText.Text = _uitkomsten.Count switch
             {
@@ -316,6 +368,25 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
 
             if (_uitkomsten.Count > 0) CopyButton.IsEnabled = true;
         }
+    }
+
+    /// <summary>
+    /// Het verhaal bovenaan, dat na elke foto opnieuw geschreven wordt met alles wat er tot dan
+    /// gelezen is. De kop zegt over hoeveel foto's het gaat, want anders lijkt het bij vier
+    /// foto's alsof er maar naar één gekeken is.
+    /// </summary>
+    private void ToonSamenvatting(string tekst, int aantalFotos)
+    {
+        // Komt er een keer niets terug, dan blijft staan wat er al stond: dat is altijd beter
+        // dan een goed verhaal vervangen door een lege regel.
+        if (tekst.Length == 0) return;
+
+        SamenvattingKop.Text = aantalFotos <= 1
+            ? "Wat de AI ziet"
+            : $"Wat de AI ziet - {aantalFotos} foto's samen";
+
+        SamenvattingTekst.Text = tekst;
+        SamenvattingBlok.Visibility = Visibility.Visible;
     }
 
     /// <summary>

@@ -1467,9 +1467,55 @@ code-behind, dus een verkeerde naam komt er niet door.
 **Alle foto's van één zoekertje** (stap 3, 24 september 2026). De zoekpagina geeft er één; een
 advertentie heeft er vijf of tien, en juist op die andere staat vaak wat je zoekt - het label
 achteraan, de doos van binnen, de krassen. Het tweede menu-item *AI-controle op alle foto's van
-dit zoekertje* haalt ze op van de pagina van het zoekertje zelf, en elke foto krijgt zijn eigen
-blok in het venster. Dat blok verschijnt zodra die foto klaar is: bij vijf foto's duurt het geheel
-meer dan een minuut, en dan wil je niet naar een leeg venster kijken.
+dit zoekertje* haalt ze op van de pagina van het zoekertje zelf.
+
+**Daarvan komt één verhaal, niet één per foto** (26 september 2026, gevraagd door de eigenaar:
+"dit zijn allemaal foto's van hetzelfde apparaat"). Bovenaan staat *Wat de AI ziet - 4 foto's
+samen*, en die tekst wordt **na elke foto opnieuw geschreven** met alles wat er tot dan gelezen
+is; daaronder blijft per foto zijn miniatuur en zijn gelezen namen staan. Zo groeit het mee
+terwijl je kijkt - bij vijf foto's duurt het geheel meer dan een minuut, en dan wil je niet naar
+een leeg venster kijken.
+
+Dat kon omdat het lezen en het vertellen al apart stonden: `PhotoAnalyzer.LeesAsync` geeft enkel
+de namen, `VertelAsync` maakt er een alinea van. Bij vier foto's is dat vier keer lezen en
+daarna telkens één keer vertellen over álle namen samen, in plaats van vier keer allebei. Wat
+dat oplevert, gemeten op de vier foto's van één DVD-speler:
+
+- **Het zet leesfouten recht.** De losse alinea van foto 3 maakte er "modelnummer 1650" van; met
+  de namen van alle vier de foto's erbij stond er DVD1050, zoals op het toestel staat. Hetzelfde
+  effect als bij de stukken van één foto, maar dan over de foto's heen.
+- **Het brengt samen wat verspreid staat.** Het typenummer en "230V~ 50Hz" staan enkel op foto 4,
+  DOLBY DIGITAL en dts enkel op foto 2. Eén alinea heeft ze allebei; vier alinea's elk een stuk.
+- **Het kost niets extra.** Er wordt evenveel gelezen en even vaak verteld. Bracht een foto geen
+  enkele nieuwe naam, dan kan het verhaal niet veranderen en wordt die vraag overgeslagen.
+
+Nagemeten met het venster buiten beeld, de echte Ollama en het zoekertje uit het screenshot:
+**44 s voor vier foto's**, vier versies van het verhaal (na elke foto een), en de laatste noemt
+het merk, het modelnummer, de labels op de voorkant én het typeplaatje achteraan.
+
+**Waarom er geen vinkje "alle foto's tonen hetzelfde voorwerp" is**, terwijl dat de eerste
+ingeving was: dan moet je beslissen vóór je de foto's gezien hebt - het venster toont bij het
+openen enkel de foto van de zoekpagina - en de AI zou dan niet meer vanzelf mogen starten. Eén
+verhaal werkt bovendien ook bij een partij losse spullen: dan is het één overzicht in plaats van
+vier halve, en per foto staat nog altijd wat dáár gelezen is. De vraag aan het model beweert
+daarom ook niet dat het hetzelfde voorwerp is.
+
+**Het model kán het overigens wel zien**, nagemeten op 26 september 2026: de vier foto's van deze
+DVD-speler gaven drie keer "hetzelfde voorwerp" en een zoekertje "Partijen elektronica, laptops,
+telefoons (defect)" twee keer "verschillende voorwerpen", met kloppende redenen. Alle foto's in
+één vraag kan ook, maar dan moet het contextvenster omhoog (vier foto's van 1200 px zijn 4360
+tokens tegen een venster van 4096) en hangt de tijd aan de fotomaat: 26 s op 1200 px tegen 4,8 s
+op 900 px. Zeven vergelijkingen op twee zoekertjes is te weinig om erop te bouwen, maar het ligt
+er als het ooit nodig is.
+
+**De vraag aan het model is bros, en dat is gemeten.** Een eerdere formulering ("...van een
+tweedehands-zoekertje met 4 foto's" plus de kopregel "GELEZEN VAN ALLE FOTO'S SAMEN") gaf bij
+temperatuur 0 stelselmatig een **lege** alinea - drie keer op drie. Met zes varianten op dezelfde
+foto en dezelfde namen bleek: elk van die twee stukken apart gaf een gewone alinea, enkel de
+combinatie liep leeg. Er staat nu ook niet meer bij hoevéél foto's het zijn, want dan begon het
+antwoord met "Je kijkt naar een zoekertje met 4 foto's" - dat is de werking van de app en niet
+wat er te zien is. Wijzig die tekst dus niet zonder na te meten of er tekst uitkomt; een lege
+beschrijving belandt sindsdien ook in het logboek, en het venster laat dan staan wat er al stond.
 
 - **Waar die foto's staan, zegt het sitebestand**: `DetailImagesSelector`, met dezelfde notatie als
   elk ander veld, dus gerust met `::replace` erachter om de grote variant te krijgen. Ontbreekt het
@@ -2962,14 +3008,15 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel` en Zentrix dicht waren dat er 346 op 26 september 2026, met Chrome open - dus 348 met
-alles dicht. Twee dingen op deze pc laten controles wegvallen, en allebei zeggen ze dat ook:
+`--snel` en alles dicht waren dat er 360 op 26 september 2026; draait Chrome met de
+brug-extensie erbij, dan zijn het er 358. Twee dingen op deze pc laten controles wegvallen, en
+allebei zeggen ze dat ook:
 
 - **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (23).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
   Het controleproject heeft een eigen gegevensmap en dus een andere code, dus voor zijn brug is
   dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
-  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (346 in plaats van 348).
+  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (358 in plaats van 360).
 
 Drie regels waar het aan vastzit:
 
@@ -3374,8 +3421,10 @@ witte tekst leesbaar blijft.
   lezen wat er op de voorwerpen staat, en erover vertellen in gewone taal - voor een doos vol
   dvd's waarvan de titels te klein zijn, of het typenummer op een label. Lokaal, dus er gaat geen
   foto de deur uit. Ook voor alle foto's van een zoekertje tegelijk, zodra het sitebestand zegt
-  waar die staan (`DetailImagesSelector`). Is de foto van de zoekpagina een miniatuur - Facebook
-  geeft er van 260 px - dan wordt de grotere van de advertentiepagina gelezen
+  waar die staan (`DetailImagesSelector`); daarvan komt **één** verhaal over alles samen, dat na
+  elke foto bijgewerkt wordt, met per foto wat daar gelezen is. Is de foto van de zoekpagina een
+  miniatuur - Facebook geeft er van 260 px - dan wordt de grotere van de advertentiepagina
+  gelezen
 - Naast de prijs de **stad** (en anders het land), en bij een veiling erachter **hoelang er nog
   geboden kan worden**. Past die regel niet, dan vervaagt het einde en schuift ze zodra je er met
   de muis op gaat staan. Staat die tijd niet op de zoekpagina van de site maar wel op de pagina van

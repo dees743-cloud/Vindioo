@@ -50,8 +50,9 @@
             </Border>
         </DataTemplate>
 
-        <!-- Eén foto: de miniatuur, wat de AI erover zegt, en wat er letterlijk op stond.
-             Ook bij één foto is dit één blok - zo is er maar één vorm om te onderhouden. -->
+        <!-- Eén foto: de miniatuur en wat er letterlijk op stond. Het verhaal staat niet hier
+             maar bovenaan, één keer over alle foto's samen: vier alinea's over hetzelfde
+             toestel zijn viermaal hetzelfde, en elk ervan kent maar een stuk ervan. -->
         <DataTemplate x:Key="FotoUitkomst">
             <Border Style="{StaticResource Section}">
                 <StackPanel>
@@ -69,8 +70,8 @@
 
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock Text="{Binding Kop}" Style="{StaticResource SectionTitle}" />
-                            <TextBlock Text="{Binding Beschrijving}" FontSize="14" TextWrapping="Wrap"
-                                       LineHeight="21" />
+                            <TextBlock Text="{Binding NietsGelezen}" Style="{StaticResource Uitleg}"
+                                       Margin="0" />
                         </StackPanel>
                     </Grid>
 
@@ -160,7 +161,20 @@
                     </StackPanel>
                 </Border>
 
-                <!-- ==================== wat de AI ziet, per foto ==================== -->
+                <!-- ==================== wat de AI ziet, over alles samen ==================== -->
+                <!-- Eén verhaal, dat na elke foto opnieuw geschreven wordt met alles wat er tot
+                     dan gelezen is. Zo groeit het mee terwijl je kijkt. -->
+                <Border x:Name="SamenvattingBlok" Style="{StaticResource Section}"
+                        Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock x:Name="SamenvattingKop" Text="Wat de AI ziet"
+                                   Style="{StaticResource SectionTitle}" />
+                        <TextBlock x:Name="SamenvattingTekst" FontSize="14" TextWrapping="Wrap"
+                                   LineHeight="21" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================== wat er per foto gelezen is ==================== -->
                 <ItemsControl x:Name="Results" ItemTemplate="{StaticResource FotoUitkomst}" />
             </StackPanel>
         </ScrollViewer>

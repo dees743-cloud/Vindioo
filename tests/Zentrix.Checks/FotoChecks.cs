@@ -386,6 +386,64 @@ public static class FotoChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("Meerdere foto's: één keer vertellen over alles samen");
+        {
+            // Lezen en vertellen staan apart, zodat het venster bij vier foto's vier keer kan
+            // lezen en daarna één verhaal kan schrijven over alle namen samen. Vier losse
+            // alinea's over hetzelfde toestel zijn viermaal hetzelfde én viermaal gissen.
+            ollama.Wis();
+            ollama.Namen = ["PROline", "DVD1050"];
+
+            var lezing = await new PhotoAnalyzer().LeesAsync(groot);
+
+            Check.Dat(lezing.Fout is null && lezing.Stukken == 6,
+                $"lezen knipt nog altijd in stukken ({lezing.Stukken})");
+            Check.Dat(ollama.Vragen.Count == 6,
+                $"en vertelt niets: zes vragen, geen zevende ({ollama.Vragen.Count})");
+            Check.Dat(lezing.Gelezen.Count == 2 && lezing.Gelezen[0] == "PROline",
+                $"de namen komen eruit, ontdubbeld ({lezing.Gelezen.Count})");
+
+            // Het vertellen daarna, over de namen van vier foto's samen.
+            ollama.Wis();
+            ollama.Beschrijving = "Een PROline DVD-speler, model DVD1050.";
+
+            var verhaal = await new PhotoAnalyzer()
+                .VertelAsync(["PROline", "DVD1050", "DOLBY DIGITAL", "230V~"], groot, aantalFotos: 4);
+
+            Check.Dat(verhaal.Fout is null && verhaal.Beschrijving.StartsWith("Een PROline"),
+                $"het verhaal komt door ('{verhaal.Beschrijving}')");
+            Check.Dat(ollama.Vragen.Count == 1, $"in één vraag ({ollama.Vragen.Count})");
+
+            var vraag = ollama.Vragen[0].Prompt;
+
+            Check.Dat(vraag.Contains("alle foto's van dat zoekertje samen"),
+                "de vraag zegt dat de namen van alle foto's samen komen");
+            Check.Dat(!vraag.Contains("4 foto's"),
+                "maar niet hoevéél het er zijn: dan begon het antwoord daarmee");
+            Check.Dat(vraag.Contains("230V~") && vraag.Contains("DOLBY DIGITAL"),
+                "met alle gelezen namen erin, ook die van de latere foto's");
+            Check.Dat(!vraag.Contains("hetzelfde voorwerp"),
+                "maar het beweert niet dat het hetzelfde voorwerp is - dat weten we niet");
+
+            // Eén foto blijft klinken als één foto.
+            ollama.Wis();
+            await new PhotoAnalyzer().VertelAsync(["PROline"], groot);
+
+            Check.Dat(ollama.Vragen[0].Prompt.Contains("de foto van een tweedehands-zoekertje") &&
+                      !ollama.Vragen[0].Prompt.Contains("foto's samen"),
+                "bij één foto staat er niets over meerdere foto's");
+
+            // En de gewone weg voor één foto doet nog altijd allebei.
+            ollama.Wis();
+            var beide = await new PhotoAnalyzer().AnalyseerAsync(klein);
+
+            Check.Dat(beide.Fout is null && beide.Gelezen.Count > 0 && beide.Beschrijving.Length > 0,
+                "AnalyseerAsync leest én vertelt nog steeds");
+            Check.Dat(ollama.Vragen.Count == 2,
+                $"één keer lezen, één keer vertellen ({ollama.Vragen.Count})");
+        }
+
+        // ---------------------------------------------------------------------------
         Check.Groep("AI-controle op één foto: te klein om te lezen, dan die van de pagina");
         {
             // Zo ligt het bij Facebook: de zoekpagina geeft dezelfde foto op 261 px en de
