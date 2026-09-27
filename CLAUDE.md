@@ -1899,8 +1899,8 @@ pagina; die drie keer ophalen zou bij een brugsite twaalf seconden kosten. `Foto
 AI-controle) loopt sindsdien over dezelfde weg, met enkel de foto's eruit. Wat opgehaald is, blijft
 onthouden op het adres van de pagina.
 
-**Ingevuld voor alle twaalf de sites** (26 september 2026; Vinted en Tweakers V&A op 27
-september). Welke selector en wat er gemeten is,
+**Ingevuld voor alle dertien de sites** (26 september 2026; Vinted, Tweakers V&A en Delcampe
+op 27 september). Welke selector en wat er gemeten is,
 staat in `SITES.md` van `zentrix-sites`. Catawiki geeft 5 foto's van 1800 px waar de zoekpagina er
 één gaf, eBay 5 van 1600 px, allebei in ongeveer 4,5 s via de brug; van allebei komt ook de
 verkoper mee, en van Catawiki de volledige beschrijving.
