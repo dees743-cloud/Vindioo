@@ -85,6 +85,7 @@ Services/
   AppPaths.cs        waar de gegevens staan, en de verhuis uit de oude map
   AppSettings.cs     instellingen van de app zelf (venster, weergave, meldingen)
   Log.cs             logboek in een tekstbestand
+  Versie.cs          welk versienummer er draait, uit de assembly
   FriendlyError.cs   zet een fout om in een zin die de gebruiker iets zegt
   PriceIndicator.cs  wat is een toestel ongeveer waard: zoeken, opschonen, rekenen
   Pricewatch.cs      wat kost het nieuw bij Tweakers, of wat kostte het laatst
@@ -169,6 +170,31 @@ Twee valkuilen die daarbij horen:
 - Opstarten met Windows bewaart het **volledige pad** van de exe. Na het hernoemen wees
   dat naar `zoekhulp.exe`, die niet meer bestaat, en dan start Windows stilletjes niets.
   `Autostart.RefreshPath` zet het bij elke start gelijk.
+
+## De versie
+
+Het nummer staat op **één plaats**: `<Version>` in `Zentrix.csproj`. `Services/Versie.cs` leest
+het daar uit de assembly, zodat het scherm nooit iets anders zegt dan het bestand. Sinds
+27 september 2026 staat het op **0.9.0**: de app doet wat ze moet doen, maar er staan nog
+stukken open (zie "Volgende stappen"), en dat is wat een nul vooraan betekent.
+
+Het is op twee plaatsen zichtbaar, en allebei om dezelfde reden - **er draaien twee exe's op
+deze pc**, een uit Visual Studio en een gepubliceerde in `C:\Users\davyb\Zentrix`, met
+dezelfde gegevensmap:
+
+- **Onderaan het tandwielmenu**, als een grijs regeltje ("Zentrix 0.9.0"). Geen menu-item: er
+  valt niets te klikken.
+- **In het logboek bij elke start**, met de map erbij: `Zentrix 0.9.0 gestart vanuit
+  C:\Users\davyb\Zentrix`. Zonder die regel staat er in een logboek van twee weken niet bij
+  welke versie een fout maakte.
+
+`Version` levert ook `FileVersion` en `ProductVersion` op het bestand zelf, en die laatste
+krijgt van de bouwomgeving de commit-hash erachter (`0.9.0+5998a84...`). `Versie.Nummer` knipt
+dat af. Nagemeten met het hoofdscherm buiten beeld: het menu toont "Zentrix 0.9.0".
+
+Let op bij het controleproject: dat compileert de broncode zelf, dus `Versie` leest daar de
+assembly van *dat* project (1.0.0). Het nummer van de app is er dus niet na te meten - enkel
+dat er een leesbaar nummer uit komt.
 
 **Wat niet op GitHub hoort** staat in `.gitignore`: `bin`, `obj`, `.vs`, de
 `.user`-bestanden en `.claude` (de adviseurs, met persoonlijke paden). Sinds 22 september 2026
@@ -3229,14 +3255,14 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel` waren dat er op 27 september 2026 **394** met Chrome open en **373** met Zentrix
-erbij (allebei gemeten), en dus 396 met alles dicht. Twee dingen op deze pc laten controles wegvallen, en allebei zeggen ze dat ook:
+`--snel` waren dat er op 27 september 2026 **399** met alles dicht (gemeten); met Chrome erbij
+397, en met Zentrix er ook nog bij 376. Twee dingen op deze pc laten controles wegvallen, en allebei zeggen ze dat ook:
 
 - **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (23).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
   Het controleproject heeft een eigen gegevensmap en dus een andere code, dus voor zijn brug is
   dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
-  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (394 in plaats van 396).
+  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (397 in plaats van 399).
 
 Drie regels waar het aan vastzit:
 
@@ -3789,11 +3815,21 @@ Hieronder enkel wat aan de app zelf te doen valt.
    - **Toetsenbord**: het sitechipje en de tabs zijn niet met Tab te bereiken.
    - **Zonder extensie** wacht elke zoekopdracht met een brugsite 30 seconden; de melding zegt
      nu wel hoe je de extensie installeert.
-   - **GitHub** (beslist op 17 september 2026): `Zentrix` en `zentrix-sites` als privé-repositories
-     op het account `dees743-cloud`, commits met het afgeschermde noreply-adres, `.claude/` niet
-     mee, geen postcode of mailprovider van de eigenaar in de bestanden. Gaat `zentrix-sites`
-     ooit openbaar: eerst het nummer van de Marketplace-regio in `facebook.json` vervangen en
-     `opdracht-sitefilters.md` (een interne notitie) nakijken.
+   - ~~**GitHub**~~ (beslist op 17 september 2026, **gedaan op 27 september**): `Zentrix` en
+     `zentrix-sites` staan als **privé**-repositories op `dees743-cloud`, met het afgeschermde
+     noreply-adres als afzender. Nagekeken op de remote zelf, niet enkel lokaal: er staat geen
+     `.claude/`, `.codex/`, `AGENTS.md` of `chatgpt_tips.md` op, en geen `bin`, `obj`, `.vs` of
+     `.user`. Pushen gaat sindsdien na elke commit, zonder het apart te vragen.
+
+     **Openbaar maken is een aparte beslissing, en daar is nee op geantwoord** (27 september
+     2026). Voor `zentrix-sites` is dat principieel: de bestanden en `SITES.md` beschrijven per
+     site hoe je zijn robotbeveiliging omzeilt, met de namen erbij, en bij Tweakers staat er
+     zwart op wit dat we een pad gebruiken dat hun `robots.txt` verbiedt. Dat hoort niet als
+     handleiding op straat. Voor `Zentrix` zelf kan het wel - de app kent geen enkele site bij
+     naam - maar dan eerst: een README, een licentie, en beslissen wat er met dit bestand
+     gebeurt. `CLAUDE.md` is 247 kB werkdagboek met paden, zoekwoorden en wat er op deze pc
+     misging; nuttig, maar geschreven voor één lezer. En `sites/facebook.json` houdt het nummer
+     van de Marketplace-regio, dat bij benadering een woonplaats is.
 9. ~~**De twee zoeklussen samenbrengen**~~ (uit de beoordeling door ChatGPT van 20 september 2026).
    **Gedaan op 23 september 2026**, in vier stappen met bij elke stap een proef: tussentijdse
    leveringen per site, zoeken zonder bewaarde zoekopdracht, voortgang en fouten per site, en dan

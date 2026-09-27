@@ -219,6 +219,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         if (BridgeServer.Instance.PortBusy)
             StatusText.Text = "Let op: " + ChromeLauncher.Describe(BridgeStatus.PortInUse);
 
+        VersieTekst.Text = Versie.Volledig;
+
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
 

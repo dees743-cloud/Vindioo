@@ -34,5 +34,22 @@ public static class BrowserChecks
         var pad = Autostart.ExePad();
         Check.Dat(pad is null || !Path.GetFileName(pad).Equals("dotnet.exe", StringComparison.OrdinalIgnoreCase),
             $"ExePad geeft geen dotnet.exe ('{pad}')");
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("De versie is leesbaar uit de assembly");
+        {
+            // Let op wat hier gemeten wordt: dit controleproject compileert de broncode zelf,
+            // dus Versie leest hier de assembly van HET CONTROLEPROJECT (1.0.0), niet die van
+            // Zentrix. Het nummer van de app is dus niet hier na te meten - wel het mechanisme:
+            // dat er een leesbaar nummer uit komt en dat een achtervoegsel als "+a1b2c3" (dat
+            // de bouwomgeving erbij zet) eraf gaat. Dat 0.9.0 in het tandwielmenu staat, is
+            // buiten beeld nagemeten met het echte hoofdscherm.
+            var nummer = Versie.Nummer;
+
+            Check.Dat(System.Text.RegularExpressions.Regex.IsMatch(nummer, @"^\d+\.\d+\.\d+$"),
+                $"drie getallen, zonder commit-hash erachter ({nummer})");
+            Check.Dat(nummer != "?", "er komt een nummer uit, geen vraagteken");
+            Check.Dat(Versie.Volledig == "Zentrix " + nummer, $"met de naam ervoor ({Versie.Volledig})");
+        }
     }
 }

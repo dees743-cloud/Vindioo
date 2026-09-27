@@ -70,6 +70,11 @@ namespace Zentrix
             if (Services.AppPaths.MigrationNote.Length > 0)
                 Services.Log.Write(Services.AppPaths.MigrationNote);
 
+            // Welke exe dit is. Zonder deze regel staat er in het logboek van twee weken
+            // niet bij welke versie een fout maakte, en er draaien er twee op deze pc.
+            Services.Log.Write($"{Services.Versie.Volledig} gestart vanuit " +
+                               System.IO.Path.GetDirectoryName(Environment.ProcessPath));
+
             // Noodrem voor een stuurprogramma dat niet meer presenteert. Gaat de
             // grafische kaart in een rare toestand (na slaapstand, na een reset
             // van het stuurprogramma), dan tekent WPF wel maar komt er niets op

@@ -700,6 +700,14 @@
                                 <MenuItem x:Name="ViewGridMenu" Header="Raster" IsCheckable="True"
                                           Click="ViewModeMenu_Click" />
                             </MenuItem>
+
+                            <!-- Welke exe draait er? Er staan er twee op deze pc, met dezelfde
+                                 gegevensmap. Geen menu-item maar een regeltje: er valt niets
+                                 te klikken. De code vult de tekst, zodat het nummer enkel in
+                                 het csproj staat. -->
+                            <Separator />
+                            <TextBlock x:Name="VersieTekst" Margin="12,2,12,6" FontSize="11"
+                                       Opacity="0.6" />
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>

@@ -15,6 +15,16 @@
     <!-- Icoon van de app: verschijnt in de titelbalk, de taakbalk en op het
          bestand zelf. Gemaakt uit Assets/logo.png met de maten 16/32/48/256. -->
     <ApplicationIcon>Assets/zentrix.ico</ApplicationIcon>
+
+    <!-- De versie staat hier en nergens anders: de app leest ze uit haar eigen
+         assembly (Versie.Nummer). Ze verschijnt onderaan het tandwielmenu en in
+         het logboek bij elke start, zodat je kan zien welke exe er draait - er
+         staan er twee op deze pc, een uit Visual Studio en een gepubliceerde.
+         0.9 omdat er nog stukken open staan; zie "Volgende stappen" in CLAUDE.md. -->
+    <Version>0.9.0</Version>
+    <Product>Zentrix</Product>
+    <Company>Davy Boudrez</Company>
+    <Copyright>© 2026 Davy Boudrez</Copyright>
   </PropertyGroup>
 
   <ItemGroup>
