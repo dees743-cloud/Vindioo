@@ -19,7 +19,6 @@
             <SolidColorBrush x:Key="OverlayHoverBrush" Color="#A6000000" />
             <conv:CountToVisibilityConverter x:Key="CountToVisibility" />
             <conv:RoundedClipConverter x:Key="RoundedClip" />
-            <conv:CenterOffsetConverter x:Key="CenterOffset" />
 
             <!-- ==================================================================
                  DESIGNSYSTEEM

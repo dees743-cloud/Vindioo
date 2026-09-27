@@ -6,29 +6,6 @@ using System.Windows.Media;
 namespace Zentrix.Converters;
 
 /// <summary>
-/// Verticale verschuiving om een popup gelijk te centreren met het element waaraan
-/// hij hangt. WPF lijnt een popup standaard uit op de bovenkant van dat element;
-/// deze verschuiving zet de middens op één lijn.
-/// </summary>
-public class CenterOffsetConverter : IMultiValueConverter
-{
-    public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
-    {
-        if (values.Length < 2 || values[0] is not double targetSize || values[1] is not double popupSize)
-            return 0d;
-
-        // Nog geen hoogte bekend (vóór de eerste lay-out): niet verschuiven,
-        // anders springt de popup ver naar beneden en corrigeert hij pas daarna.
-        if (popupSize <= 0) return 0d;
-
-        return (targetSize - popupSize) / 2;
-    }
-
-    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture) =>
-        throw new NotSupportedException();
-}
-
-/// <summary>
 /// Maakt een afgeronde rechthoek ter grootte van het element zelf, om er een foto
 /// mee bij te knippen. Zo ronden de hoeken van de foto mee af, welke maat de foto
 /// ook heeft. De parameter is de straal van de hoeken.

@@ -145,21 +145,6 @@
             </Setter>
         </Style>
 
-        <!-- Het vergrootglas op een foto: ziet eruit als OverlayButton, maar je klikt er niet
-             op. De muis erop zetten toont de grote foto (ShowPreview van PhotoThumbnail), dus
-             geen handje als muisaanwijzer en geen tooltip, want die zou tegelijk opspringen. -->
-        <Style x:Key="OverlayIcon" TargetType="Border">
-            <Setter Property="Width" Value="30" />
-            <Setter Property="Height" Value="30" />
-            <Setter Property="CornerRadius" Value="15" />
-            <Setter Property="Background" Value="{StaticResource OverlayBrush}" />
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{StaticResource OverlayHoverBrush}" />
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
         <!-- Eén knop in de balk onderaan: pictogram met tekst eronder. -->
         <Style x:Key="BottomTab" TargetType="RadioButton">
             <Setter Property="GroupName" Value="Onderbalk" />
@@ -281,8 +266,7 @@
                             </ContextMenu>
                         </Grid.ContextMenu>
 
-                        <controls:PhotoThumbnail PhotoWidth="240" PhotoHeight="200"
-                                                 ShowPreview="{Binding IsMouseOver, ElementName=ListZoom}" />
+                        <controls:PhotoThumbnail PhotoWidth="240" PhotoHeight="200" />
 
                         <Border CornerRadius="6" Padding="6,2" Background="{StaticResource NewBadgeBrush}"
                                 HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8"
@@ -290,18 +274,11 @@
                             <TextBlock Text="NIEUW" FontSize="10" FontWeight="Bold" Foreground="White" />
                         </Border>
 
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
-                                    VerticalAlignment="Top" Margin="8">
-                            <Border x:Name="ListZoom" Style="{StaticResource OverlayIcon}" Margin="0,0,6,0"
-                                    AutomationProperties.Name="Grote foto tonen">
-                                <ui:SymbolIcon Symbol="ZoomIn24" FontSize="16" Foreground="White" />
-                            </Border>
-
-                            <Button Style="{StaticResource OverlayButton}" Click="FavoriteButton_Click"
-                                    ToolTip="Aanduiden als favoriet">
-                                <ui:SymbolIcon x:Name="ListStar" Symbol="Star24" FontSize="17" Foreground="White" />
-                            </Button>
-                        </StackPanel>
+                        <Button Style="{StaticResource OverlayButton}" Click="FavoriteButton_Click"
+                                HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8"
+                                ToolTip="Aanduiden als favoriet">
+                            <ui:SymbolIcon x:Name="ListStar" Symbol="Star24" FontSize="17" Foreground="White" />
+                        </Button>
                     </Grid>
 
                     <!-- De timer van een veiling, rechtsonder op de kaart. Bij een gewoon
@@ -375,8 +352,7 @@
                             </ContextMenu>
                         </Grid.ContextMenu>
 
-                        <controls:PhotoThumbnail PhotoWidth="240" PhotoHeight="200"
-                                                 ShowPreview="{Binding IsMouseOver, ElementName=GridZoom}" />
+                        <controls:PhotoThumbnail PhotoWidth="240" PhotoHeight="200" />
 
                         <Border CornerRadius="6" Padding="6,2" Background="{StaticResource NewBadgeBrush}"
                                 HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6"
@@ -384,18 +360,11 @@
                             <TextBlock Text="NIEUW" FontSize="10" FontWeight="Bold" Foreground="White" />
                         </Border>
 
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
-                                    VerticalAlignment="Top" Margin="6">
-                            <Border x:Name="GridZoom" Style="{StaticResource OverlayIcon}" Margin="0,0,5,0"
-                                    AutomationProperties.Name="Grote foto tonen">
-                                <ui:SymbolIcon Symbol="ZoomIn24" FontSize="15" Foreground="White" />
-                            </Border>
-
-                            <Button Style="{StaticResource OverlayButton}" Click="FavoriteButton_Click"
-                                    ToolTip="Aanduiden als favoriet">
-                                <ui:SymbolIcon x:Name="GridStar" Symbol="Star24" FontSize="16" Foreground="White" />
-                            </Button>
-                        </StackPanel>
+                        <Button Style="{StaticResource OverlayButton}" Click="FavoriteButton_Click"
+                                HorizontalAlignment="Right" VerticalAlignment="Top" Margin="6"
+                                ToolTip="Aanduiden als favoriet">
+                            <ui:SymbolIcon x:Name="GridStar" Symbol="Star24" FontSize="16" Foreground="White" />
+                        </Button>
                     </Grid>
 
                     <!-- In het raster is de prijs groter dan de titel, net als op de

@@ -95,7 +95,7 @@ Services/
 Converters/
   Converters.cs      zichtbaarheid van NIEUW-label en tellers
 Controls/
-  PhotoThumbnail.xaml  miniatuur met de grote foto ernaast, gedeeld door beide weergaven
+  PhotoThumbnail.xaml  miniatuur van een zoekertje, gedeeld door beide weergaven
   VirtualizingWrapPanel.cs  raster dat enkel opbouwt wat in beeld staat
   SmoothScroll.cs      vloeiend schuiven met het muiswiel, voor allebei de weergaven
   ScrollingText.cs     een regel die te lang is voor haar vak: vervaagt, en schuift als je
@@ -1096,12 +1096,24 @@ zodra je op prijs sorteert.
 **Wegklikken bestaat niet meer.** Tot 17 september 2026 stond er een oogje op elke kaart:
 "niet meer tonen", met de sleutel in de tabel `hidden`, een menu-item om alles terug te
 zetten, en een planner die weggeklikte zoekertjes niet als nieuw telde. De eigenaar gebruikte
-het niet: je zoekt om dingen te zien, niet om ze te verbergen. Op de plaats van het oogje staat
-nu het **vergrootglas**: de muis erop toont de grote foto (`PhotoThumbnail.ShowPreview`, in
-het sjabloon gekoppeld aan `IsMouseOver` van `ListZoom` of `GridZoom`). Vroeger verscheen die
-grote foto zodra de muis ergens op de miniatuur stond, en dan sprong er bij elke beweging over
-de lijst een foto uit. Wat eerder weggeklikt was, staat gewoon weer in de lijst; de tabel
-`hidden` blijft in een bestaande databank staan, maar wordt niet meer gelezen.
+het niet: je zoekt om dingen te zien, niet om ze te verbergen. Wat eerder weggeklikt was, staat
+gewoon weer in de lijst; de tabel `hidden` blijft in een bestaande databank staan, maar wordt
+niet meer gelezen.
+
+**En het vergrootglas is er ook uit** (27 september 2026). Op de plaats van dat oogje stond een
+vergrootglas: de muis erop toonde de grote foto ernaast in een popup. Dat was er nog van voor
+het detailvenster bestond. Nu opent een **dubbelklik** dat venster met álle foto's van de
+advertentie, en een klik op de grote foto legt ze schermvullend over het venster - dus was het
+zweven een tweede weg naar hetzelfde, en een knopje dat op elke kaart plaats innam naast de
+ster. Zo koos de eigenaar het.
+
+Meegegaan: `ListZoom` en `GridZoom` in de twee sjablonen, de stijl `OverlayIcon`, de hele
+`Popup` in `PhotoThumbnail` met `ShowPreview`, `Preview_Opened` en `Preview_Closed`, en de
+`CenterOffsetConverter` die enkel bestond om die popup op het midden van de miniatuur te
+leggen. De ster staat nu rechtstreeks rechtsboven op de foto in plaats van in een rijtje van
+twee. Nagemeten met de twee sjablonen buiten beeld, met de hand gevuld (het raster bouwt buiten
+beeld geen kaarten op): 0 vergrootglazen, 0 popups, de miniatuur en de ster staan er nog, en de
+ster staat op (215, 21) in de lijstkaart en (215, 19) in de rasterkaart - rechtsboven dus.
 
 **De koopjesmarkering is eruit** (17 september 2026), en dat is met opzet geen kleine voetnoot:
 er zat veel werk in. Een groen label "-99%" op een kaart betekende "zoveel procent onder de
@@ -3473,7 +3485,8 @@ witte tekst leesbaar blijft.
 - Voor een preview die met de muis mee komt en gaat: gebruik een `Popup` met
   `IsOpen` gekoppeld aan `IsMouseOver` van het doel, niet een `ToolTip`. Een
   tooltip blijft openstaan zodra de muis zijn eigen popup raakt. Zet de inhoud
-  op `IsHitTestVisible="False"`.
+  op `IsHitTestVisible="False"`. (De app heeft er sinds 27 september 2026 geen
+  meer - de vergroting op de miniaturen is weg - maar de les blijft.)
 - Een `Image` tekent op zijn "natuurlijke" grootte, en die hangt af van de
   DPI-metadata in het bestand — een grote foto kan daardoor klein uitvallen.
   Wikkel hem in een `Viewbox` met `MaxWidth`/`MaxHeight` om echt op maat te
@@ -3539,7 +3552,9 @@ witte tekst leesbaar blijft.
 - **Een `Popup` die dicht is, voert zijn bindings toch uit.** Hij hoort bij de logische
   boom en erft de gegevens. Een `Image` met een webadres als `Source` begint dan meteen te
   downloaden, ook als niemand de popup opent. Zet zo'n bron pas in `Opened` en maak ze leeg
-  in `Closed` - zie `PhotoThumbnail.Preview_Opened`.
+  in `Closed`. Dat gold voor de vergroting op de miniaturen, die er sinds 27 september 2026
+  niet meer is: bij Catawiki was de grote foto 365 kB tegenover 66 kB voor de miniatuur, dus
+  een pagina van vijftig kaarten haalde zo'n 18 MB op waar niemand over zweefde.
 - **Een `OpacityMask` rekent met de omhullende van het element én zijn kinderen.** Steekt een
   kind buiten het vak - een tekst die breder is dan haar kader - dan valt een verloop van 0 tot 1
   grotendeels in het weggeknipte stuk. Gebruik dan `MappingMode="Absolute"` met een eindpunt in
@@ -3655,14 +3670,11 @@ witte tekst leesbaar blijft.
 - *Sites beheren* met een tab per site: alle velden bewerkbaar, per site testen,
   aanmelden bij sites die dat vragen, en exporteren/importeren van losse sitebestanden
 - Server-side zoekfilters via de `Filters`-mapping
-- Resultatenlijst: prijs staat links naast de foto; de muis op het vergrootglas
-  van een foto toont een grote foto (`Listing.LargeImage`), die pas dan wordt
-  opgehaald zodat de lijst snel blijft. Grote foto komt uit `LargeImageSelector`
-  (een puntpad naar een groter formaat, of `::replace` op de URL van de
-  miniatuur), met terugval op de miniatuur
-- Miniaturen in een vast vak (260×220, bijgesneden),
-  met afgeronde hoeken en schaduw; de grote foto staat rechts ernaast en
-  ligt met zijn midden op dezelfde hoogte
+- Resultatenlijst: prijs staat links naast de foto, met op de foto zelf enkel het NIEUW-label
+  en de favorietenster. De grote foto vraag je op met een **dubbelklik**, die het detailvenster
+  opent; `LargeImageSelector` in het sitebestand (een puntpad naar een groter formaat, of
+  `::replace` op de URL van de miniatuur) bepaalt welke dat is, met terugval op de miniatuur
+- Miniaturen in een vast vak (260×220, bijgesneden), met afgeronde hoeken en schaduw
 - Twee weergaven voor de resultaten: **Lijst** (brede kaart: foto, titel,
   prijs — om te lezen) en **Raster** (foto's naast en onder elkaar zoals
   Facebook Marketplace — om te overzien). Wisselen kan met de weergaveknop bij

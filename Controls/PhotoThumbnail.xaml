@@ -10,49 +10,6 @@
     <Grid Width="{Binding PhotoWidth, ElementName=Root}"
           Height="{Binding PhotoHeight, ElementName=Root}">
 
-        <!-- Een Popup i.p.v. een ToolTip: die volgt ShowPreview rechtstreeks, dus hij
-             verdwijnt zodra dat uitgaat. Een tooltip bleef open zodra de muis de popup
-             zelf raakte. Wanneer ShowPreview aangaat, bepaalt de kaart: daar staat een
-             vergrootglas op. Vroeger ging hij open zodra de muis op de foto stond, en dan
-             sprong er bij elke beweging over de lijst een grote foto uit. -->
-        <Popup PlacementTarget="{Binding ElementName=ThumbFrame}"
-               Placement="Right" HorizontalOffset="12"
-               AllowsTransparency="True" PopupAnimation="Fade"
-               Opened="Preview_Opened" Closed="Preview_Closed"
-               IsOpen="{Binding ShowPreview, ElementName=Root, Mode=OneWay}">
-            <!-- Verschuiven zodat het midden van de grote foto gelijk ligt
-                 met het midden van de miniatuur. -->
-            <Popup.VerticalOffset>
-                <MultiBinding Converter="{StaticResource CenterOffset}" Mode="OneWay">
-                    <Binding Path="ActualHeight" ElementName="ThumbFrame" />
-                    <Binding Path="ActualHeight" ElementName="PreviewRoot" />
-                </MultiBinding>
-            </Popup.VerticalOffset>
-
-            <!-- Dit omhulsel telt de marge mee, zodat de hoogte klopt
-                 waarmee we centreren. -->
-            <Grid x:Name="PreviewRoot">
-                <!-- Marge geeft de schaduw ruimte; niet aanklikbaar zodat de
-                     muis er nooit "in" kan lopen. -->
-                <Border CornerRadius="10" Background="#FFFFFF" Padding="5" Margin="14"
-                        BorderBrush="#D8D8DC" BorderThickness="1"
-                        IsHitTestVisible="False">
-                    <Border.Effect>
-                        <DropShadowEffect BlurRadius="18" ShadowDepth="3"
-                                          Opacity="0.35" Color="#000000" />
-                    </Border.Effect>
-                    <!-- Viewbox schaalt de grote foto naar max 560 px,
-                         los van de DPI die in het bestand zit. -->
-                    <Viewbox Stretch="Uniform" MaxWidth="560" MaxHeight="560">
-                        <!-- Geen Source hier: die zet de code pas wanneer de popup opengaat.
-                             Zie Preview_Opened. -->
-                        <Image x:Name="LargePhoto" Stretch="None"
-                               RenderOptions.BitmapScalingMode="HighQuality" />
-                    </Viewbox>
-                </Border>
-            </Grid>
-        </Popup>
-
         <!-- Schaduw op de buitenste laag en de afronding (clip) op de
              binnenste: anders zou de clip de schaduw wegknippen. -->
         <Border x:Name="ThumbFrame" Background="Transparent">
