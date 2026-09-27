@@ -42,6 +42,7 @@ await PaginaChecks.RunAsync();
 await StilFalenChecks.RunAsync();
 await SitesChecks.RunAsync();
 await PrijsChecks.RunAsync();
+PricewatchChecks.Run();
 await NieuwChecks.RunAsync();
 await FotoChecks.RunAsync();
 BrowserChecks.Run();

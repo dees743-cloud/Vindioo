@@ -87,6 +87,7 @@ Services/
   Log.cs             logboek in een tekstbestand
   FriendlyError.cs   zet een fout om in een zin die de gebruiker iets zegt
   PriceIndicator.cs  wat is een toestel ongeveer waard: zoeken, opschonen, rekenen
+  Pricewatch.cs      wat kost het nieuw bij Tweakers, of wat kostte het laatst
   PhotoAnalyzer.cs   laat een AI op deze pc naar een foto kijken en erover vertellen
   DetailFetcher.cs   haalt van de pagina van een zoekertje wat niet op de zoekpagina staat
   DisplayDiagnostics.cs  zet in het logboek hoe er getekend wordt en wat Windows aan het
@@ -1428,6 +1429,96 @@ rommel bij zat (een getal, een los teken en een dubbele titel): **13 opgezocht i
 stukken rommel eruit, tien met een marktwaarde van duur naar goedkoop, de drie zonder onderaan,
 en een klik op "Yu-Gi-Oh! GX TAG FORCE" opende de prijsindicatie met díe titel als zoekterm en
 niet met die van de partij.
+
+### Nieuw bij Tweakers: de andere kant van de prijs
+
+De prijsindicatie hierboven rekent met **vraagprijzen van tweedehandszoekertjes**. Daarnaast
+staat sinds 27 september 2026 in hetzelfde venster een blok **Nieuw bij Tweakers**
+(`Services/Pricewatch.cs`): wat kost dit ding nieuw, en - als het niet meer te koop is - wat
+kostte het het laatst. Dat is een **bovengrens** naast een marktwaarde: wie een Marantz CD6007
+tweedehands voor € 250 ziet staan, weet met "nieuw vanaf € 395 bij 8 winkels" meteen waar dat
+bedrag ligt. Gevraagd door de eigenaar, die de Pricewatch zelf al gebruikte.
+
+Wat er uit een productpagina komt, gemeten op drie echte pagina's:
+
+| Product | Wat het venster toont |
+|---|---|
+| Marantz CD6007 Zwart | Nieuw vanaf € 395 bij 8 winkels |
+| Kensington-hoes (weg) | Niet meer te koop; laatst bekend € 41,51 op 20 juni 2026 |
+| PlayStation 5 Slim 825GB | Nieuw vanaf € 599 bij 8 winkels · V&A: 12 advertenties, vanaf € 420 |
+
+Die laatste regel is hun **eigen tweedehandsmarkt**, en die staat op de productpagina zelf.
+
+**Drie dingen bepalen de hele opzet, en alle drie komen ze uit een meting.**
+
+**1. Hun zoekpagina blijft met rust.** De `robots.txt` van Tweakers verbiedt élke zoekweg:
+`/pricewatch/zoeken`, `/aanbod/zoeken`, `/zoeken` en `/search`. Wat ze juist wél publiceren is
+een **sitemap met al hun producten**: 13 bestanden, **303 122 producten**. Het opzoeken gebeurt
+daarom op de pc zelf, in een kopie van die sitemap (`pricewatch-index.txt` in de gegevensmap,
+11 MB, hoogstens één keer per maand opgehaald in **2 seconden**), en er vertrekt pas een verzoek
+naar Tweakers wanneer je een product aanklikt. Een opzoeking kost daarna ongeveer een tiende
+seconde.
+
+**2. De app kiest het product niet - jij klikt.** Dezelfde les als bij de namen die de
+AI-controle van een foto leest, en opnieuw gemeten, op verse zoekertjes van de echte
+zoektermen van de eigenaar:
+
+| zoekterm | in de Pricewatch te vinden |
+|---|---|
+| iphone 12 pro | 14 van 40 |
+| nintendo wii | 7 van 40 |
+| marantz | 7 van 40 |
+| cd speler | 1 van 40 |
+| laptop | 1 van 40 |
+| commodore 64 | **0 van 40** |
+
+En erger dan die percentages: een deel van die treffers was **verkeerd**. "Marantz CD5003" kwam
+uit op de CD-70, "HP EliteBook 840 G7" op een losse Intel-processor en "Nintendo Wii Mini
+spelcomputer" op een golfspelletje. Daarom toont het venster **voorstellen met hun volledige
+productnaam**, als klikbare chipjes, en haalt het pas een prijs op wanneer je er een aanklikt.
+Twee regels houden de grootste onzin tegen, allebei in `Pricewatch.Kies`:
+
+- **Staat er een modelnummer in de term, dan moet dat in de productnaam staan.** Zonder die eis
+  werd de CD5003 de CD-70 - een ander toestel, met een andere prijs, en niets dat het verraadt.
+- **Woorden tellen één keer.** De Wolverine-editie van de PS5 heeft "edition" twee keer in haar
+  naam en stond daardoor bóven het toestel waar je naar kijkt.
+
+Vindt hij niets, dan zegt het venster dat ook ("Tweakers heeft geen product dat op ... lijkt").
+Eerlijk zwijgen is beter dan een verkeerd product: Tweakers heeft geen Commodore 64.
+
+**Waarop hij zoekt:** de volledige titel van het zoekertje én de zoekterm, met de treffers van
+de titel eerst. De zoekterm is met opzet kort ("Sony PlayStation Slim"), en dan komt de PS3
+boven de PS5 te staan. Maar heb **jij** de zoekterm aangepast, dan telt enkel die: wie
+"Commodore 64" intypt, wil geen PlayStations zien.
+
+**3. De privacymuur kost één extra verzoek.** Een gewoon verzoek belandt op
+`myprivacy.dpgmedia.nl`. Die muur zet een sessiecookie en laat het **tweede** verzoek gewoon
+door - 296 kB met de prijs erin. Er wordt daarbij niets aanvaard: er gaat geen toestemmings-
+keuze mee, enkel een sessie. Vandaar een `HttpClient` **met een koekjespot**
+(`CookieContainer`), en dat was precies het verschil tussen `curl` (altijd de muur) en een
+browser (meteen de pagina). Het scheelt de brug, dus dit werkt ook met Chrome dicht. De sitemap
+staat niet achter die muur.
+
+**De prijs komt uit het `ld+json`-blok** (schema.org), niet uit de opmaak: een `AggregateOffer`
+met `lowPrice`, `highPrice` en `offerCount`. Is er geen winkel meer, dan staat er géén
+offers-blok en zegt de pagina het in een zin, in `.noPriceMessage`. Dezelfde afweging als bij de
+foto's van 2dehands: een webstandaard boven een klassenaam.
+
+**Het werk blijft van de schermdraad af**, en dat is geen voorzorg maar een meting: zonder
+`Task.Run` en `ConfigureAwait(false)` duurde het opzoeken **38 seconden** vanuit het venster,
+tegenover 2,0 in een consoleprogramma. Elke voortzetting van een `await` kwam terug op de draad
+die het scherm tekende. Gevonden met het venster buiten beeld - niet met een controle.
+
+Nagemeten met het prijsvenster buiten beeld op een PlayStation 5 Slim: bij het openen staat er
+niets van Tweakers (het kost een verzoek, dus jij vraagt het), na 2,5 s staan er zes voorstellen
+met het kale toestel bovenaan, een klik geeft "Nieuw vanaf € 599 bij 8 winkels" met hun V&A
+erbij, en "Commodore 64 met floppy drive" geeft niets met de reden erbij. De logica eromheen
+staat in `PricewatchChecks`, met stukken van de echte pagina's en de echte productnamen.
+
+**Wat het niet is:** een tweedehandsprijs, en geen dekking voor oud spul. Nog open: hun
+prijsgeschiedenis (`/ajax/price_chart/<id>/be/`, de gegevens achter de grafiek
+"Prijsontwikkeling") en hun Vraag & Aanbod als gewone zoekbron - dat laatste zou wél door de
+verboden zoekpagina moeten.
 
 **Waarom dat gemeten moest worden:** de prijsindicatie leidt haar zoekterm af uit de **titel**,
 en daar staat meestal geen modelnummer in. Geteld op 2dehands, zestig zoekertjes per term: bij
@@ -3098,14 +3189,14 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel` waren dat er op 27 september 2026 **368** met Chrome open (gemeten) en dus 370 met
-alles dicht. Twee dingen op deze pc laten controles wegvallen, en allebei zeggen ze dat ook:
+`--snel` waren dat er op 27 september 2026 **370** met Zentrix open (gemeten; dan valt de
+brug-groep van 23 weg), en dus 393 met alles dicht en 391 met enkel Chrome open. Twee dingen op deze pc laten controles wegvallen, en allebei zeggen ze dat ook:
 
 - **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (23).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
   Het controleproject heeft een eigen gegevensmap en dus een andere code, dus voor zijn brug is
   dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
-  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (368 in plaats van 370).
+  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (391 in plaats van 393).
 
 Drie regels waar het aan vastzit:
 
@@ -3508,6 +3599,10 @@ witte tekst leesbaar blijft.
   zonder veilingen, sets en toebehoren, en verbreed naar de reeks als er te weinig zijn. Kwam je
   er via de AI-controle, dan staan de namen die van de foto's gelezen zijn erbij als klikbare
   voorstellen voor de zoekterm
+- **Nieuw bij Tweakers** in hetzelfde prijsvenster: wat het ding nieuw kost, of wat het laatst
+  kostte toen het nog te koop was, plus hun eigen tweedehandsaanbod. De app stelt producten voor
+  en jij klikt het juiste aan; hun zoekpagina wordt niet aangeraakt (die verbiedt robots.txt),
+  het opzoeken gebeurt in een kopie van hun sitemap
 - **Prijs per titel** voor een partij: elke naam die de AI van de foto's las, apart opgezocht en
   op volgorde van duur naar goedkoop. Zo zie je of er in een doos spellen of een stapel platen
   iets waardevols zit; klikken op een regel geeft de vergelijkingen van die ene titel

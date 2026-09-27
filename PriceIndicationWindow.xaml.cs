@@ -52,6 +52,10 @@ public partial class PriceIndicationWindow : Wpf.Ui.Controls.FluentWindow
         var gekozen = (term ?? "").Trim();
         TermBox.Text = gekozen.Length > 0 ? gekozen : PriceIndicator.SuggestTerm(listing.Title);
 
+        // Waarmee het venster begon. Zolang die er nog staat, mag het opzoeken bij Tweakers
+        // de volledige titel gebruiken; heeft de gebruiker zelf iets getypt, dan wint dat.
+        _termBijOpenen = TermBox.Text;
+
         if (gekozen.Length > 0)
             TermUitleg.Text =
                 "Deze titel is van de foto's gelezen, niet uit de titel van het zoekertje. " +
@@ -294,6 +298,140 @@ public partial class PriceIndicationWindow : Wpf.Ui.Controls.FluentWindow
              ind.BroadItems.Where(i => i.Kind is ComparableKind.Related or ComparableKind.Outlier));
 
         return groepen;
+    }
+
+    // ==================== nieuw bij Tweakers ====================
+
+    /// <summary>Het product waarvan de prijs nu getoond wordt, voor de link eronder.</summary>
+    private Pricewatch.Voorstel? _tweakers;
+
+    /// <summary>
+    /// Zoekt de zoekterm op in de productlijst van Tweakers. Dat gebeurt hier op de pc, in een
+    /// kopie van hun eigen sitemap: hun zoekpagina is in robots.txt verboden. De eerste keer
+    /// wordt die lijst opgehaald (303 122 producten, zo'n twee seconden); daarna kost het een
+    /// tiende seconde.
+    /// </summary>
+    private async void TweakersButton_Click(object sender, RoutedEventArgs e)
+    {
+        var term = TermBox.Text.Trim();
+        if (term.Length == 0)
+        {
+            TweakersStatus.Text = "Typ eerst een zoekterm hierboven.";
+            return;
+        }
+
+        TweakersButton.IsEnabled = false;
+        TweakersVoorstellen.Visibility = Visibility.Collapsed;
+        TweakersBeeld.Visibility = Visibility.Collapsed;
+        TweakersStatus.Text = "Opzoeken in de productlijst van Tweakers...";
+
+        var cts = _tweakersCts = new CancellationTokenSource();
+        var bezig = true;
+        var status = new Progress<string>(t => { if (bezig) TweakersStatus.Text = t; });
+
+        try
+        {
+            // Staat de zoekterm nog zoals het venster hem voorstelde, dan zoeken we ook op de
+            // volledige titel: die term is met opzet kort gehouden om vergelijkingen te vinden
+            // ("Sony PlayStation Slim"), en dan komt de PS3 boven de PS5 te staan. Heeft de
+            // gebruiker zelf iets getypt, dan telt enkel dat - wie "Commodore 64" invult, wil
+            // geen PlayStations zien.
+            var eigenTerm = !string.Equals(term, _termBijOpenen.Trim(), StringComparison.OrdinalIgnoreCase);
+
+            var vragen = new List<string>();
+            if (!eigenTerm && _listing.Title.Trim().Length > 0) vragen.Add(_listing.Title);
+            if (!vragen.Any(v => string.Equals(v, term, StringComparison.OrdinalIgnoreCase))) vragen.Add(term);
+
+            var samen = new List<Pricewatch.Voorstel>();
+
+            foreach (var vraag in vragen)
+            {
+                foreach (var v in await Pricewatch.VoorstellenAsync(vraag, 6, status, cts.Token))
+                    if (samen.All(x => x.Id != v.Id)) samen.Add(v);
+            }
+
+            var voorstellen = samen.Take(6).ToList();
+
+            bezig = false;
+            if (cts.IsCancellationRequested) return;
+
+            TweakersNamen.ItemsSource = voorstellen;
+            TweakersVoorstellen.Visibility = voorstellen.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+            // Eerlijk zwijgen is beter dan een verkeerd product: Tweakers heeft geen Commodore 64
+            // en geen Marantz CD5003, en dan hoort daar niets te staan.
+            TweakersStatus.Text = voorstellen.Count > 0
+                ? ""
+                : $"Tweakers heeft geen product dat op '{term}' lijkt. Dat gebeurt vaak bij ouder " +
+                  "spul; hun lijst gaat over wat er nieuw te koop is of was.";
+        }
+        catch (OperationCanceledException)
+        {
+            // Venster gesloten of opnieuw gevraagd.
+        }
+        catch (Exception ex)
+        {
+            bezig = false;
+            TweakersStatus.Text = "Opzoeken bij Tweakers mislukte: " + FriendlyError.Describe(ex);
+            Log.Write("pricewatch: opzoeken mislukte: " + ex);
+        }
+        finally
+        {
+            if (_tweakersCts == cts) TweakersButton.IsEnabled = true;
+        }
+    }
+
+    private CancellationTokenSource? _tweakersCts;
+
+    /// <summary>De zoekterm zoals het venster hem voorstelde, om te zien of jij hem wijzigde.</summary>
+    private readonly string _termBijOpenen;
+
+    /// <summary>Eén product aangeklikt: zijn pagina ophalen en de prijs tonen.</summary>
+    private async void TweakersProduct_Klik(object sender, MouseButtonEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not Pricewatch.Voorstel product) return;
+
+        TweakersStatus.Text = "De prijs van dit product ophalen...";
+        TweakersBeeld.Visibility = Visibility.Collapsed;
+
+        var cts = _tweakersCts = new CancellationTokenSource();
+
+        try
+        {
+            var beeld = await Pricewatch.HaalAsync(product, cts.Token);
+            if (cts.IsCancellationRequested) return;
+
+            _tweakers = product;
+
+            TweakersNaam.Text = beeld.Naam;
+            TweakersPrijs.Text = beeld.Regel;
+            TweakersTweedehands.Text = beeld.TweedehandsRegel;
+            TweakersBeeld.Visibility = Visibility.Visible;
+            TweakersStatus.Text = "";
+        }
+        catch (OperationCanceledException)
+        {
+            // Venster gesloten of een ander product aangeklikt.
+        }
+        catch (Exception ex)
+        {
+            TweakersStatus.Text = "De prijs ophalen mislukte: " + FriendlyError.Describe(ex);
+            Log.Write("pricewatch: prijs ophalen mislukte: " + ex);
+        }
+    }
+
+    private void TweakersLink_Klik(object sender, MouseButtonEventArgs e)
+    {
+        if (_tweakers is null) return;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo { FileName = _tweakers.Url, UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            TweakersStatus.Text = "De pagina kon niet geopend worden: " + ex.Message;
+        }
     }
 
     private void Rij_Click(object sender, MouseButtonEventArgs e)
