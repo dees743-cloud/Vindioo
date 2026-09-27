@@ -40,6 +40,13 @@ public sealed class Proefsite : IDisposable
     public List<int> Gevraagd { get; } = new();
 
     /// <summary>
+    /// De kopregels van elk verzoek, ruw. Nodig om na te gaan dat de eigen kopregels van een
+    /// site echt vertrekken: Vinted antwoordt in het Frans zonder zijn taalcookie, en dat is
+    /// aan het antwoord wél te zien maar aan de app niet.
+    /// </summary>
+    public List<string> Koppen { get; } = new();
+
+    /// <summary>
     /// Echte foto's, op hun pad ("/klein.jpg"). Nodig waar de app een foto <i>nameet</i> in
     /// plaats van ze enkel door te geven: het formaat is niet aan een adres af te lezen.
     /// Wint van alles, want een foto is geen HTML.
@@ -74,7 +81,10 @@ public sealed class Proefsite : IDisposable
                 var stream = client.GetStream();
                 var buffer = new byte[8192];
                 var n = await stream.ReadAsync(buffer, _stop.Token);
-                var regel = Encoding.ASCII.GetString(buffer, 0, n).Split("\r\n")[0];
+                var verzoek = Encoding.ASCII.GetString(buffer, 0, n);
+                var regel = verzoek.Split("\r\n")[0];
+
+                lock (Koppen) Koppen.Add(verzoek);
 
                 if (Zwijgt)
                 {

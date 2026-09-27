@@ -612,7 +612,17 @@ public static class DetailFetcher
             return await BrowserPool.Get().GetHtmlAsync(url, CssDeel(def.DetailImagesSelector), ct);
         }
 
-        using var antwoord = await Http.GetAsync(url, ct);
+        // De eigen kopregels van de site gaan ook hier mee. De brug deed dat al (hierboven),
+        // de gewone weg niet - en dan komt de pagina van een zoekertje anders binnen dan de
+        // zoekpagina van diezelfde site. Bij Vinted is dat zichtbaar: de zoekpagina komt met
+        // "Cookie: anonymous-iso-locale=nl-BE" in het Nederlands binnen ("Goed", "een week
+        // geleden") en de advertentiepagina zonder die kopregel in het Frans.
+        using var verzoek = new HttpRequestMessage(HttpMethod.Get, url);
+
+        foreach (var (naam, waarde) in def.Headers ?? new Dictionary<string, string>())
+            verzoek.Headers.TryAddWithoutValidation(naam, waarde);
+
+        using var antwoord = await Http.SendAsync(verzoek, ct);
         antwoord.EnsureSuccessStatusCode();
 
         return await antwoord.Content.ReadAsStringAsync(ct);

@@ -1796,7 +1796,7 @@ pagina; die drie keer ophalen zou bij een brugsite twaalf seconden kosten. `Foto
 AI-controle) loopt sindsdien over dezelfde weg, met enkel de foto's eruit. Wat opgehaald is, blijft
 onthouden op het adres van de pagina.
 
-**Ingevuld voor alle tien de sites** (26 september 2026). Welke selector en wat er gemeten is,
+**Ingevuld voor alle elf de sites** (26 september 2026, Vinted op 27 september). Welke selector en wat er gemeten is,
 staat in `SITES.md` van `zentrix-sites`. Catawiki geeft 5 foto's van 1800 px waar de zoekpagina er
 één gaf, eBay 5 van 1600 px, allebei in ongeveer 4,5 s via de brug; van allebei komt ook de
 verkoper mee, en van Catawiki de volledige beschrijving.
@@ -2373,7 +2373,15 @@ verhaal staat in `SITES.md` van `zentrix-sites`.
 ### Eigen kopregels per site
 
 `Headers` in het sitebestand zet extra kopregels op het verzoek. De meeste sites
-hebben er geen nodig; een API wel. De GraphQL-API van Discogs weigert elk verzoek
+hebben er geen nodig; een API wel.
+
+**Ze gaan ook mee naar de pagina van een zoekertje** (27 september 2026). De brug deed dat al,
+de gewone weg niet - en dan komt die pagina anders binnen dan de zoekpagina van diezelfde site.
+Vinted maakte het zichtbaar: met de kopregel `Cookie: anonymous-iso-locale=nl-BE` antwoordt hij
+in het Nederlands ("Goed", "20 uur geleden") en zonder in het Frans, dus stond er in het
+detailvenster "Ajouté" bij *online sinds* terwijl de zoekpagina Nederlands was. Nagemeten in
+`FotoChecks` met een proefsite die de kopregels van elk verzoek onthoudt (`Proefsite.Koppen`),
+met de tegenproef: op de vorige code faalde die controle. De GraphQL-API van Discogs weigert elk verzoek
 zonder `x-apollo-operation-name` met een CSRF-fout. Zet daar enkel in wat de site
 vraagt en nooit iets dat geheim moet blijven — een sitebestand is bedoeld om te
 delen. Een kopregel die .NET niet aanvaardt wordt overgeslagen en belandt in het
@@ -3091,7 +3099,9 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
 `--snel` en alles dicht waren dat er 369 op 26 september 2026; draait Chrome met de
-brug-extensie erbij, dan zijn het er 367 (allebei gemeten). Twee dingen op deze pc laten controles wegvallen, en
+brug-extensie erbij, dan zijn het er 367 (allebei gemeten). Op 27 september kwam er één
+controle bij (de kopregels naar de advertentiepagina), gemeten als 347 met Zentrix open - dus
+370 en 368; die twee zijn nog niet zelf geteld. Twee dingen op deze pc laten controles wegvallen, en
 allebei zeggen ze dat ook:
 
 - **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (23).
@@ -3586,7 +3596,8 @@ Hieronder enkel wat aan de app zelf te doen valt.
    - ~~Alle foto's van dat zoekertje.~~ Gedaan op 24 september 2026: `DetailImagesSelector` in het
      sitebestand, opgehaald door `DetailFetcher.FotosAsync`. Ingevuld op 25 september voor
      2dehands, Marktplaats en AlleVeilingen, op 26 september voor Facebook, Catawiki en eBay, en
-     diezelfde dag voor Kleinanzeigen, AutoScout24, leboncoin en Discogs - dus voor alle tien.
+     diezelfde dag voor Kleinanzeigen, AutoScout24, leboncoin en Discogs, en op 27 september
+     voor Vinted - dus voor alle elf.
    - **Meerdere zoekertjes tegelijk**, met vooraf een schermpje dat zegt hoeveel foto's en
      hoelang. Vraagt dat de lijst en het raster meervoudige selectie aankunnen; nog na te kijken.
 

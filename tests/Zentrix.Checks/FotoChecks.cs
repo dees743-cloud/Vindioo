@@ -365,6 +365,25 @@ public static class FotoChecks
                 "een pagina die niet lukt: de foto uit de lijst blijft");
             Check.Dat(na.Fout is not null, $"met de reden erbij: {na.Fout}");
 
+            // De eigen kopregels van een site gaan mee naar de pagina van een zoekertje. De brug
+            // deed dat al, de gewone weg niet - en dan komt die pagina anders binnen dan de
+            // zoekpagina van diezelfde site. Bij Vinted is dat de taalcookie: zonder haar
+            // antwoordt hij in het Frans, en dat merk je pas aan "Ajouté" in "online sinds".
+            var metKop = site.Site("Kopregelsite");
+            metKop.DetailImagesSelector = ".gallery img@src";
+            metKop.Headers = new Dictionary<string, string> { ["Cookie"] = "taal=nl-BE" };
+
+            site.Koppen.Clear();
+
+            await DetailFetcher.DetailsAsync(new Listing
+            {
+                Source = "Kopregelsite", Title = "Iets",
+                Url = $"http://127.0.0.1:{site.Poort}/z/103"
+            }, new[] { metKop });
+
+            Check.Dat(site.Koppen.Any(k => k.Contains("Cookie: taal=nl-BE")),
+                "de eigen kopregels van de site gaan mee naar de advertentiepagina");
+
             // FotosAsync is sinds het detailvenster dezelfde weg, met enkel de foto's eruit.
             var alleenFotos = await DetailFetcher.FotosAsync(zoekertje, lijst);
 
