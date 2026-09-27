@@ -68,6 +68,33 @@ public static class PaginaChecks
             $"30, 29, 10: drie meldingen, de eerste is pagina 1 ({string.Join(",", s1.Meldingen.Select(m => m.Count))})");
         Check.Dat(s5.Meldingen.Count == 1 && s5.Meldingen[0].Count == 2, "ook een enkele pagina wordt gemeld");
 
+        // ---------------------------------------------------------------------------
+        Check.Groep("Een toestemmingsmuur op een ander domein: één keer opnieuw proberen");
+        {
+            // Sommige sites sturen een eerste bezoek naar een tussenpagina op een ánder domein.
+            // Die zet een sessiecookie en laat het volgende verzoek gewoon door: bij Tweakers is
+            // dat myprivacy.dpgmedia.nl. Zonder deze regel kwam er van zo'n site nooit één
+            // resultaat binnen, hoe vaak je ook zocht - elk verzoek belandde op de muur.
+            using var site = new Proefsite { MuurEenKeer = true, PerPagina = { [1] = 5 } };
+
+            var gevonden = await SourceFactory.Create(site.Site("Muursite"))
+                .SearchAsync("test", 50, new SearchFilters(), null, CancellationToken.None);
+
+            Check.Dat(gevonden.Count == 5,
+                $"na de omleiding komt de echte pagina alsnog binnen ({gevonden.Count})");
+            Check.Dat(site.Koppen.Count >= 2,
+                $"en dat kostte een tweede verzoek ({site.Koppen.Count})");
+
+            // Zonder muur blijft het bij één verzoek: de regel mag niets extra's kosten.
+            using var gewoon = new Proefsite { PerPagina = { [1] = 5 } };
+
+            await SourceFactory.Create(gewoon.Site("Gewone site"))
+                .SearchAsync("test", 50, new SearchFilters(), null, CancellationToken.None);
+
+            Check.Dat(gewoon.Koppen.Count == 1,
+                $"een site zonder muur wordt één keer gevraagd ({gewoon.Koppen.Count})");
+        }
+
         Check.Groep("Hoeveel een site mag leveren (ResultLimit, PageLimit)");
         {
             var direct = new SiteDefinition { Name = "Direct" };

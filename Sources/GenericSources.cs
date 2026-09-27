@@ -343,19 +343,42 @@ public class GenericSource : ISearchSource
                 : await browser.GetHtmlAsync(url, _def.ItemSelector, ct, vervolgpagina);
         }
 
-        // Een JSON-API vraagt om application/json; een HTML-pagina om text/html.
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Accept.ParseAdd(_def.Kind == SiteKind.Json ? "application/json" : "text/html");
-
-        // Wat de site verder nog eist. Een onbruikbare kopregel mag de zoekopdracht
-        // niet laten vallen, dus die wordt overgeslagen in plaats van te werpen.
-        foreach (var (naam, waarde) in _def.Headers ?? new Dictionary<string, string>())
+        HttpRequestMessage Verzoek()
         {
-            if (!request.Headers.TryAddWithoutValidation(naam, waarde))
-                Services.Log.Write($"{_def.Name}: kopregel '{naam}' werd niet aanvaard");
+            // Een JSON-API vraagt om application/json; een HTML-pagina om text/html.
+            var v = new HttpRequestMessage(HttpMethod.Get, url);
+            v.Headers.Accept.ParseAdd(_def.Kind == SiteKind.Json ? "application/json" : "text/html");
+
+            // Wat de site verder nog eist. Een onbruikbare kopregel mag de zoekopdracht
+            // niet laten vallen, dus die wordt overgeslagen in plaats van te werpen.
+            foreach (var (naam, waarde) in _def.Headers ?? new Dictionary<string, string>())
+            {
+                if (!v.Headers.TryAddWithoutValidation(naam, waarde))
+                    Services.Log.Write($"{_def.Name}: kopregel '{naam}' werd niet aanvaard");
+            }
+
+            return v;
         }
 
-        using var response = await Http.SendAsync(request, ct);
+        var response = await Http.SendAsync(Verzoek(), ct);
+
+        // Sommige sites sturen een eerste bezoek naar een tussenpagina op een ánder
+        // domein: een toestemmingsmuur. Die zet een sessiecookie en laat het volgende
+        // verzoek gewoon door - bij Tweakers is dat myprivacy.dpgmedia.nl, en het tweede
+        // verzoek geeft de echte pagina. De HttpClient houdt zijn cookies bij, dus één
+        // keer opnieuw proberen volstaat. Zonder dit kwam er van zo'n site nooit een
+        // resultaat binnen, hoe vaak je ook zocht: elk verzoek belandde op de muur.
+        var beland = response.RequestMessage?.RequestUri?.Host ?? "";
+        var gevraagd = new Uri(url).Host;
+
+        if (!string.Equals(beland, gevraagd, StringComparison.OrdinalIgnoreCase))
+        {
+            Services.Log.Write($"{_def.Name}: kwam op {beland} uit in plaats van {gevraagd}; nog eens proberen");
+            response.Dispose();
+            response = await Http.SendAsync(Verzoek(), ct);
+        }
+
+        using var _ = response;
 
         // Een 404 op een zoek-URL betekent niet dat er iets stuk is, maar dat de
         // site dit woord niet kent. AutoScout24 doet dat bij elk woord dat geen

@@ -47,6 +47,15 @@ public sealed class Proefsite : IDisposable
     public List<string> Koppen { get; } = new();
 
     /// <summary>
+    /// Stuurt het <b>eerste</b> verzoek door naar een ander domein, zoals de toestemmingsmuur
+    /// van DPG bij Tweakers doet. Het tweede verzoek krijgt gewoon de pagina.
+    ///
+    /// De omleiding gaat naar <c>localhost</c> in plaats van <c>127.0.0.1</c>: dezelfde
+    /// proefsite, maar voor de app een ánder domein - en dat is precies waar de regel op kijkt.
+    /// </summary>
+    public bool MuurEenKeer { get; set; }
+
+    /// <summary>
     /// Echte foto's, op hun pad ("/klein.jpg"). Nodig waar de app een foto <i>nameet</i> in
     /// plaats van ze enkel door te geven: het formaat is niet aan een adres af te lezen.
     /// Wint van alles, want een foto is geen HTML.
@@ -85,6 +94,32 @@ public sealed class Proefsite : IDisposable
                 var regel = verzoek.Split("\r\n")[0];
 
                 lock (Koppen) Koppen.Add(verzoek);
+
+                if (MuurEenKeer)
+                {
+                    MuurEenKeer = false;
+
+                    await stream.WriteAsync(Encoding.ASCII.GetBytes(
+                        "HTTP/1.1 302 Found\r\n" +
+                        $"Location: http://localhost:{Poort}/toestemming\r\n" +
+                        "Content-Length: 0\r\nConnection: close\r\n\r\n"));
+                    return;
+                }
+
+                // De muur zelf: géén resultaten. Anders zou de omleiding toevallig een
+                // resultatenpagina geven en zou de controle ook slagen zonder de regel
+                // waar ze over gaat.
+                if (regel.Contains("/toestemming"))
+                {
+                    var muur = Encoding.UTF8.GetBytes(
+                        "<html><body><h1>Wil je ons toestemming geven?</h1></body></html>");
+
+                    await stream.WriteAsync(Encoding.ASCII.GetBytes(
+                        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n" +
+                        $"Content-Length: {muur.Length}\r\nConnection: close\r\n\r\n"));
+                    await stream.WriteAsync(muur);
+                    return;
+                }
 
                 if (Zwijgt)
                 {

@@ -617,12 +617,30 @@ public static class DetailFetcher
         // zoekpagina van diezelfde site. Bij Vinted is dat zichtbaar: de zoekpagina komt met
         // "Cookie: anonymous-iso-locale=nl-BE" in het Nederlands binnen ("Goed", "een week
         // geleden") en de advertentiepagina zonder die kopregel in het Frans.
-        using var verzoek = new HttpRequestMessage(HttpMethod.Get, url);
+        HttpRequestMessage Verzoek()
+        {
+            var v = new HttpRequestMessage(HttpMethod.Get, url);
 
-        foreach (var (naam, waarde) in def.Headers ?? new Dictionary<string, string>())
-            verzoek.Headers.TryAddWithoutValidation(naam, waarde);
+            foreach (var (naam, waarde) in def.Headers ?? new Dictionary<string, string>())
+                v.Headers.TryAddWithoutValidation(naam, waarde);
 
-        using var antwoord = await Http.SendAsync(verzoek, ct);
+            return v;
+        }
+
+        var antwoord = await Http.SendAsync(Verzoek(), ct);
+
+        // En dezelfde terugval als de zoekmotor: belandt het verzoek op een ánder domein, dan
+        // is dat een toestemmingsmuur die een sessiecookie zet, en geeft een tweede verzoek de
+        // echte pagina. Zonder dit gaf Tweakers V&A 0 foto's en 0 tekens beschrijving, terwijl
+        // de zoekpagina van diezelfde site gewoon binnenkwam.
+        if (!string.Equals(antwoord.RequestMessage?.RequestUri?.Host, new Uri(url).Host,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            antwoord.Dispose();
+            antwoord = await Http.SendAsync(Verzoek(), ct);
+        }
+
+        using var _ = antwoord;
         antwoord.EnsureSuccessStatusCode();
 
         return await antwoord.Content.ReadAsStringAsync(ct);

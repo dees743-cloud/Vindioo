@@ -1887,7 +1887,8 @@ pagina; die drie keer ophalen zou bij een brugsite twaalf seconden kosten. `Foto
 AI-controle) loopt sindsdien over dezelfde weg, met enkel de foto's eruit. Wat opgehaald is, blijft
 onthouden op het adres van de pagina.
 
-**Ingevuld voor alle elf de sites** (26 september 2026, Vinted op 27 september). Welke selector en wat er gemeten is,
+**Ingevuld voor alle twaalf de sites** (26 september 2026; Vinted en Tweakers V&A op 27
+september). Welke selector en wat er gemeten is,
 staat in `SITES.md` van `zentrix-sites`. Catawiki geeft 5 foto's van 1800 px waar de zoekpagina er
 één gaf, eBay 5 van 1600 px, allebei in ongeveer 4,5 s via de brug; van allebei komt ook de
 verkoper mee, en van Catawiki de volledige beschrijving.
@@ -2582,6 +2583,33 @@ de weg, en voor een API de tweede soort brugopdracht (`rawText`, zie "Twee soort
 opdrachten"). Discogs is daar het voorbeeld van; het hele verhaal, met wat we
 probeerden en waarom het niet lukte, staat in `SITES.md` van `zentrix-sites`.
 
+## Een toestemmingsmuur op een ander domein
+
+Sommige sites sturen een eerste bezoek naar een **tussenpagina op een ander domein**: een
+toestemmingsmuur. Bij Tweakers is dat `myprivacy.dpgmedia.nl`. Die muur zet een sessiecookie en
+laat het **volgende** verzoek gewoon door - 296 kB met de echte pagina erin.
+
+Daarom, sinds 27 september 2026: belandt een verzoek op een ándere host dan gevraagd, dan
+probeert de app het **één keer** opnieuw. De `HttpClient` houdt zijn cookies bij (`SocketsHttpHandler`
+doet dat vanzelf), dus dat tweede verzoek slaagt. Het staat op de twee plaatsen die zelf een
+pagina ophalen: `GenericSource` (de zoekpagina) en `DetailFetcher` (de pagina van een zoekertje).
+
+Drie dingen om te weten:
+
+- **Er wordt niets aanvaard.** Er gaat geen toestemmingskeuze mee, enkel een sessie. Een cookie
+  die enkel het noodzakelijke aanvaardt (`dpg-consent-string=functional`) hielp trouwens niet:
+  gemeten, de muur bleef staan. Wat wél werkte was gewoon een tweede verzoek.
+- **Zonder koekjespot lukt het nooit.** Dat was precies het verschil tussen `curl` (altijd de
+  muur) en een browser (meteen de pagina), en het kostte een halve middag om te zien.
+- **Het kost niets bij een site zonder muur.** De regel kijkt enkel naar de host waarop je
+  uitkwam; komt die overeen, dan is er één verzoek zoals altijd.
+
+Nagemeten in `PaginaChecks` met een proefsite die het eerste verzoek doorstuurt naar
+`localhost` (zelfde proefsite, ander domein) en daar een pagina zónder resultaten geeft. Met de
+tegenproef: op de vorige code viel de zoekopdracht om met "gaf een bijna lege pagina terug (64
+tekens) in plaats van resultaten" - het vangnet tegen stil falen pakte het dus al, maar er kwam
+nooit een resultaat binnen.
+
 ## Sites toevoegen
 
 De gebruiker plakt een gewone zoek-URL met het gezochte woord erin. De app
@@ -3189,14 +3217,14 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel` waren dat er op 27 september 2026 **391** met Chrome open en **370** met Zentrix erbij
-(allebei gemeten), en dus 393 met alles dicht. Twee dingen op deze pc laten controles wegvallen, en allebei zeggen ze dat ook:
+`--snel` waren dat er op 27 september 2026 **373** met Zentrix open (gemeten; dan valt de
+brug-groep van 23 weg), en dus 396 met alles dicht en 394 met enkel Chrome open. Twee dingen op deze pc laten controles wegvallen, en allebei zeggen ze dat ook:
 
 - **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (23).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
   Het controleproject heeft een eigen gegevensmap en dus een andere code, dus voor zijn brug is
   dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
-  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (391 in plaats van 393).
+  nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (394 in plaats van 396).
 
 Drie regels waar het aan vastzit:
 
