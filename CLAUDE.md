@@ -3217,8 +3217,8 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
-`--snel` waren dat er op 27 september 2026 **373** met Zentrix open (gemeten; dan valt de
-brug-groep van 23 weg), en dus 396 met alles dicht en 394 met enkel Chrome open. Twee dingen op deze pc laten controles wegvallen, en allebei zeggen ze dat ook:
+`--snel` waren dat er op 27 september 2026 **394** met Chrome open en **373** met Zentrix
+erbij (allebei gemeten), en dus 396 met alles dicht. Twee dingen op deze pc laten controles wegvallen, en allebei zeggen ze dat ook:
 
 - **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (23).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
