@@ -82,6 +82,34 @@ public sealed record PagingCheck(bool Supported, int Page2, int Overlap, string?
           ?? $"Paginering werkt: pagina 2 gaf {Page2} zoekertjes, waarvan er {Overlap} ook op pagina 1 stonden.";
 }
 
+/// <summary>Wat één voorgesteld filter deed toen de app het echt uitprobeerde.</summary>
+public sealed record FilterResult(string Key, string Fragment, string Value, int Results, int Shared,
+    bool Kept, string Reason);
+
+/// <summary>
+/// Het oordeel over alle voorgestelde filters samen. Filters zijn het enige deel van een
+/// sitebeschrijving dat je niet kán zien: een parameter die er goed uitziet, kan door de
+/// site aanvaard en meteen genegeerd worden. Daarom wordt elk voorstel uitgevoerd en
+/// vergeleken met de ongefilterde eerste pagina.
+/// </summary>
+public sealed record FilterCheck(bool Reliable, int Proposed, int Kept, string? Warning,
+    IReadOnlyList<FilterResult> Results)
+{
+    /// <summary>
+    /// Hoeveel de resultaten al verschuiven zonder dat je iets filtert. Op een drukke site
+    /// komen er tussen twee verzoeken zoekertjes bij en gaan er weg; die ruis bepaalt
+    /// vanaf wanneer een verschil iets betekent.
+    /// </summary>
+    public double Noise { get; init; }
+
+    public string Summary => !Reliable
+        ? Warning ?? "De filters zijn niet na te meten op deze site."
+        : Proposed == 0
+            ? "Geen filters gevonden om na te meten."
+            : $"Filters: {Kept} van de {Proposed} voorstellen doen echt iets; de rest is eruit " +
+              $"(deze site verschuift al {Noise:P0} vanzelf).";
+}
+
 /// <summary>Het resultaat van een analyse: de definitie, de telling en hoe het ging.</summary>
 public sealed record SiteAnalysis(SiteDefinition Definition, AnalysisCheck Check, FetchRoute Route, int Rounds)
 {
@@ -99,6 +127,9 @@ public sealed record SiteAnalysis(SiteDefinition Definition, AnalysisCheck Check
     /// er goed uitzien en toch een adres opleveren dat de fotodienst weigert.
     /// </summary>
     public string? LargeImageProblem { get; init; }
+
+    /// <summary>Wat er van de voorgestelde filters overbleef na het natellen.</summary>
+    public FilterCheck? Filters { get; init; }
 
     /// <summary>
     /// De regel uit robots.txt die dit zoekpad verbiedt, of null. De app dwingt niets af -
@@ -207,6 +238,10 @@ public class SiteAnalyzer
         AnalysisCheck? bestCheck = null;
         var rounds = 0;
 
+        // Het laatste antwoord van de AI, om er de filtervraag achteraan te hangen. Zo
+        // blijft de pagina in hetzelfde gesprek staan in plaats van nog eens mee te gaan.
+        JsonNode? laatsteAntwoord = null;
+
         for (var round = 1; round <= MaxRounds; round++)
         {
             rounds = round;
@@ -215,6 +250,8 @@ public class SiteAnalyzer
                 : $"De AI verbetert zijn selectors (poging {round})...");
 
             var (content, answer) = await AskClaudeAsync(apiKey, messages, SystemPrompt, BuildSchema(), ct);
+            laatsteAntwoord = content;
+
             var definition = ToDefinition(answer, searchUrl, url, isJson, route);
 
             status?.Report("De selectors natellen op de pagina...");
@@ -251,6 +288,8 @@ public class SiteAnalyzer
 
         var grote = await ControleerGroteFotoAsync(best!, bestCheck!, status, ct);
         var paging = await ControleerPaginaTweeAsync(best!, searchUrl, page, testQuery, route, status, ct);
+
+        var filters = await FiltersAsync(apiKey, best!, messages, laatsteAntwoord, url, page, route, status, ct);
         var robots = await RobotsAsync(url, ct);
         var detail = await AdvertentieAsync(apiKey, best!, bestCheck!, route, status, ct);
 
@@ -259,7 +298,8 @@ public class SiteAnalyzer
             Detail = detail,
             Paging = paging,
             RobotsRule = robots,
-            LargeImageProblem = grote
+            LargeImageProblem = grote,
+            Filters = filters
         };
     }
 
@@ -1246,6 +1286,429 @@ public class SiteAnalyzer
             return null;
         }
     }
+
+    // ==================== de filters ====================
+
+    /// <summary>Een voorgesteld filter, met de waarde waarmee de app het uitprobeert.</summary>
+    internal sealed record FilterKandidaat(string Key, string Fragment, string TestValue, CustomFilter? Eigen);
+
+    /// <summary>De enige sleutels die de app van binnenuit kent; de rest is een eigen filter.</summary>
+    private static readonly string[] BekendeSleutels =
+    {
+        "priceMin", "priceMax", "priceRangeEuro", "priceRangeCents",
+        "postcode", "location", "radius", "radiusMeters"
+    };
+
+    /// <summary>Hoeveel filters er hoogstens uitgeprobeerd worden; elk kost een paginabezoek.</summary>
+    private const int MaxGemetenFilters = 8;
+
+    /// <summary>
+    /// Vraagt de filters en meet ze daarna na. Dit was het laatste stuk dat met de hand
+    /// moest: negen van de dertien sitebestanden hebben een <c>Filters</c>-mapping en acht
+    /// hebben eigen filters, en de analyse liet allebei leeg.
+    ///
+    /// De vraag gaat in hetzelfde gesprek verder, zodat de pagina niet nog eens mee hoeft.
+    /// </summary>
+    private async Task<FilterCheck?> FiltersAsync(string apiKey, SiteDefinition def, JsonArray messages,
+        JsonNode? laatsteAntwoord, string paginaEenUrl, string paginaEen, FetchRoute route,
+        IProgress<string>? status, CancellationToken ct)
+    {
+        if (laatsteAntwoord is null) return null;
+
+        try
+        {
+            status?.Report("De AI zoekt de filters van deze site...");
+
+            messages.Add(new JsonObject { ["role"] = "assistant", ["content"] = laatsteAntwoord });
+            messages.Add(UserMessage(FilterVraag()));
+
+            var (_, answer) = await AskClaudeAsync(apiKey, messages, SystemPrompt, BuildFilterSchema(), ct);
+            var kandidaten = LeesFilters(answer, out var notities);
+
+            var check = await MeetFiltersAsync(def, kandidaten, paginaEenUrl, paginaEen, route, status, ct);
+
+            if (!string.IsNullOrWhiteSpace(notities))
+            {
+                def.Notes = string.IsNullOrWhiteSpace(def.Notes)
+                    ? notities
+                    : def.Notes.TrimEnd() + "\n\n" + notities;
+            }
+
+            return check;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Log.Write($"analyse: de filters lukten niet - {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Voert elk voorstel echt uit en vergelijkt met de ongefilterde pagina. Filters zijn
+    /// het enige deel van een sitebeschrijving dat je niet kán zien; ze moeten gemeten
+    /// worden. De valkuil staat in SITES.md: de API van 2dehands aanvaardt een verkeerd
+    /// gevormd filter en negeert het, en het totaal dat hij teruggeeft telt de zoekterm en
+    /// niet de filter. Wie enkel naar dat getal kijkt, besluit dat niets werkt.
+    /// </summary>
+    internal static async Task<FilterCheck> MeetFiltersAsync(SiteDefinition def,
+        IReadOnlyList<FilterKandidaat> kandidaten, string paginaEenUrl, string paginaEen,
+        FetchRoute route, IProgress<string>? status, CancellationToken ct)
+    {
+        var leeg = Array.Empty<FilterResult>();
+        var bron = new GenericSource(def);
+        var basis = await bron.ReadPageAsync(paginaEen, ct);
+
+        if (basis.Count < MinimumOpPaginaEen)
+        {
+            return new FilterCheck(false, kandidaten.Count, 0,
+                "Te weinig zoekertjes op pagina 1 om filters aan af te meten.", leeg);
+        }
+
+        if (kandidaten.Count == 0) return new FilterCheck(true, 0, 0, null, leeg);
+
+        var basisSleutels = basis.Select(l => l.Key).ToHashSet();
+
+        // De controle vooraf: een parameter die niet bestaat. Verandert die de resultaten
+        // ook, dan meet je de onrust van de site en niet je filter. Precies daarom stuurt
+        // tools/meet-filter.py er altijd een onzin-parameter bij.
+        status?.Report("Nakijken of deze site stabiele resultaten geeft...");
+
+        // Twee keer, en de grootste telt. Eén meting was te weinig: Vinted verschoof
+        // tussen twee verzoeken al 17% van zijn eerste pagina, en daardoor haalde een
+        // verzonnen filter de drempel. Op een drukke marktplaats komen er nu eenmaal
+        // zoekertjes bij en gaan er weg terwijl je meet.
+        var eerste = await LijstAsync(bron, Plak(paginaEenUrl, "zzzbestaatniet=1"), route, ct);
+        var tweede = await LijstAsync(bron, Plak(paginaEenUrl, "zzzbestaatookniet=2"), route, ct);
+        var ruis = Math.Max(Anders(basisSleutels, eerste), Anders(basisSleutels, tweede));
+
+        // Vanaf hier telt een verschil pas als het ruim boven die ruis uitkomt. Liever een
+        // filter te weinig dan een filter dat er staat en niets doet: dat laatste is stil
+        // falen, en het staat ook nog eens in het venster te lezen wat eruit ging.
+        var drempel = Math.Max(0.20, ruis * 2 + 0.10);
+
+        Log.Write($"analyse: filters - de site verschuift zelf {ruis:P0}, drempel {drempel:P0}");
+
+        if (ruis > 0.4)
+        {
+            Log.Write($"analyse: filters niet na te meten, de controle-parameter veranderde al {ruis:P0}");
+
+            return new FilterCheck(false, kandidaten.Count, 0,
+                $"Deze site geeft bij elk verzoek andere zoekertjes ({ruis:P0} verschil met een parameter " +
+                "die niet eens bestaat), dus hier valt geen filter na te meten. Vul ze met de hand in.",
+                leeg) { Noise = ruis };
+        }
+
+        var resultaten = new List<FilterResult>();
+        var gehouden = 0;
+        var mediaan = Mediaan(basis);
+
+        foreach (var kandidaat in kandidaten.Take(MaxGemetenFilters))
+        {
+            status?.Report($"Filter \"{kandidaat.Key}\" uitproberen...");
+
+            // Bij een prijsgrens rekent de app zelf een bedrag uit: de mediaan van wat er
+            // op pagina 1 staat. Dat moet ongeveer de helft wegsnijden, en het is
+            // betrouwbaarder dan een gok van de AI.
+            var prijsgrens = kandidaat.Key is "priceMin" or "priceMax";
+            var waarde = prijsgrens && mediaan is not null
+                ? mediaan.Value.ToString("0.##", CultureInfo.InvariantCulture)
+                : kandidaat.TestValue;
+
+            if (waarde.Length == 0) continue;
+
+            var url = Plak(paginaEenUrl,
+                kandidaat.Fragment.TrimStart('&', '?').Replace("{value}", Uri.EscapeDataString(waarde)));
+
+            bool houden;
+            string reden;
+            var lijst = new List<Listing>();
+
+            try
+            {
+                lijst = await LijstAsync(bron, url, route, ct);
+                var anders = Anders(basisSleutels, lijst);
+
+                if (lijst.Count == 0)
+                {
+                    houden = false;
+                    reden = "gaf geen enkel zoekertje";
+                }
+                else if (prijsgrens && mediaan is not null &&
+                         !GrensOk(lijst, mediaan.Value, kandidaat.Key == "priceMax"))
+                {
+                    // Dit is de valkuil van 2dehands: aanvaard en genegeerd.
+                    houden = false;
+                    reden = "werd aanvaard maar genegeerd - de prijzen bleven buiten de grens";
+                }
+                else if (anders < drempel)
+                {
+                    houden = false;
+                    reden = $"veranderde maar {anders:P0} van de resultaten, en deze site verschuift " +
+                            $"zelf al {ruis:P0}";
+                }
+                else
+                {
+                    houden = true;
+                    reden = $"veranderde {anders:P0} van de resultaten";
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                houden = false;
+                reden = "kwam niet binnen: " + ex.Message;
+            }
+
+            if (houden)
+            {
+                gehouden++;
+
+                if (kandidaat.Eigen is null) def.Filters[kandidaat.Key] = kandidaat.Fragment;
+                else def.CustomFilters.Add(kandidaat.Eigen);
+            }
+
+            resultaten.Add(new FilterResult(kandidaat.Key, kandidaat.Fragment, waarde, lijst.Count,
+                lijst.Count(l => basisSleutels.Contains(l.Key)), houden, reden));
+
+            Log.Write($"analyse: filter {kandidaat.Key}={waarde} -> {lijst.Count} zoekertjes, " +
+                      $"{(houden ? "gehouden" : "eruit")} ({reden})");
+        }
+
+        return new FilterCheck(true, kandidaten.Count, gehouden, null, resultaten) { Noise = ruis };
+    }
+
+    private static async Task<List<Listing>> LijstAsync(GenericSource bron, string url, FetchRoute route,
+        CancellationToken ct) =>
+        await bron.ReadPageAsync(await HaalViaRouteAsync(url, route, ct), ct);
+
+    /// <summary>Een stukje achter de zoek-URL plakken, met het juiste scheidingsteken.</summary>
+    private static string Plak(string url, string stuk) => url + (url.Contains('?') ? "&" : "?") + stuk;
+
+    /// <summary>
+    /// Hoeveel deze lijst verschilt van de ongefilterde pagina: 0 is precies hetzelfde,
+    /// 1 is niets gemeen. Gedeeld door de grootste van de twee, zodat een filter dat de
+    /// helft wegsnijdt ook echt als een verschil telt.
+    /// </summary>
+    private static double Anders(HashSet<string> basis, IReadOnlyList<Listing> lijst)
+    {
+        if (lijst.Count == 0) return 1;
+
+        var gedeeld = lijst.Count(l => basis.Contains(l.Key));
+        return 1.0 - (double)gedeeld / Math.Max(basis.Count, lijst.Count);
+    }
+
+    private static decimal? Mediaan(IReadOnlyList<Listing> lijst)
+    {
+        var prijzen = lijst.Where(l => l.Price is > 0).Select(l => l.Price!.Value).OrderBy(p => p).ToList();
+        return prijzen.Count == 0 ? null : prijzen[prijzen.Count / 2];
+    }
+
+    /// <summary>
+    /// Bleven de prijzen binnen de gevraagde grens? Een tiende buiten de lijn mag: een
+    /// site kan een uitgelicht zoekertje bovenaan zetten dat zich aan niets houdt.
+    /// </summary>
+    private static bool GrensOk(IReadOnlyList<Listing> lijst, decimal grens, bool maximum)
+    {
+        var metPrijs = lijst.Where(l => l.Price is > 0).ToList();
+        if (metPrijs.Count == 0) return true;
+
+        var buiten = metPrijs.Count(l => maximum
+            ? l.Price!.Value > grens * 1.01m
+            : l.Price!.Value < grens * 0.99m);
+
+        return buiten <= metPrijs.Count * 0.1;
+    }
+
+    private static List<FilterKandidaat> LeesFilters(string answer, out string notities)
+    {
+        var lijst = new List<FilterKandidaat>();
+        notities = "";
+
+        JsonDocument doc;
+        try
+        {
+            doc = JsonDocument.Parse(answer);
+        }
+        catch (JsonException)
+        {
+            throw new InvalidOperationException("de AI gaf geen bruikbaar antwoord over de filters");
+        }
+
+        using (doc)
+        {
+            var root = doc.RootElement;
+            notities = Get(root, "notes");
+
+            if (root.TryGetProperty("filters", out var vaste) && vaste.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in vaste.EnumerateArray())
+                {
+                    var key = BekendeSleutels.FirstOrDefault(
+                        s => string.Equals(s, Get(item, "key"), StringComparison.OrdinalIgnoreCase));
+
+                    var fragment = Get(item, "fragment");
+
+                    // Een sleutel die de app niet kent, doet niets: SearchUrlBuilder vult
+                    // hem nooit in. Dan is hij een eigen filter, geen vast.
+                    if (key is null || !fragment.Contains("{value}")) continue;
+
+                    lijst.Add(new FilterKandidaat(key, fragment, Get(item, "testValue"), null));
+                }
+            }
+
+            if (root.TryGetProperty("customFilters", out var eigen) && eigen.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in eigen.EnumerateArray())
+                {
+                    var key = Get(item, "key");
+                    var fragment = Get(item, "fragment");
+                    if (key.Length == 0 || !fragment.Contains("{value}")) continue;
+
+                    var soort = Get(item, "kind");
+                    var filter = new CustomFilter
+                    {
+                        Key = key,
+                        Label = Get(item, "label"),
+                        Fragment = fragment,
+                        Kind = soort.Equals("Number", StringComparison.OrdinalIgnoreCase) ? CustomFilterKind.Number
+                            : soort.Equals("Toggle", StringComparison.OrdinalIgnoreCase) ? CustomFilterKind.Toggle
+                            : CustomFilterKind.Choice,
+                        Multiple = item.TryGetProperty("multiple", out var m) && m.ValueKind == JsonValueKind.True
+                    };
+
+                    if (item.TryGetProperty("options", out var opties) && opties.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var optie in opties.EnumerateArray())
+                        {
+                            var waarde = Get(optie, "value");
+                            if (waarde.Length == 0) continue;
+
+                            filter.Options.Add(new FilterChoice { Value = waarde, Label = Get(optie, "label") });
+                        }
+                    }
+
+                    // Een keuzelijst zonder keuzes valt weg: daar valt niets te kiezen en
+                    // niets na te meten.
+                    if (filter.Kind == CustomFilterKind.Choice && filter.Options.Count == 0) continue;
+
+                    var proef = filter.Kind switch
+                    {
+                        CustomFilterKind.Toggle => "1",
+                        CustomFilterKind.Choice => filter.Options[0].Value,
+                        _ => Get(item, "testValue")
+                    };
+
+                    if (proef.Length == 0) continue;
+
+                    lijst.Add(new FilterKandidaat(key, fragment, proef, filter));
+                }
+            }
+        }
+
+        return lijst;
+    }
+
+    private static JsonObject BuildFilterSchema()
+    {
+        static JsonObject Tekst() => new() { ["type"] = "string" };
+
+        var vast = new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                ["key"] = Tekst(),
+                ["fragment"] = Tekst(),
+                ["testValue"] = Tekst()
+            },
+            ["required"] = new JsonArray { "key", "fragment", "testValue" },
+            ["additionalProperties"] = false
+        };
+
+        var keuze = new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject { ["value"] = Tekst(), ["label"] = Tekst() },
+            ["required"] = new JsonArray { "value", "label" },
+            ["additionalProperties"] = false
+        };
+
+        var eigen = new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                ["key"] = Tekst(),
+                ["label"] = Tekst(),
+                ["kind"] = new JsonObject
+                {
+                    ["type"] = "string",
+                    ["enum"] = new JsonArray { "Choice", "Number", "Toggle" }
+                },
+                ["multiple"] = new JsonObject { ["type"] = "boolean" },
+                ["fragment"] = Tekst(),
+                ["testValue"] = Tekst(),
+                ["options"] = new JsonObject { ["type"] = "array", ["items"] = keuze }
+            },
+            ["required"] = new JsonArray { "key", "label", "kind", "multiple", "fragment", "testValue", "options" },
+            ["additionalProperties"] = false
+        };
+
+        return new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                ["filters"] = new JsonObject { ["type"] = "array", ["items"] = vast },
+                ["customFilters"] = new JsonObject { ["type"] = "array", ["items"] = eigen },
+                ["notes"] = Tekst()
+            },
+            ["required"] = new JsonArray { "filters", "customFilters", "notes" },
+            ["additionalProperties"] = false
+        };
+    }
+
+    /// <summary>
+    /// De vraag over de filters. Ze gaat als gewoon bericht in hetzelfde gesprek, met
+    /// dezelfde opdracht erboven: zo blijft de pagina in de cache staan en hoeft ze niet
+    /// nog eens mee.
+    /// </summary>
+    private static string FilterVraag() => """
+        Nu de filters van deze site, op dezelfde pagina. Er zijn er twee soorten.
+
+        1. VASTE FILTERS, het veld "filters". Die kent de app van binnenuit, want ze betekenen op elke
+        site hetzelfde. Enkel deze sleutels bestaan; noem je iets anders, dan doet het niets:
+        - priceMin, priceMax: een bedrag in euro
+        - priceRangeEuro, priceRangeCents: beide grenzen in één parameter, als "min:max"
+        - postcode of location: een postcode of een plaatsnaam
+        - radius: een straal in kilometer. radiusMeters: dezelfde straal in meter
+        Het fragment is het stukje URL met {value} erin, bijvoorbeeld "&priceTo={value}". Let op de
+        eenheid: staat er in de URL van de site een bedrag in centen, kies dan priceRangeCents, en bij
+        een straal in meter radiusMeters. Dat is bij een echte site fout gegaan.
+
+        2. EIGEN FILTERS, het veld "customFilters": alles wat enkel op deze site bestaat - staat,
+        categorie, brandstof, soort verkoper, alleen met verzending. kind is "Choice" (een keuze uit
+        een lijst; zet multiple op true als er meerdere tegelijk mogen), "Number" (een vrij getal) of
+        "Toggle" (aan of uit). Bij Choice geef je de keuzes zoals de site ze verwacht, met het label in
+        de taal van de site. Hoogstens acht, en dan de nuttigste.
+
+        TESTWAARDE: geef bij elk filter een testValue die op deze site echt geldig is - een postcode
+        die bestaat, een bedrag in de juiste eenheid. Bij een Choice neemt de app de eerste keuze, en
+        bij priceMin en priceMax rekent ze zelf een bedrag uit.
+
+        WAAR JE ZE VINDT: het filterformulier in de pagina (een select, een input of een checkbox met
+        een name), de links van de filters in de zijbalk, of een blok met de hele filterlijst erin
+        (__NEXT_DATA__, een taxonomy). Neem de namen letterlijk over en verzin niets: wat je niet in de
+        pagina ziet, laat je weg.
+
+        WAT ER DAARNA GEBEURT: de app probeert elk filter echt uit op deze zoekopdracht en vergelijkt
+        de resultaten met de ongefilterde pagina. Een filter dat niets verandert, gaat eruit - ook als
+        het er goed uitziet, want een site kan een parameter aanvaarden en meteen negeren. Er gaat ook
+        een parameter mee die niet bestaat, als controle. Een verkeerde gok kost dus niets; een filter
+        dat je niet noemt, bestaat nooit.
+
+        In notes: één of twee zinnen over wat onzeker is aan deze filters. Laat de lijsten leeg wanneer
+        je er geen ziet.
+        """;
 
     // ==================== de pagina van één zoekertje ====================
 

@@ -175,8 +175,15 @@ Twee valkuilen die daarbij horen:
 
 Het nummer staat op **één plaats**: `<Version>` in `Zentrix.csproj`. `Services/Versie.cs` leest
 het daar uit de assembly, zodat het scherm nooit iets anders zegt dan het bestand. Sinds
-27 september 2026 staat het op **0.9.0**: de app doet wat ze moet doen, maar er staan nog
-stukken open (zie "Volgende stappen"), en dat is wat een nul vooraan betekent.
+27 september 2026 staat er een nul vooraan: de app doet wat ze moet doen, maar er staan nog
+stukken open (zie "Volgende stappen"), en dat is wat die nul betekent.
+
+**0.9.1** sinds 29 september 2026. Wat er veranderde zit helemaal in *Site toevoegen*: de
+AI-analyse bekijkt nu ook de pagina van een zoekertje, stuurt de zoek-URL bij voor paginering in
+het pad, en meet de paginering, de grote foto en de filters na in plaats van ze te geloven (zie
+"Hoe de AI-analyse werkt", punten 5 tot 9). Geen nieuw scherm en geen nieuwe knop, dus geen 0.10:
+dezelfde app, met een stuk dat zijn werk beter doet. Wat er voor 1.0 nog moet, staat onveranderd
+bij "Volgende stappen".
 
 Het is op twee plaatsen zichtbaar, en allebei om dezelfde reden - **er draaien twee exe's op
 deze pc**, een uit Visual Studio en een gepubliceerde (bij mij `C:\Zentrix`), met
@@ -2898,14 +2905,57 @@ Voor wie eraan werkt:
   gebruiken. Dat stond vroeger enkel in "Site toevoegen", en dan maakte je een lege nieuwe
   site aan om je bij een bestaande aan te melden.
 
-Wat de analyse **niet** doet, en waar je dus zelf aan moet: `Filters`, `CustomFilters`,
-`Headers`, `AllowsEmptyQuery`, `PriceReference`, `SellerSelector`, `AuctionSellers`,
-`DetailEndDateSelector`, `EndTimeApi` en een eigen `UrlStyle`. Dat vraagt meten, zie
-`tools/meet-filter.py`. `Headers` en `EndTimeApi` zijn trouwens niet te raden: die zijn er
-gekomen door te proberen, niet door te kijken.
+**9. De filters, en waarom die als laatste kwamen** (29 september 2026). Negen van de dertien
+sitebestanden hebben een `Filters`-mapping en acht hebben eigen filters, en de analyse liet
+allebei leeg - het laatste grote gat. Het is ook het moeilijkste, want **een filter kan je niet
+zien**. Een parameter die er goed uitziet, kan door de site aanvaard en meteen genegeerd worden;
+dat is precies de valkuil van 2dehands in `SITES.md`.
+
+Daarom: de AI **stelt voor**, de app **meet na**. De vraag gaat als gewoon bericht verder in
+hetzelfde gesprek, zodat de pagina niet nog eens mee hoeft. Wat er daarna gebeurt met elk
+voorstel:
+
+- De app haalt pagina 1 nog eens op met dat ene filter erbij en vergelijkt de sleutels met de
+  ongefilterde pagina.
+- **Bij een prijsgrens telt ze de prijzen na.** Ze rekent zelf de mediaan van pagina 1 uit - dat
+  moet ongeveer de helft wegsnijden - en kijkt daarna of de teruggekomen prijzen binnen die grens
+  bleven. Komen er duurdere terug, dan is het filter *aanvaard maar genegeerd* en gaat het eruit.
+- Alleen bekende sleutels tellen als vast filter: `priceMin`, `priceMax`, `priceRangeEuro`,
+  `priceRangeCents`, `postcode`, `location`, `radius`, `radiusMeters`. Een andere naam doet niets,
+  want `SearchUrlBuilder` vult hem nooit in; die hoort bij de eigen filters.
+- Hoogstens acht filters worden uitgeprobeerd - elk kost een paginabezoek.
+
+**De ruis was groter dan gedacht, en dat kwam uit de meting.** De eerste versie stuurde één
+controle mee: een parameter die niet bestaat. Op Vinted veranderde dát al **17%** van de eerste
+pagina - er komen nu eenmaal zoekertjes bij terwijl je meet - en daardoor haalde een verzonnen
+filter de drempel en bleef het staan. Nu gaan er **twee** controles mee, telt de grootste, en ligt
+de drempel op `max(20%, 2 x ruis + 10%)`. Nagemeten op Vinted, met de echte filters uit
+`vinted.json` en opzettelijke rommel ernaast:
+
+| Voorstel | Veranderde | Oordeel |
+|---|---|---|
+| `priceMax` = `&price_to={value}` | 48% | gehouden |
+| `priceMin` = `&price_from={value}` | 49% | gehouden |
+| `radius` = `&straalinkm={value}` (bestaat niet) | 9% | eruit |
+| eigen filter `&onzinfilter={value}` (bestaat niet) | 2% | eruit |
+
+De site verschoof zelf 12%. Wat eruit kwam, is letterlijk wat er met de hand in `vinted.json`
+staat. Verschuift een site meer dan 40% vanzelf, dan zegt de app dat filters daar niet na te meten
+zijn en laat ze alles leeg - liever niets dan een filter dat stil niets doet.
+
+**Liever een filter te weinig dan een filter dat er staat en niets doet.** Dat is de afweging
+achter die drempel: een ontbrekend filter zie je meteen, een filter dat stil genegeerd wordt niet.
+Het venster toont daarom per voorstel wat het deed en waarom het eruit ging, zodat je het met de
+hand kan terugzetten.
+
+Wat de analyse **nog steeds niet doet**, en waar je dus zelf aan moet: `Headers`,
+`AllowsEmptyQuery`, `PriceReference`, `SellerSelector`, `AuctionSellers`,
+`DetailEndDateSelector`, `EndTimeApi` en een eigen `UrlStyle`. `Headers` en `EndTimeApi` zijn
+niet te raden: die zijn er gekomen door te proberen, niet door te kijken.
 
 Sinds 29 september 2026 vult ze wél in: de vier `Detail`-velden (punt 5), `IsAuction` en
-`TimeLeftSelector` (punt 6), en de paginering in het pad of met een offset (punt 7).
+`TimeLeftSelector` (punt 6), de paginering in het pad of met een offset (punt 7), en de filters
+(punt 9).
 
 Selectors gebruiken een eigen notatie: `a.title@href` neemt een attribuut in
 plaats van tekst, `.` betekent het resultaat zelf. Bij JSON-bronnen zijn het

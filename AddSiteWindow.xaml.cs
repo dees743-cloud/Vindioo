@@ -255,6 +255,15 @@ public partial class AddSiteWindow : Wpf.Ui.Controls.FluentWindow
         if (analysis.Paging is { } paging) lines.Add(paging.Summary);
         if (analysis.LargeImageProblem is { } foto) lines.Add("• " + foto);
 
+        // Per filter wat het deed: dat is het enige waaraan te zien is of een filter
+        // werkt, want een site kan er een aanvaarden en meteen negeren.
+        if (analysis.Filters is { } gemeten)
+        {
+            lines.Add(gemeten.Summary);
+            lines.AddRange(gemeten.Results.Select(r =>
+                $"   {(r.Kept ? "✓" : "×")} {r.Key}: {r.Reason}"));
+        }
+
         // Geen verbod dat de app afdwingt, maar wie een site toevoegt hoort het te weten
         // voor hij hem aanvinkt - bij Tweakers is de paginering daarom dichtgelaten.
         if (analysis.RobotsRule is { } regel)
