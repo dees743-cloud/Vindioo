@@ -2826,13 +2826,30 @@ of er een afbeelding terugkomt. Zo niet, dan gaat `LargeImageSelector` eruit en 
 op de miniatuur - beter dan een kapotte foto in het detailvenster. Eén verzoek per analyse.
 
 **Wat de hele ketting oplevert, gemeten op Kleinanzeigen** (29 september 2026, de site die in
-september enkel met de AI gemaakt was, dus de eerlijke vergelijking): **1 minuut**, één ronde.
-27 zoekertjes met prijs, link, foto en plaats; de zoek-URL werd
-`https://www.kleinanzeigen.de/s-seite:{page}/{query}/k0`, pagina 1 gaf daarmee 27 zoekertjes en
-pagina 2 er **26 met 0 overlap**; robots.txt verbiedt dit pad niet; en op de advertentiepagina
-**6 foto's uit het ld+json-blok, de verkoper, "09.04.2026" en 1310 tekens beschrijving**. Het
-bestand van september had geen enkel Detail-veld en bleef op één pagina steken. Kosten: ongeveer
-123 000 tokens in plaats van 76 000.
+september enkel met de AI gemaakt was, dus de eerlijke vergelijking): **56 seconden**, één ronde,
+en alles ingevuld. 27 zoekertjes, alle 27 met prijs, link, foto en plaats. De zoek-URL werd
+`https://www.kleinanzeigen.de/s-seite:{page}/{query}/k0`; pagina 1 gaf daarmee 27 zoekertjes en
+pagina 2 er 27 met 3 overlap (gesponsorde kaarten die op elke pagina terugkomen), dus aanvaard.
+robots.txt verbiedt dit pad niet. De grote foto werd opgehaald en wérkte: 80 839 bytes JPEG. Op de
+advertentiepagina: de verkoper, "14.09.2026" en 957 tekens beschrijving. Het bestand van september
+had geen enkel Detail-veld en bleef op één pagina steken. Kosten: ongeveer 111 000 tokens tegenover
+76 000 voor enkel de zoekpagina.
+
+**De bijgestuurde fotoles werkte meteen.** In een eerdere run koos de AI `::match(^[^?]+)` - het
+adres dat 400 geeft. Met de voorwaardelijke formulering koos ze
+`img@src::replace($_2.AUTO,$_59.AUTO)`, dus de parameter blijft staan en enkel de variant gaat
+omhoog, en ze schreef er zelf bij: *"de query-parameter weglaten is hier NIET geprobeerd en wordt
+afgeraden"*. Ze zag in diezelfde ronde nog iets dat met de hand niet opgemerkt was: het
+`ld+json`-blok van een advertentie bevat óók foto's van **andere advertenties van dezelfde
+verkoper**, dus ze nam de thumbnaillijst van de lightbox.
+
+Twee dingen om te weten bij het lezen van zo'n uitkomst. Twee runs op dezelfde site geven **niet
+hetzelfde bestand** - de ene koos `article[data-adid]` als kaart, de andere
+`#srchrslt-adtable > li[data-clickable='card']` - en dat is geen fout zolang de telling klopt; de
+telling is het oordeel, niet de selector. En de fotocontrole zegt enkel dát er foto's uitkomen,
+niet dat het er genoeg zijn: één foto op een advertentiepagina kan kloppen (een advertentie met één
+foto) of betekenen dat de galerij pas met JavaScript gevuld wordt. Dat onderscheid maakt de app nog
+niet.
 
 De AI vult nu ook de **korte naam**, de **grote foto** en de **volgende pagina** in, en
 het venster toont die als bewerkbare velden - net als de vier velden van de advertentiepagina.
