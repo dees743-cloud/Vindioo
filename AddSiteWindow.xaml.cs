@@ -163,6 +163,14 @@ public partial class AddSiteWindow : Wpf.Ui.Controls.FluentWindow
         Add("Grote foto", d.LargeImageSelector);
         Add("Volgende pagina", d.PageTemplate);
 
+        // De vier velden van de pagina van een zoekertje zelf. Ze stonden enkel in Sites
+        // beheren, terwijl de analyse ze nu meteen invult - en dan wil je ze ook hier
+        // kunnen nakijken, naast de telling die erbij hoort.
+        Add("Foto's (op de pagina zelf)", d.DetailImagesSelector);
+        Add("Verkoper (op de pagina zelf)", d.DetailSellerSelector);
+        Add("Online sinds (op de pagina zelf)", d.DetailPostedSelector);
+        Add("Beschrijving (op de pagina zelf)", d.DetailDescriptionSelector);
+
         // Welke weg de site nodig heeft, is gemeten tijdens de analyse. Aanpasbaar,
         // want een site kan bij de volgende keer strenger zijn.
         _browserCheck = new CheckBox
@@ -230,6 +238,18 @@ public partial class AddSiteWindow : Wpf.Ui.Controls.FluentWindow
 
         lines.AddRange(analysis.Check.Problems.Select(p => "• " + p));
 
+        // De advertentiepagina is een tweede meting op een andere pagina, dus die krijgt
+        // een eigen regel in plaats van dat de getallen door elkaar lopen.
+        if (analysis.Detail is { } detail)
+        {
+            lines.Add(detail.Summary);
+            lines.AddRange(detail.Problems.Select(p => "• " + p));
+        }
+        else
+        {
+            lines.Add("De pagina van een zoekertje is niet bekeken; de velden daarvoor staan leeg.");
+        }
+
         return string.Join("\n", lines);
     }
 
@@ -255,6 +275,10 @@ public partial class AddSiteWindow : Wpf.Ui.Controls.FluentWindow
         d.ImageSelector = _fields["Foto"].Text.Trim();
         d.LargeImageSelector = _fields["Grote foto"].Text.Trim();
         d.PageTemplate = _fields["Volgende pagina"].Text.Trim();
+        d.DetailImagesSelector = _fields["Foto's (op de pagina zelf)"].Text.Trim();
+        d.DetailSellerSelector = _fields["Verkoper (op de pagina zelf)"].Text.Trim();
+        d.DetailPostedSelector = _fields["Online sinds (op de pagina zelf)"].Text.Trim();
+        d.DetailDescriptionSelector = _fields["Beschrijving (op de pagina zelf)"].Text.Trim();
         d.SearchUrlTemplate = UrlBox.Text.Trim();
         d.NeedsBrowser = _browserCheck?.IsChecked == true;
         d.UseBridge = _bridgeCheck?.IsChecked == true;

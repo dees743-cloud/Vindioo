@@ -2728,8 +2728,53 @@ selectors boven klassen met willekeurige achtervoegsels, grote foto's via een fo
 het pad, geen AVIF, puntpaden in JSON en `PageTemplate`. **Leer je bij een site iets dat
 voor élke site geldt, zet het dan ook daar**, anders weet de analyse het niet.
 
+**5. De pagina van één zoekertje wordt ook bekeken** (29 september 2026). De zoekpagina geeft
+één foto en zelden meer dan een titel en een prijs; alles wat je daarna wil weten staat op de
+advertentie zelf. Dat bleek het grootste gat van de analyse: van de dertien sitebestanden die met
+de hand ingeregeld zijn, heeft **`DetailImagesSelector` er dertien**, de beschrijving tien, en de
+verkoper en de datum elk negen - en de analyse keek daar niet eens naar. Nu opent ze na de
+zoekpagina het eerste zoekertje en stelt ze een **tweede vraag**, met een eigen opdracht
+(`DetailPrompt`) en een eigen schema van vier velden. Een aparte vraag, want het is een andere
+pagina: de AI heeft die advertentie nooit gezien, en een galerij ziet er bij elke site anders uit.
+
+**Wat dat mogelijk maakte, is niet de vraag maar het opschonen.** `Clean` gooit élk `<script>`
+weg en geeft enkel de `<body>` terug - prima voor een zoekpagina, maar precies fout hier: bij
+2dehands en Marktplaats staat **elke** foto in een `application/ld+json`-blok in de **`<head>`**,
+en bij AutoScout24 in `__NEXT_DATA__`. Op de oude weg kon de AI die dus principieel niet vinden,
+hoe goed ze ook keek. `SchoonAdvertentie` bewaart die blokken, kort ze in tot 6000 tekens en geeft
+ze **apart** mee, zodat ze niet wegvallen wanneer de pagina afgekapt wordt - ze staan vaak
+helemaal achteraan. Nagemeten op zes echte advertentiepagina's:
+
+| Site | Oude opschoning | Nieuwe | Wat de selectors opleveren |
+|---|---|---|---|
+| 2dehands | 0 blokken | 3 | 7 foto's, "12 sep. '26", 129 tekens |
+| Marktplaats | 0 | 3 | 8 foto's, "20 aug. '26", 493 tekens |
+| AutoScout24 | 0 | 4 (met `__NEXT_DATA__`) | 29 foto's, verkoper, datum, 1414 tekens |
+| Delcampe | 0 | 1 | 3 foto's, verkoper, 901 tekens |
+| Vinted | 0 | 1 | 2 foto's, verkoper, 36 tekens |
+| Tweakers V&A | 0 | 1 | 1 foto, 213 tekens |
+
+Het antwoord wordt **nageteld zoals op de zoekpagina**: `MeasureDetailAsync` voert de vier
+selectors uit met dezelfde motor die het detailvenster later gebruikt, en telt enkel foto's mee
+die op een adres lijken - een `::match` dat naast de foto's grijpt, levert anders brokstukken
+tekst op die er in een telling goed uitzien. Klopt er iets niet, dan gaat die telling terug en mag
+de AI één keer verbeteren (`DetailRounds`). De verkoper krijgt daarbij een uitzondering: staat hij
+al op de zoekpagina (`SellerSelector`), dan blijft `DetailSellerSelector` leeg, want dan is de
+naam er meteen zonder die pagina op te halen.
+
+**Wat de meting meteen vond, en dat is het punt van meten:** bij Tweakers kwam niet de advertentie
+binnen maar **"DPG Media Privacy Gate"** - 517 tekens, 0 foto's. De regel voor een toestemmingsmuur
+op een ander domein stond in `GenericSource` en `DetailFetcher`, maar niet in `SiteAnalyzer`. Die
+staat er nu ook, in `TryDirectAsync`, dus ze geldt voor de zoekpagina én de advertentiepagina:
+7.945 tekens werden 248.213.
+
+Het kost een extra pagina en een extra vraag, samen zo'n kwartje bovenop de 50 cent van een
+analyse. Drie leden zijn `internal` in plaats van `private` (`Clean`, `SchoonAdvertentie`,
+`MeasureDetailAsync`, `TryDirectAsync`) zodat een wegwerpprojectje dit op echte pagina's kan
+nameten; het controleproject mag geen netwerk gebruiken, en juist de echte pagina is hier het punt.
+
 De AI vult nu ook de **korte naam**, de **grote foto** en de **volgende pagina** in, en
-het venster toont die als bewerkbare velden.
+het venster toont die als bewerkbare velden - net als de vier velden van de advertentiepagina.
 
 Gemeten op "cd":
 
@@ -2778,11 +2823,8 @@ Voor wie eraan werkt:
 Wat de analyse **niet** doet, en waar je dus zelf aan moet: `Filters`, `CustomFilters`,
 `Headers`, `AllowsEmptyQuery`, de velden voor de prijsindicatie (`PriceReference`, `IsAuction`,
 `SellerSelector`, `AuctionSellers`), `TimeLeftSelector`, `DetailEndDateSelector`,
-`DetailImagesSelector`, `DetailSellerSelector`, `DetailPostedSelector`,
-`DetailDescriptionSelector`, `EndTimeApi`,
-een eigen `UrlStyle`
-en paginering die in het pad zit
-(Kleinanzeigen: `/s-seite:2/cd/k0`). Dat vraagt meten, zie `tools/meet-filter.py`.
+`EndTimeApi` en een eigen `UrlStyle`. Dat vraagt meten, zie `tools/meet-filter.py`.
+De vier andere `Detail`-velden vult ze sinds 29 september 2026 wél in, zie punt 5 hierboven.
 
 Selectors gebruiken een eigen notatie: `a.title@href` neemt een attribuut in
 plaats van tekst, `.` betekent het resultaat zelf. Bij JSON-bronnen zijn het

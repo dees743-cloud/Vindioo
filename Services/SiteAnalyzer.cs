@@ -47,8 +47,38 @@ public sealed record AnalysisCheck(
           $"{Images} met foto, {Locations} met plaats.";
 }
 
+/// <summary>
+/// Wat de vier Detail-velden opleverden op de pagina van één echt zoekertje. Net als bij
+/// de zoekpagina is dit een telling met de echte motor en geen schatting.
+/// </summary>
+public sealed record DetailCheck(string Url, int Images, string Seller, string Posted,
+    int DescriptionLength, IReadOnlyList<string> Problems)
+{
+    public bool IsGood => Problems.Count == 0;
+
+    public string Summary
+    {
+        get
+        {
+            var delen = new List<string> { $"{Images} foto's" };
+            if (Seller.Length > 0) delen.Add($"verkoper \"{Seller}\"");
+            if (Posted.Length > 0) delen.Add($"online sinds \"{Posted}\"");
+            if (DescriptionLength > 0) delen.Add($"beschrijving {DescriptionLength} tekens");
+
+            return "Op de pagina van één zoekertje: " + string.Join(", ", delen) + ".";
+        }
+    }
+}
+
 /// <summary>Het resultaat van een analyse: de definitie, de telling en hoe het ging.</summary>
-public sealed record SiteAnalysis(SiteDefinition Definition, AnalysisCheck Check, FetchRoute Route, int Rounds);
+public sealed record SiteAnalysis(SiteDefinition Definition, AnalysisCheck Check, FetchRoute Route, int Rounds)
+{
+    /// <summary>
+    /// Wat de pagina van één zoekertje opleverde, of null wanneer die niet bekeken kon
+    /// worden - er was geen bruikbare link, of de pagina kwam niet binnen.
+    /// </summary>
+    public DetailCheck? Detail { get; init; }
+}
 
 /// <summary>
 /// Laat Claude uitzoeken hoe een onbekende site in elkaar zit, en geeft een
@@ -83,6 +113,22 @@ public class SiteAnalyzer
     // cache en kost een fractie daarvan.
     private const int MaxHtmlChars = 150_000;
     private const int MaxJsonChars = 120_000;
+
+    /// <summary>
+    /// De advertentiepagina krijgt minder ruimte dan de zoekpagina: daar moet een hele
+    /// resultatenlijst in, hier gaat het om één advertentie. Samen met de datablokken
+    /// hieronder is dat zo'n 45 000 tokens, ruwweg een kwartje per analyse.
+    /// </summary>
+    private const int MaxDetailChars = 80_000;
+
+    /// <summary>
+    /// Een ld+json- of __NEXT_DATA__-blok kan honderdduizenden tekens groot zijn, terwijl
+    /// het er enkel om gaat dát het er staat en hoe de velden erin heten.
+    /// </summary>
+    private const int MaxBlockChars = 6_000;
+
+    /// <summary>Eerste voorstel voor de advertentiepagina plus hoogstens één verbetering.</summary>
+    private const int DetailRounds = 2;
 
     private static readonly HttpClient PageHttp = CreatePageClient();
 
@@ -141,7 +187,7 @@ public class SiteAnalyzer
                 ? "De AI bekijkt de pagina..."
                 : $"De AI verbetert zijn selectors (poging {round})...");
 
-            var (content, answer) = await AskClaudeAsync(apiKey, messages, ct);
+            var (content, answer) = await AskClaudeAsync(apiKey, messages, SystemPrompt, BuildSchema(), ct);
             var definition = ToDefinition(answer, searchUrl, url, isJson, route);
 
             status?.Report("De selectors natellen op de pagina...");
@@ -168,7 +214,15 @@ public class SiteAnalyzer
             messages.Add(UserMessage(BuildFeedback(check)));
         }
 
-        return new SiteAnalysis(best!, bestCheck!, route, rounds);
+        // De zoekpagina geeft één foto en zelden meer dan een titel en een prijs. Alles
+        // wat je daarna wil weten - de andere foto's, wie het verkoopt, hoelang het er
+        // staat, de volledige beschrijving - staat op de pagina van het zoekertje zelf.
+        // Alle dertien sites die met de hand ingeregeld zijn, hebben die velden nodig
+        // (foto's bij dertien, beschrijving bij tien, verkoper en datum bij negen), dus
+        // de analyse kijkt daar nu zelf naar in plaats van het achteraf te laten invullen.
+        var detail = await AdvertentieAsync(apiKey, best!, bestCheck!, route, status, ct);
+
+        return new SiteAnalysis(best!, bestCheck!, route, rounds) { Detail = detail };
     }
 
     // ==================== de pagina ophalen ====================
@@ -238,27 +292,53 @@ public class SiteAnalyzer
         return (viaBridge, FetchRoute.Bridge);
     }
 
-    private static async Task<string?> TryDirectAsync(string url, CancellationToken ct)
+    // internal om dezelfde reden als SchoonAdvertentie: zo meet het wegwerpprojectje de
+    // toestemmingsmuur na op de echte site in plaats van op een nabootsing.
+    internal static async Task<string?> TryDirectAsync(string url, CancellationToken ct)
     {
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeout.CancelAfter(TimeSpan.FromSeconds(20));
 
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.TryAddWithoutValidation("Accept", "text/html,application/json;q=0.9,*/*;q=0.8");
-            request.Headers.TryAddWithoutValidation("Accept-Language", "nl-BE,nl;q=0.9,en;q=0.8");
-
-            using var response = await PageHttp.SendAsync(request, timeout.Token);
-
-            // Een 403 of 503 is hier doorgaans bot-detectie; dan is de browser aan zet.
-            if (!response.IsSuccessStatusCode)
+            HttpRequestMessage Verzoek()
             {
-                Log.Write($"analyse: rechtstreeks {(int)response.StatusCode} voor {url}");
-                return null;
+                var v = new HttpRequestMessage(HttpMethod.Get, url);
+                v.Headers.TryAddWithoutValidation("Accept", "text/html,application/json;q=0.9,*/*;q=0.8");
+                v.Headers.TryAddWithoutValidation("Accept-Language", "nl-BE,nl;q=0.9,en;q=0.8");
+                return v;
             }
 
-            return await response.Content.ReadAsStringAsync(timeout.Token);
+            var response = await PageHttp.SendAsync(Verzoek(), timeout.Token);
+
+            // Een toestemmingsmuur op een ander domein - bij Tweakers myprivacy.dpgmedia.nl -
+            // zet een sessiecookie en laat het VOLGENDE verzoek gewoon door. PageHttp houdt
+            // zijn koekjes bij, dus één keer opnieuw volstaat. Dezelfde regel staat al in
+            // GenericSource en DetailFetcher; deze plaats ontbrak, en dan analyseert de app
+            // de muur in plaats van de site. Gemeten op 29 september 2026: de advertentie-
+            // pagina van Tweakers kwam binnen als "DPG Media Privacy Gate", 517 tekens,
+            // 0 foto's.
+            var gevraagd = new Uri(url).Host;
+            var beland = response.RequestMessage?.RequestUri?.Host;
+
+            if (!string.Equals(beland, gevraagd, StringComparison.OrdinalIgnoreCase))
+            {
+                Log.Write($"analyse: kwam op {beland} uit in plaats van {gevraagd}; één keer opnieuw");
+                response.Dispose();
+                response = await PageHttp.SendAsync(Verzoek(), timeout.Token);
+            }
+
+            using (response)
+            {
+                // Een 403 of 503 is hier doorgaans bot-detectie; dan is de browser aan zet.
+                if (!response.IsSuccessStatusCode)
+                {
+                    Log.Write($"analyse: rechtstreeks {(int)response.StatusCode} voor {url}");
+                    return null;
+                }
+
+                return await response.Content.ReadAsStringAsync(timeout.Token);
+            }
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
@@ -405,7 +485,7 @@ public class SiteAnalyzer
     /// opbouw met zijn klassen en attributen - net wat de AI nodig heeft - en dat
     /// is doorgaans een fractie van de oorspronkelijke pagina.
     /// </summary>
-    private static string Clean(string html, out string title, out List<string> apiHints, out string visibleText)
+    internal static string Clean(string html, out string title, out List<string> apiHints, out string visibleText)
     {
         var doc = new HtmlParser().ParseDocument(html);
         title = Collapse(doc.Title ?? "");
@@ -791,14 +871,18 @@ public class SiteAnalyzer
         };
     }
 
+    /// <summary>
+    /// De opdracht en de vorm van het antwoord gaan mee als parameter: de zoekpagina en
+    /// de advertentiepagina zijn twee verschillende vragen, met elk hun eigen velden.
+    /// </summary>
     private static async Task<(JsonNode Content, string Text)> AskClaudeAsync(string apiKey, JsonArray messages,
-        CancellationToken ct)
+        string systemPrompt, JsonObject schema, CancellationToken ct)
     {
         var body = new JsonObject
         {
             ["model"] = Model,
             ["max_tokens"] = 16000,
-            ["system"] = SystemPrompt,
+            ["system"] = systemPrompt,
 
             // Bij een verbeterronde gaat dezelfde pagina opnieuw mee. Uit de cache
             // gelezen kost die een tiende van de prijs.
@@ -810,7 +894,7 @@ public class SiteAnalyzer
 
             ["output_config"] = new JsonObject
             {
-                ["format"] = new JsonObject { ["type"] = "json_schema", ["schema"] = BuildSchema() }
+                ["format"] = new JsonObject { ["type"] = "json_schema", ["schema"] = schema }
             },
             ["messages"] = messages.DeepClone()
         };
@@ -854,6 +938,427 @@ public class SiteAnalyzer
         // terug naar de API, en die verwacht het nadenken zoals het was.
         return (content.DeepClone(), text);
     }
+
+    // ==================== de pagina van één zoekertje ====================
+
+    /// <summary>Wat de AI over de advertentiepagina terugstuurt.</summary>
+    internal sealed record DetailProposal(string Images, string Seller, string Posted,
+        string Description, string Notes);
+
+    /// <summary>
+    /// Opent het eerste zoekertje dat de motor gevonden heeft en laat de AI de vier
+    /// Detail-velden bepalen. Een aparte vraag en geen extra velden bij de eerste, want
+    /// het is een andere pagina: de AI heeft de advertentie nooit gezien, en een galerij
+    /// ziet er bij elke site anders uit.
+    ///
+    /// Gaat hier iets mis, dan blijft het bij een regel in het logboek. Dit is een extra
+    /// bovenop een analyse die al gelukt is, en het mag die nooit onderuit halen.
+    /// </summary>
+    private async Task<DetailCheck?> AdvertentieAsync(string apiKey, SiteDefinition def, AnalysisCheck check,
+        FetchRoute route, IProgress<string>? status, CancellationToken ct)
+    {
+        var adres = check.Sample
+            .Select(l => l.Url)
+            .FirstOrDefault(u => Uri.TryCreate(u, UriKind.Absolute, out var uri) &&
+                                 (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps));
+
+        if (adres is null)
+        {
+            Log.Write("analyse: geen bruikbare link naar een zoekertje, dus geen advertentiepagina bekeken");
+            return null;
+        }
+
+        var basisNotes = def.Notes;
+
+        try
+        {
+            status?.Report("De pagina van één zoekertje ophalen...");
+            var pagina = await HaalViaRouteAsync(adres, route, ct);
+
+            var messages = new JsonArray { UserMessage(BuildDetailPrompt(def, adres, pagina)) };
+            DetailCheck? beste = null;
+
+            for (var ronde = 1; ronde <= DetailRounds; ronde++)
+            {
+                status?.Report(ronde == 1
+                    ? "De AI bekijkt de advertentie..."
+                    : "De AI verbetert de velden van de advertentie...");
+
+                var (content, answer) = await AskClaudeAsync(apiKey, messages, DetailPrompt, BuildDetailSchema(), ct);
+                var voorstel = ReadDetail(answer);
+
+                status?.Report("De velden natellen op de advertentie...");
+                var meting = await MeasureDetailAsync(voorstel, adres, pagina, ct);
+
+                Log.Write($"analyse {def.Name}: advertentiepagina poging {ronde} -> {meting.Summary}" +
+                          (meting.IsGood ? "" : " | " + string.Join(" | ", meting.Problems)));
+
+                if (beste is null || meting.Problems.Count < beste.Problems.Count)
+                {
+                    beste = meting;
+                    Apply(def, voorstel, basisNotes);
+                }
+
+                if (meting.IsGood || ronde == DetailRounds) break;
+
+                messages.Add(new JsonObject { ["role"] = "assistant", ["content"] = content });
+                messages.Add(UserMessage(BuildDetailFeedback(meting)));
+            }
+
+            return beste;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Log.Write($"analyse: de advertentiepagina lukte niet - {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Zet het voorstel in de definitie. De verkoper krijgt daarbij een uitzondering:
+    /// staat hij al op de zoekpagina, dan hoeft die pagina er niet voor opgehaald te
+    /// worden en staat de naam er meteen.
+    /// </summary>
+    private static void Apply(SiteDefinition def, DetailProposal voorstel, string basisNotes)
+    {
+        def.DetailImagesSelector = voorstel.Images;
+        def.DetailSellerSelector = string.IsNullOrWhiteSpace(def.SellerSelector) ? voorstel.Seller : "";
+        def.DetailPostedSelector = voorstel.Posted;
+        def.DetailDescriptionSelector = voorstel.Description;
+
+        // Vanuit basisNotes opgebouwd en niet aangevuld: bij een tweede ronde zou de
+        // tekst er anders twee keer onder staan.
+        def.Notes = string.IsNullOrWhiteSpace(voorstel.Notes)
+            ? basisNotes
+            : string.IsNullOrWhiteSpace(basisNotes) ? voorstel.Notes : basisNotes.TrimEnd() + "\n\n" + voorstel.Notes;
+    }
+
+    /// <summary>
+    /// Eén pagina ophalen langs de weg die voor deze site al gemeten is. Geen proberen
+    /// en terugvallen zoals bij de zoekpagina: welke weg werkt, weten we hier al.
+    /// </summary>
+    private static async Task<string> HaalViaRouteAsync(string url, FetchRoute route, CancellationToken ct)
+    {
+        switch (route)
+        {
+            case FetchRoute.Direct:
+                return await TryDirectAsync(url, ct)
+                       ?? throw new InvalidOperationException("de pagina kwam niet binnen");
+
+            case FetchRoute.Browser:
+                await using (var browser = new BrowserFetcher())
+                    return FromPre(await browser.GetHtmlAsync(url, null, ct));
+
+            default:
+                var brug = await ChromeLauncher.EnsureBridgeAsync(TimeSpan.FromSeconds(30), null);
+                if (brug != BridgeStatus.Ready)
+                    throw new InvalidOperationException(ChromeLauncher.Describe(brug));
+
+                return FromPre(await BridgeServer.Instance.FetchAsync(url, ct));
+        }
+    }
+
+    private static string BuildDetailPrompt(SiteDefinition def, string adres, string pagina)
+    {
+        var schoon = SchoonAdvertentie(pagina, out var titel, out var blokken);
+        if (schoon.Length > MaxDetailChars) schoon = schoon[..MaxDetailChars];
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"Site: {def.Name}");
+        sb.AppendLine($"Dit is de pagina van één zoekertje: {adres}");
+        if (titel.Length > 0) sb.AppendLine($"Titel van de pagina: {titel}");
+        sb.AppendLine();
+
+        sb.AppendLine(string.IsNullOrWhiteSpace(def.SellerSelector)
+            ? "De zoekpagina van deze site geeft de verkoper niet, dus die mag van deze pagina komen."
+            : $"De verkoper staat al op de zoekpagina ({def.SellerSelector}), dus laat " +
+              "detailSellerSelector leeg.");
+
+        if (blokken.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Datablokken op deze pagina, apart gezet omdat ze meestal de beste bron zijn " +
+                          "(ingekort, en de selector staat erbij):");
+
+            foreach (var (selector, inhoud) in blokken)
+            {
+                sb.AppendLine();
+                sb.AppendLine(selector);
+                sb.AppendLine(inhoud);
+            }
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("De pagina, opgeschoond:");
+        sb.AppendLine(schoon);
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Opschonen voor de pagina van één zoekertje. Twee dingen gaan hier anders dan bij
+    /// <see cref="Clean"/>, en dat is de kern van deze stap:
+    ///
+    /// - <c>application/ld+json</c> en <c>__NEXT_DATA__</c> blijven staan. Vier van de
+    ///   dertien bestaande sites halen hun foto's, verkoper of datum daaruit, want zo'n
+    ///   blok overleeft een opmaakwijziging en een klassenaam niet. Bij 2dehands staat
+    ///   élke foto daarin terwijl de HTML er maar één toont.
+    /// - De <c>head</c> blijft staan, want daar staat dat blok bij 2dehands en
+    ///   Marktplaats. De gewone opschoning geeft enkel de body terug, en dan is het
+    ///   onvindbaar - hoe goed de AI ook kijkt.
+    ///
+    /// De blokken komen apart terug, zodat ze niet wegvallen wanneer de pagina afgekapt
+    /// wordt: ze staan vaak helemaal achteraan.
+    /// </summary>
+    // internal en niet private: een wegwerpprojectje meet dit na op een echte
+    // advertentiepagina, en dat kan niet met de app erbij. Zie CLAUDE.md, "Controles".
+    internal static string SchoonAdvertentie(string html, out string title,
+        out List<(string Selector, string Inhoud)> blokken)
+    {
+        var doc = new HtmlParser().ParseDocument(html);
+        title = Collapse(doc.Title ?? "");
+        blokken = new List<(string, string)>();
+
+        foreach (var script in doc.QuerySelectorAll("script").ToList())
+        {
+            var type = script.GetAttribute("type") ?? "";
+            var id = script.GetAttribute("id") ?? "";
+
+            var selector = type.Contains("ld+json", StringComparison.OrdinalIgnoreCase)
+                ? "script[type='application/ld+json']"
+                : id is "__NEXT_DATA__" or "__NUXT_DATA__"
+                    ? $"script[id='{id}']"
+                    : null;
+
+            if (selector is not null)
+            {
+                var inhoud = Collapse(script.TextContent);
+                if (inhoud.Length > MaxBlockChars) inhoud = inhoud[..MaxBlockChars] + "…";
+                if (inhoud.Length > 0) blokken.Add((selector, inhoud));
+            }
+
+            script.Remove();
+        }
+
+        foreach (var element in doc.QuerySelectorAll("style, svg, noscript, iframe, link, template, canvas").ToList())
+            element.Remove();
+
+        // De og:-tags blijven: daar staat vaak de grote foto van de advertentie in.
+        foreach (var meta in doc.QuerySelectorAll("meta").ToList())
+        {
+            var soort = meta.GetAttribute("property") ?? meta.GetAttribute("name") ?? "";
+            if (!soort.StartsWith("og:", StringComparison.OrdinalIgnoreCase)) meta.Remove();
+        }
+
+        foreach (var comment in doc.Descendants<IComment>().ToList())
+            comment.Parent?.RemoveChild(comment);
+
+        foreach (var element in doc.All)
+        {
+            foreach (var attribute in element.Attributes.ToList())
+            {
+                var name = attribute.Name;
+                var value = attribute.Value;
+
+                if (name == "style" || name.StartsWith("on", StringComparison.OrdinalIgnoreCase))
+                    element.RemoveAttribute(name);
+                else if (value.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                    element.SetAttribute(name, "data:…");
+                else if (value.Length > 300)
+                    element.SetAttribute(name, value[..300] + "…");
+            }
+        }
+
+        var heel = doc.DocumentElement?.OuterHtml ?? doc.Body?.OuterHtml ?? "";
+        return Regex.Replace(Regex.Replace(heel, @">\s+<", "><"), @"\s{2,}", " ");
+    }
+
+    /// <summary>
+    /// Voert de vier selectors uit op diezelfde pagina, met dezelfde motor die het
+    /// detailvenster later gebruikt.
+    /// </summary>
+    internal static async Task<DetailCheck> MeasureDetailAsync(DetailProposal v, string adres, string pagina,
+        CancellationToken ct)
+    {
+        var problems = new List<string>();
+
+        var fotos = v.Images.Length == 0
+            ? new List<string>()
+            : await GenericSource.ReadFieldsAsync(pagina, v.Images, ct);
+
+        // Enkel wat op een adres lijkt telt mee. Een ::match dat naast de foto's grijpt,
+        // levert anders brokstukken tekst op die er in een telling goed uitzien.
+        var geldig = fotos.Where(LijktOpAdres).ToList();
+
+        var verkoper = await LeesAsync(v.Seller);
+        var sinds = await LeesAsync(v.Posted);
+        var beschrijving = await LeesAsync(v.Description);
+
+        if (v.Images.Length == 0)
+        {
+            problems.Add("Er is geen fotoselector voorgesteld. Elke advertentie heeft foto's, en dit is " +
+                         "het veld waar de app ze haalt.");
+        }
+        else if (geldig.Count == 0)
+        {
+            problems.Add(fotos.Count == 0
+                ? "De fotoselector levert niets op deze pagina op."
+                : $"De fotoselector levert {fotos.Count} waarden op, maar geen enkele ziet eruit als het " +
+                  "adres van een foto.");
+        }
+
+        Klaagt(v.Seller, verkoper, "verkoperselector");
+        Klaagt(v.Posted, sinds, "selector voor 'online sinds'");
+        Klaagt(v.Description, beschrijving, "beschrijvingsselector");
+
+        return new DetailCheck(adres, geldig.Count, verkoper, sinds, beschrijving.Length, problems);
+
+        async Task<string> LeesAsync(string selector) =>
+            selector.Length == 0 ? "" : await GenericSource.ReadFieldAsync(pagina, selector, ct);
+
+        void Klaagt(string selector, string waarde, string naam)
+        {
+            if (selector.Length > 0 && waarde.Length == 0)
+                problems.Add($"De {naam} levert niets op deze pagina op. Verbeter hem, of laat het veld " +
+                             "leeg als dit gegeven er niet staat.");
+        }
+    }
+
+    private static bool LijktOpAdres(string waarde) =>
+        waarde.Length > 10 && waarde.Contains('/') &&
+        (waarde.StartsWith("http", StringComparison.OrdinalIgnoreCase) || waarde.StartsWith('/'));
+
+    private static string BuildDetailFeedback(DetailCheck check)
+    {
+        var sb = new StringBuilder();
+
+        sb.AppendLine("De app heeft je voorstel uitgevoerd op diezelfde pagina, met de motor. Dit kwam eruit:");
+        sb.AppendLine($"- foto's die op een adres lijken: {check.Images}");
+        sb.AppendLine($"- verkoper: \"{check.Seller}\"");
+        sb.AppendLine($"- online sinds: \"{check.Posted}\"");
+        sb.AppendLine($"- beschrijving: {check.DescriptionLength} tekens");
+        sb.AppendLine();
+        sb.AppendLine("Wat niet klopt:");
+        foreach (var problem in check.Problems) sb.AppendLine("- " + problem);
+        sb.AppendLine();
+        sb.AppendLine("Verbeter enkel wat niet klopt en laat staan wat werkt.");
+
+        return sb.ToString();
+    }
+
+    private static readonly string[] DetailFields =
+    {
+        "detailImagesSelector", "detailSellerSelector", "detailPostedSelector",
+        "detailDescriptionSelector", "notes"
+    };
+
+    private static JsonObject BuildDetailSchema()
+    {
+        var properties = new JsonObject();
+        foreach (var field in DetailFields) properties[field] = new JsonObject { ["type"] = "string" };
+
+        var required = new JsonArray();
+        foreach (var property in properties) required.Add(property.Key);
+
+        return new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = properties,
+            ["required"] = required,
+            ["additionalProperties"] = false
+        };
+    }
+
+    private static DetailProposal ReadDetail(string answer)
+    {
+        JsonDocument doc;
+        try
+        {
+            doc = JsonDocument.Parse(answer);
+        }
+        catch (JsonException)
+        {
+            throw new InvalidOperationException("de AI gaf geen bruikbaar antwoord over de advertentiepagina");
+        }
+
+        using (doc)
+        {
+            var root = doc.RootElement;
+            return new DetailProposal(
+                Get(root, "detailImagesSelector"),
+                Get(root, "detailSellerSelector"),
+                Get(root, "detailPostedSelector"),
+                Get(root, "detailDescriptionSelector"),
+                Get(root, "notes"));
+        }
+    }
+
+    /// <summary>
+    /// De opdracht voor de advertentiepagina. Staat los van <see cref="SystemPrompt"/>:
+    /// het is een andere pagina met andere velden, en alles door elkaar zetten maakt
+    /// allebei de vragen wolliger.
+    /// </summary>
+    private const string DetailPrompt = """
+        Je helpt een Windows-app die tweedehands- en veilingsites doorzoekt. De zoekpagina van deze site is
+        al ingeregeld. Nu krijg je de pagina van één zoekertje, en jij bepaalt vier velden die de app daar
+        later uit haalt wanneer iemand op dat zoekertje dubbelklikt.
+
+        ## De vier velden
+        - detailImagesSelector: ALLE foto's van deze advertentie. De zoekpagina geeft er één; een advertentie
+          heeft er vijf of tien, en juist op die andere staat wat je zoekt - het label achteraan, de doos van
+          binnen, de krassen. Hier telt élke treffer mee en niet enkel de eerste; dubbels en lege waarden
+          gooit de app zelf weg.
+        - detailSellerSelector: de naam van de verkoper.
+        - detailPostedSelector: sinds wanneer het online staat, als TEKST ("Sinds 24 sep. '26",
+          "Eergisteren", "Vandaag"). Er wordt niets uitgerekend: elke site schrijft het anders op, en wat de
+          site zelf toont klopt altijd met wat een bezoeker ziet.
+        - detailDescriptionSelector: het element met de volledige beschrijving.
+
+        ## Dezelfde notatie als op de zoekpagina
+        Gewone CSS-selectors, @attribuut voor een attribuut, en ::replace(oud,nieuw) en ::match(patroon)
+        erachter. ::match houdt over wat in groep 1 staat, of de hele treffer als er geen haakjes in staan;
+        past het patroon niet, dan blijft het veld leeg. Dit geldt ook wanneer de zoekpagina van deze site
+        JSON was: een advertentiepagina is gewone HTML.
+
+        ## Een datablok is bijna altijd de beste bron
+        Staat er hierboven een blok application/ld+json of __NEXT_DATA__ bij, kijk daar dan eerst. Zulke
+        blokken zijn een webstandaard die ook Google leest, en ze overleven een opmaakwijziging; een
+        klassenaam niet. Bij vier van de dertien sites die deze app al kent, komen de foto's daaruit, en bij
+        twee ervan staat in de HTML zelf maar één foto terwijl alle foto's in dat blok staan. Twee dingen:
+        - Schuine strepen staan er vaak als /, want het blok is JSON. Zet er dan ::replace(/,/)
+          VOOR het patroon; ::replace gaat altijd eerst.
+        - Eén element, veel treffers: met ::match levert dat ene blok élke treffer op. Zo haal je alle foto's
+          uit één script. Twee vormen die in de praktijk werken:
+          script[type='application/ld+json']::replace(/,/)::match(https://images\.site\.com/[A-Za-z0-9/._-]+)
+          script[id='__NEXT_DATA__']::match("companyName":"([^"]+)")
+
+        ## De grootste foto, en wanneer je er vanaf moet blijven
+        - Laat de query weg als dat het origineel geeft: ::match(^[^?]+). Bij twee sites gaf de CDN zónder
+          ?rule=... het origineel, en dat was het verschil tussen 726 en 1600 beeldpunten - en tussen 1 en 8
+          foto's, want mét de query waren varianten van dezelfde foto verschillende teksten en viel de
+          ontdubbeling in het water.
+        - Staat het formaat in het pad, dan mag ::replace: /1280x960.webp wordt /2048x1536.webp,
+          cw_ldp_l wordt cw_large. Kies een stukje dat uniek is in het adres.
+        - MAAR is het adres ondertekend - een parameter als oh=, oe=, s=, sig= of stp=, of een hash in het
+          pad - laat de maat dan staan. Die handtekening dekt het formaat mee, dus een groter formaat geeft
+          403 in plaats van een grotere foto. Bij twee sites is dat nagemeten.
+        - Het grootste is niet altijd het beste: een origineel van 5694x3202 en 1,65 MB is onbruikbaar in
+          een fotostrook die er vijftig laadt. Rond de 2000 beeldpunten is ruim genoeg.
+        - AVIF kan de app niet tonen; kies binnen <picture> de JPEG- of WebP-bron.
+
+        ## Wat je leeg laat
+        - Een veld dat niet op deze pagina staat. Liever leeg dan een selector die iets anders grijpt: het
+          detailvenster toont dan gewoon wat er wel is.
+        - detailSellerSelector wanneer hierboven staat dat de verkoper al van de zoekpagina komt.
+        - Pas op bij "online sinds": sites zetten drie tellers naast elkaar ("7x bekeken", "0x bewaard",
+          "Sinds 24 sep. '26"). Kies die niet met :nth-child - dat valt om bij de volgende opmaakwijziging -
+          maar met ::match op het woord dat erin hoort te staan. De motor neemt dan het eerste element waar
+          dat patroon ook écht op past.
+
+        ## notes
+        Eén of twee zinnen in het Nederlands over wat onzeker is aan deze vier velden. Laat leeg als er
+        niets bijzonders aan is.
+        """;
 
     /// <summary>
     /// Alles wat we geleerd hebben bij het inregelen van de bestaande sites, voor
