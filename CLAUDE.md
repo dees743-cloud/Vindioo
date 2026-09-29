@@ -202,6 +202,30 @@ en waarom de sites niet meegaan, staat bij "Volgende stappen" punt 8. Twee besta
 bijgekomen en horen bij een openbare repository: `README.md` (de voordeur: wat het is, hoe je het
 bouwt, en dat de app zonder sites komt) en `LICENSE`.
 
+**In de README staat een schermafbeelding** (`docs/schermafbeelding.png`, 29 september 2026), en
+die is met opzet niet van de eigen Zentrix gemaakt. Ze toont een **lege gegevensmap**
+(`ZENTRIX_DATA` naar een verse map) met vier rechtstreekse sites, zodat er geen bewaarde
+zoekopdrachten, favorieten, postcode of straal in beeld staan. Facebook blijft er bewust uit: die
+zoekt in je eigen regio, en dan staan de steden rond je thuis op een foto die openbaar gaat. Zo is
+ze opnieuw te maken:
+
+- De sitebestanden naar `<map>\sites` kopiëren, de app één keer starten zodat `zentrix.db`
+  bestaat, en dan met een scriptje een bewaarde zoekopdracht in de tabel `searches` zetten met
+  `RunOnStartup` aan. De planner draait ze dan bij het opstarten
+  (`SearchScheduler.RunStartupSearchesAsync`) en het scherm staat vanzelf klaar. Dat is de
+  eenvoudigste weg, want de vinkjes voor de sites zitten in het chipje achteraan de tabstrip en
+  dat is niet met het toetsenbord te bereiken.
+- Het venster op maat zetten met `SetWindowPos` (1700x1450 beeldpunten is op 150% gelijk aan
+  1133x967 eenheden van WPF) en fotograferen met `tools/vensterfoto.py`.
+
+**Wat daarbij opviel en nog niet uitgezocht is: het raster bleef leeg.** Met de rasterweergave
+(`ResultView` 1) stonden de tabs, de pager en de teller er wel - 4341 resultaten over 44 pagina's -
+maar er werd geen enkele kaart getekend. Ook niet met het venster vooraan, ook niet na een
+maatwijziging, ook niet na muiswielberichten; dezelfde opstelling in de lijstweergave vulde zich
+meteen. Of dat enkel aan deze opstelling ligt - een venster dat nooit echt aangeklikt is - of ook
+bij een gewone geplande beurt gebeurt, is nog na te gaan. In dat laatste geval kijk je na een
+geplande beurt naar een lege pagina terwijl de statusregel resultaten meldt.
+
 **Wat niet op GitHub hoort** staat in `.gitignore`: `bin`, `obj`, `.vs`, de
 `.user`-bestanden en `.claude` (de adviseurs, met persoonlijke paden). Sinds 22 september 2026
 ook wat andere hulpmiddelen achterlieten: `.codex` (een kopie van die adviseurs), `AGENTS.md` (een

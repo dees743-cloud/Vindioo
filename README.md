@@ -8,6 +8,12 @@ tien sites — dat anders een voormiddag kost — terugbrengen tot één minuut.
 
 Gemeten op acht sites tegelijk met het woord "cd": **621 resultaten in 35 seconden.**
 
+![Zentrix: één zoekterm over vier sites tegelijk, met de resultaten in één lijst](docs/schermafbeelding.png)
+
+<sub>Eén zoekterm over vier sites, alles in één lijst, met per zoekertje de prijs, de plaats en van
+welke site hij komt. De tabbladen bovenaan tonen elke site ook apart. De sitebestanden op deze foto
+zijn eigen bestanden — de app komt zonder sites, zie *De app komt zonder sites* hieronder.</sub>
+
 ---
 
 ## Wat het doet
