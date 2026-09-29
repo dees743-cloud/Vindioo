@@ -1,145 +1,114 @@
 # Zentrix
 
-Doorzoek meerdere tweedehands- en veilingsites tegelijk, vanuit één Windows-app. Wat
-anders een voormiddag klikken kost - dezelfde zoekterm op vijf sites, elk met zijn eigen
-filters - wordt één zoekopdracht.
+**Eén zoekopdracht over al je tweedehandssites tegelijk.**
+
+Zentrix is een Windows-desktopapp die meerdere tweedehands- en veilingsites naast elkaar
+doorzoekt en de resultaten in één lijst zet. Het doel is eenvoudig: het dagelijkse rondje langs
+tien sites — dat anders een voormiddag kost — terugbrengen tot één minuut.
+
+Gemeten op acht sites tegelijk met het woord "cd": **621 resultaten in 35 seconden.**
+
+---
 
 ## Wat het doet
 
-- **Eén zoekterm, meerdere sites tegelijk.** De resultaten verschijnen per site zodra
-  die klaar is, en samen op het tabblad *Alles*.
-- **Filters per site**: prijs, postcode en straal, en de filters die alleen die ene site
-  kent (brandstof op een autosite, een veilinghuis op een veilingsite).
-- **Automatisch zoeken.** Een zoekopdracht kan om de zoveel minuten of dagelijks draaien
-  terwijl de app in het systeemvak staat, met een melding bij iets nieuws: een ballon,
-  Telegram of e-mail.
-- **Prijsindicatie**: rechtsklik op een foto, en de app zoekt wat hetzelfde model elders
-  kost - zonder veilingen, sets en toebehoren, en met de vergelijkingen erbij.
-- **Favorieten en recente zoektermen**, bewaard tussen twee starts.
-- **Sites zijn bestanden, geen code.** Een nieuwe site toevoegen vraagt geen
-  programmeerwerk: plak een zoek-URL, en de app laat Claude uitzoeken hoe de pagina in
-  elkaar zit en telt het resultaat na.
+- **Zoeken over meerdere sites tegelijk**, met per site zijn eigen filters (postcode, straal,
+  prijs) en zijn eigen tabblad, plus een tabblad *Alles* met alles samen. Resultaten verschijnen
+  terwijl de rest nog binnenkomt.
+- **Vanzelf blijven zoeken.** Elke bewaarde zoekopdracht heeft een schema — om het uur, of
+  dagelijks om acht uur — en de app draait daarvoor door in het systeemvak. Is er iets nieuws,
+  dan komt er een melding via het systeemvak, **Telegram** of e-mail.
+- **Nieuw is wat je nog niet bekeek**, niet wat er bij de laatste beurt bijkwam. De teller loopt
+  op over de beurten heen tot je de zoekopdracht opent.
+- **Prijsindicatie.** Wat is dit ongeveer waard? De app zoekt hetzelfde model op de sites die je
+  als prijsbron aanvinkt, gooit er de veilingen, sets en afstandsbedieningen uit, en toont de
+  mediaan met alle vergelijkingen eronder — zodat je ziet waar het getal vandaan komt.
+- **AI-controle op een foto**, lokaal op je eigen grafische kaart (Ollama). Voor wat je met het
+  blote oog niet ziet: de titels op een doos vol dvd's, of het typenummer op het label achteraan
+  een oude versterker. Er gaat geen foto de deur uit.
+- **Alles van één zoekertje** met een dubbelklik: alle foto's van de advertentie, de verkoper,
+  hoelang het online staat en de volledige beschrijving — zonder de browser te openen.
 
-## Wat je nodig hebt
+## Hoe het binnenkomt
 
-- Windows 10 of 11
-- De [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- **Google Chrome**, voor sites die een browser nodig hebben
-- Optioneel: een **Claude API-sleutel** voor *Site toevoegen* met de AI-analyse
-- Optioneel: Python 3, voor de hulpscripts in `tools\`
+Elke site komt langs één van drie wegen binnen, en dat staat per site in een bestand:
 
-## Bouwen en starten
+| Weg | Wanneer |
+|---|---|
+| **Rechtstreeks** (`HttpClient`) | de snelste; werkt bij sites met een gewone pagina of een JSON-API |
+| **Playwright** | wanneer er een echte browser nodig is, met een eigen profiel zodat je aangemeld blijft |
+| **De brug** | een Chrome-extensie die pagina's in je **eigen** browser ophaalt, voor sites die een onzichtbare browser weigeren |
+
+Bij die laatste twee blijft alles op je eigen pc: de brug luistert enkel op `127.0.0.1` en er
+komt nergens iets centraal samen.
+
+## Aan de slag
+
+Je hebt nodig: **Windows**, de **.NET 10 SDK** en **Visual Studio 2022** of gewoon `dotnet`.
+
+```bash
+git clone https://github.com/dees743-cloud/Zentrix.git
+```
 
 ```bash
 dotnet run --project Zentrix.csproj
 ```
 
-Of open `Zentrix.slnx` in Visual Studio en druk op F5.
-
-## De eerste start: sites toevoegen
-
-**Zentrix komt zonder sites.** De app is een algemene zoekmotor die uitvoert wat een
-sitebestand beschrijft; welke sites je doorzoekt, kies je zelf. Bij de eerste start zie
-je daarom *Nog geen sites*, met twee knoppen:
-
-- **Sites importeren uit map** - heb je een map met sitebestanden (één JSON-bestand per site),
-  importeer die dan in één keer. Dit staat ook in het tandwielmenu.
-- **Site toevoegen** - zoek op de site zelf naar een gewoon woord (bv. "fiets") en plak
-  de URL van die zoekpagina. De app haalt de pagina op, laat Claude bepalen waar titel,
-  prijs, plaats, link en foto staan, en toont meteen hoeveel zoekertjes dat oplevert. Je
-  kan alles bijsturen en testen voor je bewaart.
-
-Voor de AI-analyse heb je een API-sleutel nodig. Zonder sleutel toont *Site toevoegen*
-bovenaan een veld om hem te plakken; Zentrix bewaart hem dan zelf als omgevingsvariabele
-van je Windows-account. Je kan hem ook vooraf zelf zetten:
+Een versie die je zonder .NET kan dubbelklikken, maak je zo:
 
 ```bash
-setx ANTHROPIC_API_KEY "jouw-sleutel"
+dotnet publish Zentrix.csproj -c Release -r win-x64 --self-contained true -o C:\Zentrix
 ```
 
-Een analyse van een volle pagina kost ongeveer 50 cent. De sleutel staat nooit in de
-code of in een bestand van de app.
+Optioneel:
 
-Sites bewerken, testen, exporteren en importeren gebeurt via het tandwiel → *Sites
-beheren*, met een kaart per site. Vraagt een site om aan te melden, dan doe je dat daar
-met de knop *Aanmelden*.
+- **Ollama** met een vision-model (`qwen3.5:9b`) op `127.0.0.1:11434`, als je de AI-controle wil.
+- Een **`ANTHROPIC_API_KEY`** in je omgevingsvariabelen, als je een onbekende site automatisch wil
+  laten analyseren. De app vraagt er zelf naar en zet hem voor je klaar.
 
-## Sites die robots weren: de brug
+## De app komt zonder sites
 
-Sommige sites laten alleen een echte browser door. Daarvoor zit in `extension\` een
-Chrome-extensie, **Zentrix Brug**, die zoekpagina's opent in je eigen Chrome en de
-inhoud doorgeeft aan de app op dezelfde computer.
+Dat is met opzet. Een algemene zoekmotor delen is iets anders dan kant-en-klare bestanden die op
+bepaalde sites gericht zijn, en een deel daarvan omzeilt bewust de beveiliging tegen robots.
+**De sitebestanden zijn daarom niet openbaar.**
 
-1. Open `chrome://extensions` en zet rechtsboven *Ontwikkelaarsmodus* aan.
-2. Kies *Uitgepakte extensie laden* en selecteer de map `extension`.
-3. Klik in Zentrix op het tandwiel → *Koppelcode*. De code staat dan op je klembord.
-4. Klik in Chrome op het pictogram van de extensie, plak de code en kies *Code opslaan*.
-   De extensie zegt meteen of de code klopt.
+De app kent dan ook geen enkele site bij naam: elke site is een JSON-bestand met zijn zoek-URL,
+zijn selectors en zijn filters. Bij de eerste start zie je *Nog geen sites* met twee knoppen:
 
-Na een nieuwe versie van Zentrix: herlaad de extensie in `chrome://extensions` (het pijltje
-bij Zentrix Brug), anders draait Chrome de oude.
+- **Site toevoegen** — plak een gewone zoek-URL van een site met je zoekwoord erin. De app haalt
+  die pagina op, laat Claude bepalen waar titel, prijs, plaats, link en foto staan, en **telt het
+  antwoord daarna na met de echte motor**. Wat eruit komt, staat in bewerkbare velden met een
+  testknop ernaast.
+- **Sites importeren uit map** — als je er al hebt.
 
-De extensie praat alleen met `127.0.0.1`. Staat Chrome dicht wanneer een zoekopdracht
-de brug nodig heeft, dan start de app hem zelf, geminimaliseerd. Werkt de brug niet (een
-andere koppelcode, de extensie staat uit), dan zegt Zentrix waarom en slaat het die sites
-over in plaats van erop te wachten.
+Hoe je een site inregelt, wat er dan meestal misgaat en hoe je meet of een filter écht iets doet,
+staat uitgebreid in [CLAUDE.md](CLAUDE.md) onder *Sites toevoegen*.
 
-## Meldingen
+## Documentatie
 
-Tandwiel → *Meldingen en achtergrond*. Elk kanaal heeft een testknop.
+[CLAUDE.md](CLAUDE.md) is het werkdagboek van dit project: hoe alles in elkaar zit, waarom het zo
+gebouwd is, wat er gemeten is en vooral **wat er misging en waarom**. Het is geschreven om niets
+twee keer te moeten uitzoeken. Wie aan de code wil werken, begint daar.
 
-- **Ballon in het systeemvak** - werkt meteen.
-- **Telegram** - maak een bot via @BotFather, plak het token, stuur je bot één bericht
-  en klik op *Chat-id ophalen*. Zoekertjes komen met foto binnen.
-- **E-mail** - via je eigen mailserver. De gebruikersnaam is meestal je volledige
-  e-mailadres; bij Gmail heb je een app-wachtwoord nodig.
-
-Meldingen gaan rechtstreeks van je pc naar de dienst die je kiest. Er komt niets centraal
-samen.
-
-## Waar je gegevens staan
-
-Alles staat in `%APPDATA%\Zentrix`:
-
-| | |
-|---|---|
-| `sites\` | één JSON-bestand per site |
-| `zentrix.db` | zoekopdrachten, favorieten, recente zoektermen, wat je al zag |
-| `instellingen.json` | instellingen van de app en de meldingen |
-| `browser-profiel\` | het Chrome-profiel dat de app gebruikt, met je logins |
-| `zentrix-log.txt` | het logboek - de eerste plek om te kijken als iets niet werkt |
-
-Een andere gegevensmap kiezen kan met de omgevingsvariabele `ZENTRIX_DATA`, bijvoorbeeld
-om een lege eerste start uit te proberen zonder aan je eigen gegevens te komen.
-
-## Verantwoord gebruik
-
-Zentrix leest openbare zoekpagina's, zoals je browser dat doet. Veel sites beperken
-geautomatiseerd uitlezen in hun gebruiksvoorwaarden. Kijk die na voor je een site
-toevoegt, zoek met mate, en gebruik de app voor je eigen zoekwerk.
-
-## Voor ontwikkelaars
-
-`CLAUDE.md` is de uitgebreide werkdocumentatie: de opbouw van de code, hoe een
-sitebestand in elkaar zit, de motoren en URL-stijlen, en de valkuilen die we
-onderweg tegenkwamen - telkens met wat er gemeten werd. De hulpscripts in `tools\`
-controleren sitebestanden buiten de app om en maken schermafbeeldingen van de app voor
-het nakijken van de interface.
-
-De logica van de app heeft controles die zonder netwerk en zonder je eigen gegevens draaien,
-en gewoon naast Visual Studio kunnen:
+De controles draai je zonder testframework en zonder netwerk:
 
 ```bash
 dotnet run --project tests\Zentrix.Checks -- --snel
 ```
 
-Gebouwd met C# en WPF op .NET 10, met [WPF-UI](https://github.com/lepoco/wpfui),
-[AngleSharp](https://anglesharp.github.io/),
-[Playwright](https://playwright.dev/dotnet/), SQLite en
-[MailKit](https://github.com/jstedfast/MailKit).
+## Status
+
+**Versie 0.9.0.** De app wordt dagelijks gebruikt en doet wat ze moet doen, maar er staan nog
+stukken open — zie *Volgende stappen* in CLAUDE.md. Vandaar de nul vooraan.
 
 ## Licentie
 
-MIT - zie [LICENSE](LICENSE). Je mag de code gebruiken, aanpassen en verspreiden, zolang
-de copyrightvermelding erbij blijft. De licentie geldt voor de app; sitebestanden die je
-zelf maakt of importeert, vallen daar niet onder.
+[MIT](LICENSE).
+
+---
+
+<sub>**In English** — Zentrix is a Windows desktop app that searches several second-hand and
+auction sites at once and merges the results into one list, with scheduled searches, notifications,
+a price indication built from real asking prices, and an on-device AI check that reads what is
+written on the photos. The interface and the documentation are in Dutch. It ships without any site
+definitions: the app knows no site by name, and each site is a JSON file you add yourself.</sub>

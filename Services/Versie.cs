@@ -9,7 +9,7 @@ namespace Zentrix.Services;
 /// assembly gelezen. Zo kan het niet uit de pas lopen met wat er op het bestand staat.
 ///
 /// Waarom het zichtbaar moet zijn: er staan twee exe's op deze pc, een uit Visual Studio
-/// (<c>bin\Debug\...</c>) en een gepubliceerde (<c>C:\Users\davyb\Zentrix</c>), en die delen
+/// (<c>bin\Debug\...</c>) en een gepubliceerde (bij mij <c>C:\Zentrix</c>), en die delen
 /// dezelfde gegevensmap. Aan het scherm was tot 27 september 2026 niet te zien welke van de
 /// twee je voor je had, en na het publiceren van een wijziging is dat precies wat je wil weten.
 /// </summary>

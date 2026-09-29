@@ -179,13 +179,13 @@ het daar uit de assembly, zodat het scherm nooit iets anders zegt dan het bestan
 stukken open (zie "Volgende stappen"), en dat is wat een nul vooraan betekent.
 
 Het is op twee plaatsen zichtbaar, en allebei om dezelfde reden - **er draaien twee exe's op
-deze pc**, een uit Visual Studio en een gepubliceerde in `C:\Users\davyb\Zentrix`, met
+deze pc**, een uit Visual Studio en een gepubliceerde (bij mij `C:\Zentrix`), met
 dezelfde gegevensmap:
 
 - **Onderaan het tandwielmenu**, als een grijs regeltje ("Zentrix 0.9.0"). Geen menu-item: er
   valt niets te klikken.
 - **In het logboek bij elke start**, met de map erbij: `Zentrix 0.9.0 gestart vanuit
-  C:\Users\davyb\Zentrix`. Zonder die regel staat er in een logboek van twee weken niet bij
+  C:\Zentrix`. Zonder die regel staat er in een logboek van twee weken niet bij
   welke versie een fout maakte.
 
 `Version` levert ook `FileVersion` en `ProductVersion` op het bestand zelf, en die laatste
@@ -195,6 +195,12 @@ dat af. Nagemeten met het hoofdscherm buiten beeld: het menu toont "Zentrix 0.9.
 Let op bij het controleproject: dat compileert de broncode zelf, dus `Versie` leest daar de
 assembly van *dat* project (1.0.0). Het nummer van de app is er dus niet na te meten - enkel
 dat er een leesbaar nummer uit komt.
+
+**Zentrix staat openbaar op GitHub** sinds 29 september 2026
+(`dees743-cloud/Zentrix`, MIT-licentie); **`zentrix-sites` blijft privé**. Wat daarvoor nodig was
+en waarom de sites niet meegaan, staat bij "Volgende stappen" punt 8. Twee bestanden zijn er toen
+bijgekomen en horen bij een openbare repository: `README.md` (de voordeur: wat het is, hoe je het
+bouwt, en dat de app zonder sites komt) en `LICENSE`.
 
 **Wat niet op GitHub hoort** staat in `.gitignore`: `bin`, `obj`, `.vs`, de
 `.user`-bestanden en `.claude` (de adviseurs, met persoonlijke paden). Sinds 22 september 2026
@@ -233,19 +239,20 @@ Chrome een andere extensie, met een lege opslag.
 
 ## Starten zonder Visual Studio
 
-Een versie die je gewoon dubbelklikt, staat in **`C:\Users\davyb\Zentrix\Zentrix.exe`**
-(18 september 2026). Ze is **zelfstandig**: .NET zit erin, dus ze start ook op een pc zonder
+Een versie die je gewoon dubbelklikt, zet je met het commando hieronder in een map naar keuze
+(hier `C:\Zentrix`, sinds 18 september 2026). Ze is **zelfstandig**: .NET zit erin, dus ze start ook op een pc zonder
 Visual Studio of .NET. Opnieuw maken na een wijziging, met Zentrix dicht (anders zijn de
 bestanden in gebruik):
 
 ```bash
-dotnet publish Zentrix.csproj -c Release -r win-x64 --self-contained true -o C:\Users\davyb\Zentrix
+dotnet publish Zentrix.csproj -c Release -r win-x64 --self-contained true -o C:\Zentrix
 ```
 
 Wat daarbij hoort:
 
-- **Snelkoppelingen** "Zentrix" staan op het bureaublad (`G:\ONEDRIVE\Bureaublad`) en in het
-  startmenu. Die laatste staat onder `%APPDATA%`, dus vanuit de Claude-app aangemaakt via
+- **Snelkoppelingen** "Zentrix" staan op het bureaublad en in het startmenu. Let op als je
+  bureaublad door OneDrive beheerd wordt: dan staat het niet waar je het verwacht. Die in het
+  startmenu staat onder `%APPDATA%`, dus vanuit de Claude-app aangemaakt via
   `Win32_Process.Create` - anders belandt hij in de omgeleide kopie en verschijnt hij nooit.
   Verhuist de map, dan wijzen ze nergens meer naar.
 - **De hele map hoort bij elkaar**, niet enkel de exe: ruim zeshonderd bestanden, samen zo'n
@@ -3821,15 +3828,31 @@ Hieronder enkel wat aan de app zelf te doen valt.
      `.claude/`, `.codex/`, `AGENTS.md` of `chatgpt_tips.md` op, en geen `bin`, `obj`, `.vs` of
      `.user`. Pushen gaat sindsdien na elke commit, zonder het apart te vragen.
 
-     **Openbaar maken is een aparte beslissing, en daar is nee op geantwoord** (27 september
-     2026). Voor `zentrix-sites` is dat principieel: de bestanden en `SITES.md` beschrijven per
-     site hoe je zijn robotbeveiliging omzeilt, met de namen erbij, en bij Tweakers staat er
-     zwart op wit dat we een pad gebruiken dat hun `robots.txt` verbiedt. Dat hoort niet als
-     handleiding op straat. Voor `Zentrix` zelf kan het wel - de app kent geen enkele site bij
-     naam - maar dan eerst: een README, een licentie, en beslissen wat er met dit bestand
-     gebeurt. `CLAUDE.md` is 247 kB werkdagboek met paden, zoekwoorden en wat er op deze pc
-     misging; nuttig, maar geschreven voor één lezer. En `sites/facebook.json` houdt het nummer
-     van de Marketplace-regio, dat bij benadering een woonplaats is.
+     **Openbaar maken is een aparte beslissing**, en die is in twee stappen genomen. Op
+     27 september 2026 luidde het antwoord nee, met drie dingen die eerst moesten gebeuren; op
+     **29 september is `Zentrix` openbaar gezet** nadat die drie er waren:
+
+     - een **README** als voordeur - wat het is, hoe je het bouwt, en meteen eerlijk dat de app
+       zonder sites komt en waarom;
+     - een **licentie** (MIT, zoals de eigenaar koos). Zonder licentie is een openbare
+       repository "alle rechten voorbehouden": te lezen, maar niemand mag er iets mee;
+     - **nagekeken wat er werkelijk openbaar wordt**, en dat is meer dan de huidige bestanden:
+       bij een openbare repository is de **hele geschiedenis** mee te lezen. Nagemeten over alle
+       50 commits: geen enkele API-sleutel, geen Telegram-token, geen e-mailadres, geen postcode
+       en geen Facebook-regionummer. Het enige persoonlijke was de Windows-gebruikersnaam in vijf
+       paden; die zijn algemeen gemaakt. Wat in de geschiedenis blijft staan, is de naam van de
+       auteur bij elke commit - dat is bij elke openbare repository zo, en het e-mailadres is het
+       afgeschermde noreply-adres.
+
+     **`zentrix-sites` blijft privé, en dat is principieel.** Die bestanden en `SITES.md`
+     beschrijven per site hoe je zijn robotbeveiliging omzeilt, met de namen erbij, en bij
+     Tweakers staat er zwart op wit dat we een pad gebruiken dat hun `robots.txt` verbiedt. Dat
+     hoort niet als handleiding op straat. Daar komt bij dat `sites/facebook.json` het nummer van
+     de Marketplace-regio houdt, en dat is bij benadering een woonplaats.
+
+     Dat de app zelf wél openbaar kan, komt door een keuze van ver daarvoor: **Zentrix kent geen
+     enkele site bij naam.** Elke site is een bestand. Zonder die splitsing was deze beslissing
+     niet te nemen geweest zonder de sites mee te geven.
 9. ~~**De twee zoeklussen samenbrengen**~~ (uit de beoordeling door ChatGPT van 20 september 2026).
    **Gedaan op 23 september 2026**, in vier stappen met bij elke stap een proef: tussentijdse
    leveringen per site, zoeken zonder bewaarde zoekopdracht, voortgang en fouten per site, en dan
