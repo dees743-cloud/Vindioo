@@ -70,6 +70,18 @@ public sealed record DetailCheck(string Url, int Images, string Seller, string P
     }
 }
 
+/// <summary>
+/// Of de paginering echt een tweede pagina oplevert. Gemeten en niet geloofd: een site die
+/// het paginanummer negeert, geeft gewoon pagina 1 terug en meldt geen enkele fout.
+/// </summary>
+public sealed record PagingCheck(bool Supported, int Page2, int Overlap, string? Problem)
+{
+    public string Summary => !Supported
+        ? "Geen paginering gevonden: de app leest enkel de eerste pagina."
+        : Problem
+          ?? $"Paginering werkt: pagina 2 gaf {Page2} zoekertjes, waarvan er {Overlap} ook op pagina 1 stonden.";
+}
+
 /// <summary>Het resultaat van een analyse: de definitie, de telling en hoe het ging.</summary>
 public sealed record SiteAnalysis(SiteDefinition Definition, AnalysisCheck Check, FetchRoute Route, int Rounds)
 {
@@ -78,6 +90,21 @@ public sealed record SiteAnalysis(SiteDefinition Definition, AnalysisCheck Check
     /// worden - er was geen bruikbare link, of de pagina kwam niet binnen.
     /// </summary>
     public DetailCheck? Detail { get; init; }
+
+    /// <summary>Wat pagina 2 opleverde. Null wanneer er niet naar gekeken kon worden.</summary>
+    public PagingCheck? Paging { get; init; }
+
+    /// <summary>
+    /// Waarom de grote foto eruit gehaald is, of null wanneer ze werkt. Een selector kan
+    /// er goed uitzien en toch een adres opleveren dat de fotodienst weigert.
+    /// </summary>
+    public string? LargeImageProblem { get; init; }
+
+    /// <summary>
+    /// De regel uit robots.txt die dit zoekpad verbiedt, of null. De app dwingt niets af -
+    /// dat is een keuze van wie de site toevoegt - maar het hoort wel op het scherm.
+    /// </summary>
+    public string? RobotsRule { get; init; }
 }
 
 /// <summary>
@@ -220,9 +247,20 @@ public class SiteAnalyzer
         // Alle dertien sites die met de hand ingeregeld zijn, hebben die velden nodig
         // (foto's bij dertien, beschrijving bij tien, verkoper en datum bij negen), dus
         // de analyse kijkt daar nu zelf naar in plaats van het achteraf te laten invullen.
+        await ControleerPaginaEenAsync(best!, searchUrl, testQuery, route, status, ct);
+
+        var grote = await ControleerGroteFotoAsync(best!, bestCheck!, status, ct);
+        var paging = await ControleerPaginaTweeAsync(best!, searchUrl, page, testQuery, route, status, ct);
+        var robots = await RobotsAsync(url, ct);
         var detail = await AdvertentieAsync(apiKey, best!, bestCheck!, route, status, ct);
 
-        return new SiteAnalysis(best!, bestCheck!, route, rounds) { Detail = detail };
+        return new SiteAnalysis(best!, bestCheck!, route, rounds)
+        {
+            Detail = detail,
+            Paging = paging,
+            RobotsRule = robots,
+            LargeImageProblem = grote
+        };
     }
 
     // ==================== de pagina ophalen ====================
@@ -796,6 +834,19 @@ public class SiteAnalyzer
             var pageTemplate = Get(root, "pageTemplate");
             if (!pageTemplate.Contains("{page}")) pageTemplate = "";
 
+            // De AI mag de zoek-URL bijsturen, want paginering zit soms in het pad
+            // (Kleinanzeigen: /s-seite:2/cd/k0) en dan kan {page} enkel daar staan.
+            // Zonder dit veld kon ze dat enkel in notes melden - en dat deed ze ook:
+            // "geen pageTemplate mogelijk; de motor kan enkel pagina 1 lezen", terwijl
+            // SearchUrlBuilder {page} gewoon overal in de zoek-URL aanvaardt.
+            //
+            // Twee eisen, anders blijft staan wat de gebruiker intypte: {query} moet erin
+            // blijven en het moet dezelfde site zijn. Of pagina 1 er nog mee werkt, wordt
+            // daarna gemeten (zie ControleerPaginaEenAsync).
+            var voorstel = Get(root, "searchUrlTemplate");
+            if (voorstel.Length > 0 && voorstel.Contains("{query}") && ZelfdeHost(voorstel, searchUrl))
+                searchUrl = voorstel;
+
             var definition = new SiteDefinition
             {
                 Name = Get(root, "name"),
@@ -812,6 +863,20 @@ public class SiteAnalyzer
                 LargeImageSelector = Get(root, "largeImageSelector"),
                 PriceInCents = root.TryGetProperty("priceInCents", out var cents) && cents.ValueKind == JsonValueKind.True,
                 PageTemplate = pageTemplate,
+
+                // Bij een veiling is de prijs een bod en geen vraagprijs. Dat bepaalt of
+                // de site mee mag tellen in de prijsindicatie, en of er een aftelklok bij
+                // hoort te staan; allebei staan ze gewoon op de zoekpagina te lezen.
+                IsAuction = root.TryGetProperty("isAuction", out var auction) && auction.ValueKind == JsonValueKind.True,
+                TimeLeftSelector = Get(root, "timeLeftSelector"),
+
+                // Hoort bij {offset}: hoeveel zoekertjes er op een pagina passen. Zonder
+                // dat getal telt {offset} niet als paginering en vraagt de app twintig
+                // keer dezelfde pagina.
+                PageSize = root.TryGetProperty("pageSize", out var size) && size.TryGetInt32(out var perPagina) &&
+                           perPagina > 0
+                    ? perPagina
+                    : 0,
                 FirstPage = root.TryGetProperty("firstPage", out var first) && first.TryGetInt32(out var number) && number >= 0
                     ? number
                     : 1,
@@ -844,7 +909,7 @@ public class SiteAnalyzer
     {
         "name", "shortName", "baseUrl", "itemSelector", "titleSelector", "descriptionSelector",
         "priceSelector", "locationSelector", "dateSelector", "urlSelector", "imageSelector",
-        "largeImageSelector", "pageTemplate", "notes"
+        "largeImageSelector", "timeLeftSelector", "pageTemplate", "searchUrlTemplate", "notes"
     };
 
     /// <summary>
@@ -857,7 +922,9 @@ public class SiteAnalyzer
         var properties = new JsonObject();
         foreach (var field in StringFields) properties[field] = new JsonObject { ["type"] = "string" };
         properties["priceInCents"] = new JsonObject { ["type"] = "boolean" };
+        properties["isAuction"] = new JsonObject { ["type"] = "boolean" };
         properties["firstPage"] = new JsonObject { ["type"] = "integer" };
+        properties["pageSize"] = new JsonObject { ["type"] = "integer" };
 
         var required = new JsonArray();
         foreach (var property in properties) required.Add(property.Key);
@@ -937,6 +1004,247 @@ public class SiteAnalyzer
         // Het hele blok wordt bewaard, ongewijzigd: bij een verbeterronde gaat het
         // terug naar de API, en die verwacht het nadenken zoals het was.
         return (content.DeepClone(), text);
+    }
+
+    // ==================== de zoek-URL en de paginering ====================
+
+    /// <summary>
+    /// Dezelfde site? Een zoek-URL is een sjabloon met accolades erin, en die zijn in een
+    /// echte URL niet geldig; daarom eerst invullen en dan pas lezen.
+    /// </summary>
+    private static bool ZelfdeHost(string a, string b)
+    {
+        static Uri? Lees(string sjabloon) =>
+            Uri.TryCreate(sjabloon.Replace("{query}", "x").Replace("{page}", "1").Replace("{offset}", "0"),
+                UriKind.Absolute, out var uri)
+                ? uri
+                : null;
+
+        var eerste = Lees(a);
+        var tweede = Lees(b);
+
+        return eerste is not null && tweede is not null &&
+               string.Equals(eerste.Host, tweede.Host, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Heeft de AI de zoek-URL bijgestuurd - meestal om {page} in het pad te krijgen - dan
+    /// moet pagina 1 daar nog wel mee werken. "s-seite:1" hoeft niet hetzelfde te geven als
+    /// het adres zonder paginanummer, en dan is de site stuk in plaats van uitgebreid. Dat
+    /// staat in SITES.md ook zo bij Kleinanzeigen: "Eerst meten."
+    ///
+    /// Lukt het niet, dan gaat de ingetypte URL terug. Beter één pagina die werkt dan
+    /// twintig die niet bestaan.
+    /// </summary>
+    private static async Task ControleerPaginaEenAsync(SiteDefinition def, string origineel, string testQuery,
+        FetchRoute route, IProgress<string>? status, CancellationToken ct)
+    {
+        if (def.SearchUrlTemplate == origineel) return;
+
+        status?.Report("Nakijken of pagina 1 nog werkt met de aangepaste zoek-URL...");
+
+        try
+        {
+            var url = SearchUrlBuilder.Build(def, testQuery, null, 1);
+            var pagina = await HaalViaRouteAsync(url, route, ct);
+            var aantal = GenericSource.CountItems(def, pagina);
+
+            if (aantal >= MinimumOpPaginaEen)
+            {
+                Log.Write($"analyse: de aangepaste zoek-URL geeft op pagina 1 {aantal} zoekertjes -> aanvaard " +
+                          $"({def.SearchUrlTemplate})");
+                return;
+            }
+
+            Log.Write($"analyse: de aangepaste zoek-URL gaf op pagina 1 maar {aantal} zoekertjes; " +
+                      "de ingetypte URL blijft staan");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Log.Write($"analyse: de aangepaste zoek-URL kwam niet binnen ({ex.Message}); " +
+                      "de ingetypte URL blijft staan");
+        }
+
+        def.SearchUrlTemplate = origineel;
+    }
+
+    /// <summary>Zo weinig zoekertjes op pagina 1 betekent dat het adres niet deugt.</summary>
+    private const int MinimumOpPaginaEen = 3;
+
+    /// <summary>
+    /// Haalt één grote foto écht op. Een selector kan er goed uitzien en toch een adres
+    /// geven dat de fotodienst weigert, en dat is geen randgeval: bij Kleinanzeigen staat
+    /// het formaat in een <c>rule</c>-parameter die verplicht is. Gemeten op 29 september
+    /// 2026 op één foto van die site: <c>?rule=$_2.AUTO</c> gaf 157x200, <c>$_57.AUTO</c>
+    /// 1164x1481, <c>$_59.AUTO</c> 755x960 - en het adres zónder query een <b>HTTP 400</b>.
+    /// De analyse had precies dat adres voorgesteld, want "laat de query weg" werkt wél bij
+    /// 2dehands en Marktplaats. Eén verzoek zegt het verschil.
+    ///
+    /// Lukt het niet, dan gaat de selector eruit. De app valt dan terug op de miniatuur, en
+    /// dat is beter dan een kapotte foto in het detailvenster.
+    /// </summary>
+    internal static async Task<string?> ControleerGroteFotoAsync(SiteDefinition def, AnalysisCheck check,
+        IProgress<string>? status, CancellationToken ct)
+    {
+        if (def.LargeImageSelector.Length == 0) return null;
+
+        var adres = check.Sample
+            .Select(l => l.LargeImageUrl)
+            .FirstOrDefault(u => !string.IsNullOrWhiteSpace(u) &&
+                                 u.StartsWith("http", StringComparison.OrdinalIgnoreCase));
+
+        if (adres is null) return null;
+
+        status?.Report("De grote foto ophalen om te zien of dat adres werkt...");
+
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromSeconds(20));
+
+            using var antwoord = await PageHttp.GetAsync(adres, timeout.Token);
+            var soort = antwoord.Content.Headers.ContentType?.MediaType ?? "";
+
+            if (antwoord.IsSuccessStatusCode && soort.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            {
+                var bytes = antwoord.Content.Headers.ContentLength;
+                Log.Write($"analyse: de grote foto werkt ({soort}, {bytes?.ToString() ?? "?"} bytes)");
+                return null;
+            }
+
+            var reden = antwoord.IsSuccessStatusCode
+                ? $"gaf {soort} in plaats van een foto"
+                : $"gaf HTTP {(int)antwoord.StatusCode}";
+
+            def.LargeImageSelector = "";
+
+            var melding = $"De grote foto {reden}, dus die selector is eruit gehaald; de app toont de " +
+                          "miniatuur. Vaak staat het formaat in een parameter die verplicht is.";
+
+            Log.Write("analyse: " + melding + $" ({adres})");
+            return melding;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            def.LargeImageSelector = "";
+
+            var melding = $"De grote foto kwam niet binnen ({ex.Message}), dus die selector is eruit gehaald.";
+            Log.Write("analyse: " + melding);
+            return melding;
+        }
+    }
+
+    /// <summary>
+    /// Haalt pagina 2 op en telt hoeveel zoekertjes daarop ook al op pagina 1 stonden. Dat
+    /// is precies wat er met de hand gebeurde bij Delcampe ("0 overlap tussen pagina 1 en
+    /// 2"), en het is de enige manier om te weten of paginering écht werkt: een site die
+    /// het paginanummer negeert, geeft gewoon pagina 1 terug zonder een fout te melden.
+    /// Tot nu was alles wat de AI over paginering zei een gok die niemand nakeek.
+    ///
+    /// Klopt het niet, dan gaat de paginering eruit. Eén pagina die werkt is beter dan
+    /// twintig keer dezelfde pagina ophalen - dat valt bovendien op bij de site.
+    /// </summary>
+    private static async Task<PagingCheck> ControleerPaginaTweeAsync(SiteDefinition def, string origineel,
+        string paginaEen, string testQuery, FetchRoute route, IProgress<string>? status, CancellationToken ct)
+    {
+        if (!SearchUrlBuilder.SupportsPaging(def)) return new PagingCheck(false, 0, 0, null);
+
+        status?.Report("Pagina 2 ophalen om de paginering na te meten...");
+
+        try
+        {
+            var bron = new GenericSource(def);
+            var eerste = await bron.ReadPageAsync(paginaEen, ct);
+            var sleutels = eerste.Select(l => l.Key).ToHashSet();
+
+            var url = SearchUrlBuilder.Build(def, testQuery, null, def.FirstPage + 1);
+            var tweede = await bron.ReadPageAsync(await HaalViaRouteAsync(url, route, ct), ct);
+            var overlap = tweede.Count(l => sleutels.Contains(l.Key));
+
+            string? probleem = null;
+
+            if (tweede.Count == 0)
+            {
+                probleem = "Pagina 2 gaf geen enkel zoekertje, dus de paginering is eruit gehaald.";
+            }
+            else if (overlap >= tweede.Count * 0.8)
+            {
+                probleem = $"Pagina 2 gaf {tweede.Count} zoekertjes waarvan er {overlap} ook op pagina 1 " +
+                           "stonden: de site negeert het paginanummer. De paginering is eruit gehaald.";
+            }
+
+            if (probleem is not null) GeenPaginering(def, origineel);
+
+            Log.Write($"analyse: paginering -> pagina 2 gaf {tweede.Count} zoekertjes, {overlap} ook op " +
+                      $"pagina 1{(probleem is null ? " -> aanvaard" : " -> " + probleem)}");
+
+            return new PagingCheck(true, tweede.Count, overlap, probleem);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            GeenPaginering(def, origineel);
+
+            var probleem = $"Pagina 2 kwam niet binnen ({ex.Message}), dus de paginering is eruit gehaald.";
+            Log.Write("analyse: " + probleem);
+
+            return new PagingCheck(true, 0, 0, probleem);
+        }
+    }
+
+    private static void GeenPaginering(SiteDefinition def, string origineel)
+    {
+        def.PageTemplate = "";
+
+        // Zat het paginanummer in de zoek-URL zelf, dan moet die ook terug.
+        if (def.SearchUrlTemplate.Contains("{page}") || def.SearchUrlTemplate.Contains("{offset}"))
+            def.SearchUrlTemplate = origineel;
+    }
+
+    /// <summary>
+    /// Wat robots.txt van deze site over dit zoekpad zegt. De app dwingt niets af - dat is
+    /// een keuze van wie de site toevoegt - maar het hoort wel op het scherm te staan. Bij
+    /// Tweakers V&amp;A is de paginering met opzet dichtgelaten omdat hun robots.txt het
+    /// zoekpad verbiedt, en dat stond nergens behalve in het hoofd van wie het uitzocht.
+    /// </summary>
+    private static async Task<string?> RobotsAsync(string url, CancellationToken ct)
+    {
+        try
+        {
+            var uri = new Uri(url);
+            var tekst = await TryDirectAsync($"{uri.Scheme}://{uri.Host}/robots.txt", ct);
+            if (tekst is null) return null;
+
+            var pad = uri.AbsolutePath;
+            var voorIedereen = false;
+
+            foreach (var regel in tekst.Split('\n'))
+            {
+                var schoon = regel.Split('#')[0].Trim();
+                var punt = schoon.IndexOf(':');
+                if (punt <= 0) continue;
+
+                var sleutel = schoon[..punt].Trim().ToLowerInvariant();
+                var waarde = schoon[(punt + 1)..].Trim();
+
+                if (sleutel == "user-agent")
+                {
+                    voorIedereen = waarde == "*";
+                }
+                else if (sleutel == "disallow" && voorIedereen && waarde.Length > 0 &&
+                         pad.StartsWith(waarde.TrimEnd('*'), StringComparison.OrdinalIgnoreCase))
+                {
+                    Log.Write($"analyse: robots.txt verbiedt dit zoekpad ({waarde})");
+                    return waarde;
+                }
+            }
+
+            return null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Log.Write($"analyse: robots.txt niet gelezen - {ex.Message}");
+            return null;
+        }
     }
 
     // ==================== de pagina van één zoekertje ====================
@@ -1402,16 +1710,29 @@ public class SiteAnalyzer
         - priceSelector: het element met enkel de prijs. De motor neemt het eerste getal uit de tekst
           ("€ 1.499,00" wordt 1499), dus een element waarin ook "3 x" of een verzendprijs staat geeft een
           verkeerd bedrag. Een verborgen element voor schermlezers (sr-only) is prima. Staat er een leeg vakje
-          dat pas met JavaScript gevuld wordt, geef de selector toch en zeg het in notes.
+          dat pas met JavaScript gevuld wordt, geef de selector toch en zeg het in notes. Staan er twee
+          bedragen bij een zoekertje - een vraagprijs en een totaal met verzending of kopersbescherming
+          erbij - neem dan de vraagprijs: dat is wat de verkoper vraagt, en waarmee de app vergelijkt.
         - dateSelector: de motor gebruikt DateTime.TryParse, dus liefst "time@datetime". Leeg laten als er
           enkel "vandaag" of "2 uur geleden" staat.
-        - imageSelector: de miniatuur.
+        - imageSelector: de miniatuur. Bij lazy loading staat het echte adres soms in een ander attribuut
+          dan src. De motor probeert zelf src en data-src, maar niet data-original, data-lazy of
+          data-zoom-image; noem die dus met de hand (img.thumb@data-original).
         - largeImageSelector: een grotere versie, als die af te leiden is. Veel sites zetten het formaat in
           het pad van de foto: s-l500 wordt s-l1600, 250x188 wordt 1024x768, _S.webp wordt _L.webp,
           cw_lot_card_ext wordt cw_large. Schrijf dan de fotoselector met ::replace erachter en kies een
           stukje dat uniek is in de URL (_S.webp, niet _S). Een srcset enkel als er één URL in staat. AVIF kan
           de app niet tonen; kies binnen <picture> de JPEG- of WebP-bron. Leeg laten als het niet uit de
-          pagina af te leiden is - verzin geen formaten.
+          pagina af te leiden is - verzin geen formaten. Twee dingen die duur geleerd zijn:
+          (1) staat het formaat in de QUERY (?rule=..., ?w=500), dan geeft het adres ZONDER query SOMS het
+          origineel: ::match(^[^?]+). Bij twee sites was dat het verschil tussen 726 en 1600 beeldpunten,
+          maar bij een derde is die parameter verplicht en geeft het kale adres HTTP 400. Gok dus niet:
+          neem bij voorkeur een variant die ELDERS IN DE PAGINA staat - in een srcset, of bij een andere
+          foto - en zeg in notes waarop je je baseert. De app haalt die grote foto daarna echt op en gooit
+          de selector weg wanneer het adres niet werkt, dus een miniatuur is beter dan een gok.
+          (2) is het adres ONDERTEKEND - een parameter als oh=, oe=, s=, sig= of stp=, of een hash in het
+          pad - laat de maat dan staan. Die handtekening dekt het formaat mee, dus een groter formaat geeft
+          403 in plaats van een grotere foto. Bij twee sites is dat nagemeten.
         - descriptionSelector: als hij er staat.
         - locationSelector: de app zet dit naast de prijs en wil daar enkel de naam van de stad zien, en
           anders die van het land. Staat er meer in hetzelfde element - een straat, een postcode, een land,
@@ -1424,6 +1745,24 @@ public class SiteAnalyzer
         de volgende update; gebruik ze enkel als er niets anders is, en zeg het dan in notes. Laat
         advertenties en gesponsorde kaarten buiten de itemSelector als ze te onderscheiden zijn.
 
+        Draagt elk veld het nummer van het zoekertje in zijn id of data-testid, zoals
+        "product-item-id-123--price-text", gebruik dan het einde of het begin:
+        [data-testid$='--price-text'], [data-testid^='item-photo-']. Zo hoef je dat nummer niet te kennen.
+
+        Let ten slotte op de TAAL. Een site antwoordt soms in een andere taal dan de gebruiker later ziet,
+        want de app kan later een kopregel meesturen die de taal omzet. Leun je in een ::match op een woord
+        uit de pagina ("Sinds", "van", "Ajouté"), zeg dat dan in notes.
+
+        ## Veilingen
+        isAuction: true wanneer de prijs op deze site een BOD is en geen vraagprijs - je ziet dat aan
+        "Huidig bod", een aantal biedingen, of een aftelklok op elke kaart. De app telt zo'n site niet mee
+        wanneer ze uitrekent wat een toestel ongeveer waard is: een bod dat nog loopt, zegt daar niets over.
+        timeLeftSelector: het element met hoelang er nog geboden kan worden, zoals de site het schrijft
+        ("Nog 3 dagen", "9d 12u"). Dat komt op het scherm achter de plaats te staan. Leeg laten bij een site
+        zonder veilingen, en ook bij een veilingsite die het niet op haar zoekpagina zet.
+        Een site kan gemengd zijn, met vaste prijzen én veilingen op dezelfde pagina. Zet isAuction dan op
+        false - de meeste prijzen zijn dan vraagprijzen - en zeg het in notes.
+
         ## JSON
         Is de inhoud JSON, dan zijn het puntpaden: itemSelector "listings", priceSelector
         "priceInfo.priceCents". Er zijn geen indexen: kom je onderweg een lijst tegen, dan neemt de motor het
@@ -1431,10 +1770,22 @@ public class SiteAnalyzer
         niet, ::replace wel. priceInCents is true wanneer het bedrag in centen staat.
 
         ## Vervolgpagina's
-        pageTemplate is het stukje dat achter de zoek-URL komt voor pagina 2 en verder, met {page} als
-        plaatshouder: "&page={page}", "&_pgn={page}". Zoek het in de links van de paginering. firstPage is het
-        nummer van de eerste pagina, meestal 1. Laat pageTemplate leeg als het nummer in het pad zit, als de
-        site met een offset werkt, of als je geen paginering ziet.
+        Zoek in de links van de paginering wat er verandert tussen pagina 1 en pagina 2. Er zijn drie vormen
+        en de app kan ze alle drie:
+
+        - Een stukje dat ACHTER de zoek-URL komt: pageTemplate met {page} erin, zoals "&page={page}" of
+          "&_pgn={page}".
+        - Het nummer staat middenin het PAD, bijvoorbeeld /s-seite:2/cd/k0. Zet {page} dan daar, in
+          searchUrlTemplate, en laat pageTemplate leeg. {query} moet erin blijven staan en het moet dezelfde
+          site blijven. De app kijkt daarna zelf na of pagina 1 met dat adres nog zoekertjes geeft en zet je
+          voorstel terug als dat niet zo is - een fout is hier dus geen ramp, maar zwijgen wel: zonder dit
+          veld blijft zo'n site steken op de ene pagina die je ziet.
+        - De site telt niet in pagina's maar in zoekertjes: "limit=100&offset=200" is de derde pagina. Zet
+          dan {offset} in searchUrlTemplate of in pageTemplate, en pageSize op hoeveel er op één pagina
+          passen. Zonder pageSize telt {offset} niet als paginering.
+
+        firstPage is het nummer van de eerste pagina, meestal 1 en soms 0. searchUrlTemplate laat je leeg
+        wanneer het adres goed is zoals het is.
 
         ## Namen
         name: de naam van de site zoals ze zichzelf noemt. shortName: enkel als name langer is dan een

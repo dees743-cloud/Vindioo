@@ -161,7 +161,12 @@ public partial class AddSiteWindow : Wpf.Ui.Controls.FluentWindow
         Add("Link", d.UrlSelector);
         Add("Foto", d.ImageSelector);
         Add("Grote foto", d.LargeImageSelector);
+        Add("Tijd tot het einde", d.TimeLeftSelector);
         Add("Volgende pagina", d.PageTemplate);
+
+        // De AI mag de zoek-URL bijsturen om {page} in het pad te krijgen. Dan moet het
+        // veld bovenaan dat ook tonen, anders schrijft CollectDefinition de oude terug.
+        UrlBox.Text = d.SearchUrlTemplate;
 
         // De vier velden van de pagina van een zoekertje zelf. Ze stonden enkel in Sites
         // beheren, terwijl de analyse ze nu meteen invult - en dan wil je ze ook hier
@@ -188,6 +193,15 @@ public partial class AddSiteWindow : Wpf.Ui.Controls.FluentWindow
             Margin = new Thickness(0, 4, 0, 0)
         };
         FieldsPanel.Children.Add(_bridgeCheck);
+
+        // Is de prijs een bod, dan telt deze site niet mee in de prijsindicatie.
+        _auctionCheck = new CheckBox
+        {
+            Content = "Veilingsite (de prijs is een bod)",
+            IsChecked = d.IsAuction,
+            Margin = new Thickness(0, 4, 0, 0)
+        };
+        FieldsPanel.Children.Add(_auctionCheck);
 
         if (!string.IsNullOrWhiteSpace(d.Notes))
         {
@@ -238,6 +252,14 @@ public partial class AddSiteWindow : Wpf.Ui.Controls.FluentWindow
 
         lines.AddRange(analysis.Check.Problems.Select(p => "• " + p));
 
+        if (analysis.Paging is { } paging) lines.Add(paging.Summary);
+        if (analysis.LargeImageProblem is { } foto) lines.Add("• " + foto);
+
+        // Geen verbod dat de app afdwingt, maar wie een site toevoegt hoort het te weten
+        // voor hij hem aanvinkt - bij Tweakers is de paginering daarom dichtgelaten.
+        if (analysis.RobotsRule is { } regel)
+            lines.Add($"⚠ De robots.txt van deze site verbiedt dit zoekpad (Disallow: {regel}).");
+
         // De advertentiepagina is een tweede meting op een andere pagina, dus die krijgt
         // een eigen regel in plaats van dat de getallen door elkaar lopen.
         if (analysis.Detail is { } detail)
@@ -256,6 +278,7 @@ public partial class AddSiteWindow : Wpf.Ui.Controls.FluentWindow
     private SiteDefinition? _current;
     private CheckBox? _browserCheck;
     private CheckBox? _bridgeCheck;
+    private CheckBox? _auctionCheck;
 
     /// <summary>Leest de (eventueel aangepaste) velden terug in de definitie.</summary>
     private SiteDefinition CollectDefinition()
@@ -274,6 +297,7 @@ public partial class AddSiteWindow : Wpf.Ui.Controls.FluentWindow
         d.UrlSelector = _fields["Link"].Text.Trim();
         d.ImageSelector = _fields["Foto"].Text.Trim();
         d.LargeImageSelector = _fields["Grote foto"].Text.Trim();
+        d.TimeLeftSelector = _fields["Tijd tot het einde"].Text.Trim();
         d.PageTemplate = _fields["Volgende pagina"].Text.Trim();
         d.DetailImagesSelector = _fields["Foto's (op de pagina zelf)"].Text.Trim();
         d.DetailSellerSelector = _fields["Verkoper (op de pagina zelf)"].Text.Trim();
@@ -282,6 +306,7 @@ public partial class AddSiteWindow : Wpf.Ui.Controls.FluentWindow
         d.SearchUrlTemplate = UrlBox.Text.Trim();
         d.NeedsBrowser = _browserCheck?.IsChecked == true;
         d.UseBridge = _bridgeCheck?.IsChecked == true;
+        d.IsAuction = _auctionCheck?.IsChecked == true;
 
         return d;
     }

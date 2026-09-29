@@ -2773,6 +2773,67 @@ analyse. Drie leden zijn `internal` in plaats van `private` (`Clean`, `SchoonAdv
 `MeasureDetailAsync`, `TryDirectAsync`) zodat een wegwerpprojectje dit op echte pagina's kan
 nameten; het controleproject mag geen netwerk gebruiken, en juist de echte pagina is hier het punt.
 
+**6. Wat op de zoekpagina te zien is, wordt ook gevraagd** (29 september 2026). Twee velden
+stonden bij "dat doet de analyse niet" terwijl ze gewoon te lezen zijn: **`isAuction`** (staat er
+"Huidig bod", een aantal biedingen, een aftelklok op elke kaart?) en **`timeLeftSelector`**. Het
+eerste bepaalt of een site mee mag tellen in de prijsindicatie - een bod dat nog loopt zegt niets
+over wat iets waard is - en het tweede zet "Nog 3 dagen" achter de plaats. In het venster staan
+ze nu als een veld en een vinkje.
+
+Verder zijn er lessen bij in de opdracht gekomen die uit het inregelen van de dertien sites
+komen en die er nog niet in stonden: `$=` en `^=` voor sites die het nummer van het zoekertje in
+elk `data-testid` zetten (Vinted), `data-original` en andere lazy attributen die de motor **niet**
+zelf probeert (die valt enkel terug tussen `src` en `data-src`), de vraagprijs nemen en niet het
+totaal met kopersbescherming, en de waarschuwing dat een site in een andere taal kan antwoorden
+dan de gebruiker later ziet - leun je in een `::match` op een woord, zeg dat dan in notes.
+
+**7. De paginering wordt nagemeten in plaats van geloofd** (29 september 2026). Alles wat de AI
+over `pageTemplate` zei, was tot dan een gok die niemand nakeek. Nu haalt de app **pagina 2** op
+en telt hoeveel zoekertjes daarop ook al op pagina 1 stonden - precies wat er bij Delcampe met de
+hand gebeurde ("0 overlap tussen pagina 1 en 2"). Een site die het paginanummer negeert, geeft
+gewoon pagina 1 terug en meldt geen enkele fout; enkel die telling ziet dat. Klopt het niet, dan
+gaat de paginering eruit.
+
+Daar hoort een tweede ding bij: de AI mag nu de **zoek-URL zelf bijsturen** (`searchUrlTemplate`).
+Dat was nodig omdat paginering soms in het pad zit, en `SearchUrlBuilder` `{page}` daar gewoon
+aanvaardt - alleen wist de AI dat niet. Het bewijs stond al in het bestand dat ze in september zelf
+maakte: *"Paginering gebruikt paden zoals /s-seite:2/cd/k0, dus geen pageTemplate mogelijk; de
+motor kan enkel pagina 1 lezen."* Dat was niet waar. Twee eisen bewaken het: `{query}` moet erin
+blijven en het moet dezelfde host zijn; daarna wordt eerst pagina 1 nagekeken en pas dan pagina 2.
+Ook `{offset}` met `pageSize` kan nu, voor een API die in zoekertjes telt in plaats van in pagina's.
+
+**En `robots.txt` wordt gelezen.** Geen verbod dat de app afdwingt - dat is een keuze van wie de
+site toevoegt - maar het hoort op het scherm. Bij Tweakers V&A is de paginering met opzet
+dichtgelaten omdat hun `robots.txt` dat zoekpad verbiedt, en dat stond nergens behalve in het hoofd
+van wie het uitzocht.
+
+**8. De grote foto wordt echt opgehaald** (29 september 2026), en dat kwam uit een fout van
+mezelf. In punt 6 zette ik de les "staat het formaat in de query, laat die dan weg voor het
+origineel" in de opdracht - waar bij 2dehands en Marktplaats 726 beeldpunten 1600 werden. De
+analyse paste die les netjes toe op Kleinanzeigen, en daar is die `rule`-parameter **verplicht**.
+Nagemeten op één foto van die site:
+
+| Adres | Resultaat |
+|---|---|
+| zonder query (wat de AI voorstelde) | **HTTP 400** |
+| `?rule=$_2.AUTO` | 157x200 |
+| `?rule=$_57.AUTO` | **1164x1481** |
+| `?rule=$_59.AUTO` | 755x960 |
+
+De les is daarom voorwaardelijk gemaakt ("soms", met de raad een variant te nemen die élders in
+de pagina staat), maar belangrijker is het vangnet: de analyse haalt nu één grote foto op en kijkt
+of er een afbeelding terugkomt. Zo niet, dan gaat `LargeImageSelector` eruit en valt de app terug
+op de miniatuur - beter dan een kapotte foto in het detailvenster. Eén verzoek per analyse.
+
+**Wat de hele ketting oplevert, gemeten op Kleinanzeigen** (29 september 2026, de site die in
+september enkel met de AI gemaakt was, dus de eerlijke vergelijking): **1 minuut**, één ronde.
+27 zoekertjes met prijs, link, foto en plaats; de zoek-URL werd
+`https://www.kleinanzeigen.de/s-seite:{page}/{query}/k0`, pagina 1 gaf daarmee 27 zoekertjes en
+pagina 2 er **26 met 0 overlap**; robots.txt verbiedt dit pad niet; en op de advertentiepagina
+**6 foto's uit het ld+json-blok, de verkoper, "09.04.2026" en 1310 tekens beschrijving**. Het
+bestand van september had geen enkel Detail-veld en bleef op één pagina steken. Kosten: ongeveer
+123 000 tokens in plaats van 76 000.
+
 De AI vult nu ook de **korte naam**, de **grote foto** en de **volgende pagina** in, en
 het venster toont die als bewerkbare velden - net als de vier velden van de advertentiepagina.
 
@@ -2821,10 +2882,13 @@ Voor wie eraan werkt:
   site aan om je bij een bestaande aan te melden.
 
 Wat de analyse **niet** doet, en waar je dus zelf aan moet: `Filters`, `CustomFilters`,
-`Headers`, `AllowsEmptyQuery`, de velden voor de prijsindicatie (`PriceReference`, `IsAuction`,
-`SellerSelector`, `AuctionSellers`), `TimeLeftSelector`, `DetailEndDateSelector`,
-`EndTimeApi` en een eigen `UrlStyle`. Dat vraagt meten, zie `tools/meet-filter.py`.
-De vier andere `Detail`-velden vult ze sinds 29 september 2026 wél in, zie punt 5 hierboven.
+`Headers`, `AllowsEmptyQuery`, `PriceReference`, `SellerSelector`, `AuctionSellers`,
+`DetailEndDateSelector`, `EndTimeApi` en een eigen `UrlStyle`. Dat vraagt meten, zie
+`tools/meet-filter.py`. `Headers` en `EndTimeApi` zijn trouwens niet te raden: die zijn er
+gekomen door te proberen, niet door te kijken.
+
+Sinds 29 september 2026 vult ze wél in: de vier `Detail`-velden (punt 5), `IsAuction` en
+`TimeLeftSelector` (punt 6), en de paginering in het pad of met een offset (punt 7).
 
 Selectors gebruiken een eigen notatie: `a.title@href` neemt een attribuut in
 plaats van tekst, `.` betekent het resultaat zelf. Bij JSON-bronnen zijn het
