@@ -185,6 +185,14 @@ het pad, en meet de paginering, de grote foto en de filters na in plaats van ze 
 dezelfde app, met een stuk dat zijn werk beter doet. Wat er voor 1.0 nog moet, staat onveranderd
 bij "Volgende stappen".
 
+**0.9.2** sinds 30 september 2026, en daar zit een les in over versienummers. 0.9.1 kreeg een tag,
+en daarna kwamen er nog twee commits met echte verbeteringen aan diezelfde analyse: de filters
+naar het eerste schema (186 000 tokens terug naar 113 000) en de prijsgrens die op de prijzen
+beoordeeld wordt in plaats van op het verschil in de lijst. Toen er een release met de exe moest
+komen, botste dat: **wat je uitbrengt moet zijn wat het nummer zegt.** De tag verplaatsen kan wel,
+maar dan klopt een nummer dat al gepusht is niet meer met wat het ooit aanwees. Een nieuw nummer is
+goedkoper. Dus: wie een versie tagt, brengt die ook uit, of nummert opnieuw.
+
 Het is op twee plaatsen zichtbaar, en allebei om dezelfde reden - **er draaien twee exe's op
 deze pc**, een uit Visual Studio en een gepubliceerde (bij mij `C:\Zentrix`), met
 dezelfde gegevensmap:
