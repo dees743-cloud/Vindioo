@@ -194,6 +194,12 @@ komen, botste dat: **wat je uitbrengt moet zijn wat het nummer zegt.** De tag ve
 maar dan klopt een nummer dat al gepusht is niet meer met wat het ooit aanwees. Een nieuw nummer is
 goedkoper. Dus: wie een versie tagt, brengt die ook uit, of nummert opnieuw.
 
+**0.10.0** sinds 30 september 2026, en het tweede cijfer gaat mee omhoog omdat er iets **bij**komt
+dat je ziet: de knop *Nakijken* op het tabblad Favorieten, die per favoriet zegt of het zoekertje
+er nog staat en wat het nu kost (zie "Favorieten opvolgen" bij Wat je te zien krijgt). Dat is
+precies het onderscheid dat 0.9.1 níet haalde - daar deed een bestaand stuk zijn werk beter, zonder
+nieuw scherm en zonder nieuwe knop. Hier is het er wel een, dus geen 0.9.3.
+
 Het is op twee plaatsen zichtbaar, en allebei om dezelfde reden - **er draaien twee exe's op
 deze pc**, een uit Visual Studio en een gepubliceerde (bij mij `C:\Zentrix`), met
 dezelfde gegevensmap:
@@ -3598,7 +3604,8 @@ Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
 `--snel` waren dat er op 27 september 2026 **399** met alles dicht (gemeten); met Chrome erbij
 397, en met Zentrix er ook nog bij 376. Op 30 september kwamen er 22 bij voor het opvolgen van
-favorieten: met Zentrix draaiend gemeten op **398**. Twee dingen op deze pc laten controles wegvallen, en allebei zeggen ze dat ook:
+favorieten, en toen is het opnieuw gemeten: **419** met Zentrix dicht en Chrome open (de twee
+koppelcode-controles vallen dan weg, zoals hieronder beschreven), en 398 met Zentrix er ook bij. Twee dingen op deze pc laten controles wegvallen, en allebei zeggen ze dat ook:
 
 - **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (23).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
