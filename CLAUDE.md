@@ -2969,13 +2969,26 @@ dat is bij die site `DescriptionSelector` - en alle vijf de waarden kloppen: `st
 Dat `order` eruit ging is ook juist: een sortering is geen filter. En bij `catalog` twijfelde de
 AI zelf ("of catalog[]= als queryparameter werkt, moet de test uitwijzen") - de test zei nee.
 
-**Wat die run nog leerde, en het kost geld.** De filtervraag gaat als bericht verder in hetzelfde
-gesprek, met de bedoeling dat de pagina uit de cache komt. Dat doet ze **niet**: gemeten stond er
-`naar cache 75122, uit cache 0`, terwijl een gewone verbeterronde er wél 71 220 uit de cache las.
-Het verschil is het **schema**: dat hoort bij het gecachete begin, dus een andere vorm van antwoord
-betekent een nieuwe cache. Een hele analyse kost daardoor ongeveer **186 000 tokens** in plaats van
-76 000. Wie dat wil terugbrengen, zet de filtervelden in het schema van de eerste vraag; de app
-meet ze toch zelf na, dus ze hebben de verbeterronde niet nodig.
+**De filtervraag was eerst een tweede vraag, en dat kostte geld.** Ze ging als bericht verder in
+hetzelfde gesprek, met de bedoeling dat de pagina uit de cache kwam. Dat deed ze **niet**: gemeten
+stond er `naar cache 75122, uit cache 0`, terwijl een gewone verbeterronde er wél 71 220 uit de
+cache las. Het verschil is het **schema** - dat hoort bij het gecachete begin, dus een andere vorm
+van antwoord betekent een nieuwe cache. Eén analyse kostte zo 186 000 tokens.
+
+Daarom staan `filters` en `customFilters` sinds 30 september 2026 **in het schema van de eerste
+vraag**. Er is geen tweede vraag meer nodig: de app meet de filters toch zelf na, dus ze hebben die
+verbeterronde niet. Opnieuw gemeten op Vinted: **113 000 tokens**, en de uitkomst bleef dezelfde.
+
+**Bij een prijsgrens telt de prijs, niet het verschil.** Dat moest bijgesteld worden, en de meting
+wees het aan. In één run haalde `priceMax` 41% tegen een drempel van 41% en vloog eruit; een dag
+eerder haalde diezelfde parameter 52% en bleef hij staan. Dezelfde site, dezelfde parameter, ander
+toeval - en een prijsfilter dat stil ontbreekt is precies wat je niet wil. Daar is een veel sterker
+bewijs voor: zonder filter ligt per definitie de helft van de zoekertjes boven de mediaan. Blijft
+daar na het filteren vrijwel niets van over, dan werkt hij, hoe druk de site ook is; blijven er
+duurdere staan, dan is hij aanvaard en genegeerd. Sindsdien beslist die telling bij `priceMin` en
+`priceMax`, en de set-vergelijking enkel bij de rest. In de run erna: **3 van de 3 gehouden**, met
+als reden "de prijzen bleven binnen de grens van 5" - terwijl de oude regel `priceMax` (43% bij 18%
+ruis, drempel 45%) opnieuw zou hebben laten vallen.
 
 En één notatiefout kostte een ronde: de AI schreef `[data-testid$='--image']@src, img@src`. De motor
 knipt bij het **laatste** apenstaartje (`LastIndexOf('@')`), dus daar bleef ongeldige CSS over. Dat

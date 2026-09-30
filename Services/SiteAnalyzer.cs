@@ -238,9 +238,9 @@ public class SiteAnalyzer
         AnalysisCheck? bestCheck = null;
         var rounds = 0;
 
-        // Het laatste antwoord van de AI, om er de filtervraag achteraan te hangen. Zo
-        // blijft de pagina in hetzelfde gesprek staan in plaats van nog eens mee te gaan.
-        JsonNode? laatsteAntwoord = null;
+        // Het antwoord dat bij "best" hoort, want daar staan ook de filters in. Niet het
+        // laatste antwoord: een latere ronde kan slechter zijn en wordt dan verworpen.
+        string? besteAntwoord = null;
 
         for (var round = 1; round <= MaxRounds; round++)
         {
@@ -250,8 +250,6 @@ public class SiteAnalyzer
                 : $"De AI verbetert zijn selectors (poging {round})...");
 
             var (content, answer) = await AskClaudeAsync(apiKey, messages, SystemPrompt, BuildSchema(), ct);
-            laatsteAntwoord = content;
-
             var definition = ToDefinition(answer, searchUrl, url, isJson, route);
 
             status?.Report("De selectors natellen op de pagina...");
@@ -265,6 +263,7 @@ public class SiteAnalyzer
             {
                 best = definition;
                 bestCheck = check;
+                besteAntwoord = answer;
             }
 
             if (check.IsGood) break;
@@ -289,7 +288,7 @@ public class SiteAnalyzer
         var grote = await ControleerGroteFotoAsync(best!, bestCheck!, status, ct);
         var paging = await ControleerPaginaTweeAsync(best!, searchUrl, page, testQuery, route, status, ct);
 
-        var filters = await FiltersAsync(apiKey, best!, messages, laatsteAntwoord, url, page, route, status, ct);
+        var filters = await FiltersAsync(best!, besteAntwoord, url, page, route, status, ct);
         var robots = await RobotsAsync(url, ct);
         var detail = await AdvertentieAsync(apiKey, best!, bestCheck!, route, status, ct);
 
@@ -966,6 +965,12 @@ public class SiteAnalyzer
         properties["firstPage"] = new JsonObject { ["type"] = "integer" };
         properties["pageSize"] = new JsonObject { ["type"] = "integer" };
 
+        // De filters horen in ditzelfde schema en niet in een tweede vraag: zie
+        // FilterSchemas voor wat dat scheelde.
+        var (vast, eigen) = FilterSchemas();
+        properties["filters"] = new JsonObject { ["type"] = "array", ["items"] = vast };
+        properties["customFilters"] = new JsonObject { ["type"] = "array", ["items"] = eigen };
+
         var required = new JsonArray();
         foreach (var property in properties) required.Add(property.Key);
 
@@ -1309,32 +1314,16 @@ public class SiteAnalyzer
     ///
     /// De vraag gaat in hetzelfde gesprek verder, zodat de pagina niet nog eens mee hoeft.
     /// </summary>
-    private async Task<FilterCheck?> FiltersAsync(string apiKey, SiteDefinition def, JsonArray messages,
-        JsonNode? laatsteAntwoord, string paginaEenUrl, string paginaEen, FetchRoute route,
-        IProgress<string>? status, CancellationToken ct)
+    private static async Task<FilterCheck?> FiltersAsync(SiteDefinition def, string? antwoord,
+        string paginaEenUrl, string paginaEen, FetchRoute route, IProgress<string>? status,
+        CancellationToken ct)
     {
-        if (laatsteAntwoord is null) return null;
+        if (string.IsNullOrWhiteSpace(antwoord)) return null;
 
         try
         {
-            status?.Report("De AI zoekt de filters van deze site...");
-
-            messages.Add(new JsonObject { ["role"] = "assistant", ["content"] = laatsteAntwoord });
-            messages.Add(UserMessage(FilterVraag()));
-
-            var (_, answer) = await AskClaudeAsync(apiKey, messages, SystemPrompt, BuildFilterSchema(), ct);
-            var kandidaten = LeesFilters(answer, out var notities);
-
-            var check = await MeetFiltersAsync(def, kandidaten, paginaEenUrl, paginaEen, route, status, ct);
-
-            if (!string.IsNullOrWhiteSpace(notities))
-            {
-                def.Notes = string.IsNullOrWhiteSpace(def.Notes)
-                    ? notities
-                    : def.Notes.TrimEnd() + "\n\n" + notities;
-            }
-
-            return check;
+            return await MeetFiltersAsync(def, LeesFilters(antwoord), paginaEenUrl, paginaEen, route,
+                status, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -1433,12 +1422,24 @@ public class SiteAnalyzer
                     houden = false;
                     reden = "gaf geen enkel zoekertje";
                 }
-                else if (prijsgrens && mediaan is not null &&
-                         !GrensOk(lijst, mediaan.Value, kandidaat.Key == "priceMax"))
+                else if (prijsgrens && mediaan is not null && lijst.Count(l => l.Price is > 0) >= 5)
                 {
-                    // Dit is de valkuil van 2dehands: aanvaard en genegeerd.
-                    houden = false;
-                    reden = "werd aanvaard maar genegeerd - de prijzen bleven buiten de grens";
+                    // Bij een prijsgrens bestaat er een veel sterker bewijs dan "de lijst
+                    // veranderde": de prijzen zelf. Zonder filter ligt per definitie de
+                    // helft boven de mediaan; blijft daar na het filteren vrijwel niets
+                    // van over, dan werkt hij - ook op een drukke site waar de ruis hoog
+                    // is. En andersom is het de valkuil van 2dehands: aanvaard, en
+                    // genegeerd.
+                    //
+                    // Dat was nodig. Op Vinted haalde priceMax met 41% net de drempel van
+                    // 41% niet en vloog eruit, terwijl een run een dag eerder hem met 52%
+                    // wél hield. Dezelfde site, dezelfde parameter, ander toeval.
+                    var binnen = GrensOk(lijst, mediaan.Value, kandidaat.Key == "priceMax");
+
+                    houden = binnen;
+                    reden = binnen
+                        ? $"de prijzen bleven binnen de grens van {waarde}"
+                        : "werd aanvaard maar genegeerd - de prijzen bleven buiten de grens";
                 }
                 else if (anders < drempel)
                 {
@@ -1518,10 +1519,13 @@ public class SiteAnalyzer
         return buiten <= metPrijs.Count * 0.1;
     }
 
-    private static List<FilterKandidaat> LeesFilters(string answer, out string notities)
+    /// <summary>
+    /// De twee filterlijsten uit het antwoord van de eerste vraag. Alles wat er niet
+    /// uitvoerbaar uitziet valt hier al weg; wat overblijft gaat naar de meting.
+    /// </summary>
+    private static List<FilterKandidaat> LeesFilters(string answer)
     {
         var lijst = new List<FilterKandidaat>();
-        notities = "";
 
         JsonDocument doc;
         try
@@ -1536,7 +1540,6 @@ public class SiteAnalyzer
         using (doc)
         {
             var root = doc.RootElement;
-            notities = Get(root, "notes");
 
             if (root.TryGetProperty("filters", out var vaste) && vaste.ValueKind == JsonValueKind.Array)
             {
@@ -1607,7 +1610,17 @@ public class SiteAnalyzer
         return lijst;
     }
 
-    private static JsonObject BuildFilterSchema()
+    /// <summary>
+    /// De twee filterlijsten, voor in het schema van de eerste vraag. Ze zaten eerst in
+    /// een eigen vraag verderop in hetzelfde gesprek, met de bedoeling dat de pagina uit
+    /// de cache kwam. Gemeten op 30 september 2026 deed ze dat niet: het schema hoort bij
+    /// het gecachete begin, dus een andere antwoordvorm betekent een nieuwe cache -
+    /// "naar cache 75122, uit cache 0", terwijl een gewone verbeterronde er 71 220 uit
+    /// las. Zo kostte één analyse 186 000 tokens in plaats van 76 000. In hetzelfde schema
+    /// is het gratis: de app meet de filters toch zelf na en heeft die extra ronde niet
+    /// nodig.
+    /// </summary>
+    private static (JsonObject Vast, JsonObject Eigen) FilterSchemas()
     {
         static JsonObject Tekst() => new() { ["type"] = "string" };
 
@@ -1653,62 +1666,8 @@ public class SiteAnalyzer
             ["additionalProperties"] = false
         };
 
-        return new JsonObject
-        {
-            ["type"] = "object",
-            ["properties"] = new JsonObject
-            {
-                ["filters"] = new JsonObject { ["type"] = "array", ["items"] = vast },
-                ["customFilters"] = new JsonObject { ["type"] = "array", ["items"] = eigen },
-                ["notes"] = Tekst()
-            },
-            ["required"] = new JsonArray { "filters", "customFilters", "notes" },
-            ["additionalProperties"] = false
-        };
+        return (vast, eigen);
     }
-
-    /// <summary>
-    /// De vraag over de filters. Ze gaat als gewoon bericht in hetzelfde gesprek, met
-    /// dezelfde opdracht erboven: zo blijft de pagina in de cache staan en hoeft ze niet
-    /// nog eens mee.
-    /// </summary>
-    private static string FilterVraag() => """
-        Nu de filters van deze site, op dezelfde pagina. Er zijn er twee soorten.
-
-        1. VASTE FILTERS, het veld "filters". Die kent de app van binnenuit, want ze betekenen op elke
-        site hetzelfde. Enkel deze sleutels bestaan; noem je iets anders, dan doet het niets:
-        - priceMin, priceMax: een bedrag in euro
-        - priceRangeEuro, priceRangeCents: beide grenzen in één parameter, als "min:max"
-        - postcode of location: een postcode of een plaatsnaam
-        - radius: een straal in kilometer. radiusMeters: dezelfde straal in meter
-        Het fragment is het stukje URL met {value} erin, bijvoorbeeld "&priceTo={value}". Let op de
-        eenheid: staat er in de URL van de site een bedrag in centen, kies dan priceRangeCents, en bij
-        een straal in meter radiusMeters. Dat is bij een echte site fout gegaan.
-
-        2. EIGEN FILTERS, het veld "customFilters": alles wat enkel op deze site bestaat - staat,
-        categorie, brandstof, soort verkoper, alleen met verzending. kind is "Choice" (een keuze uit
-        een lijst; zet multiple op true als er meerdere tegelijk mogen), "Number" (een vrij getal) of
-        "Toggle" (aan of uit). Bij Choice geef je de keuzes zoals de site ze verwacht, met het label in
-        de taal van de site. Hoogstens acht, en dan de nuttigste.
-
-        TESTWAARDE: geef bij elk filter een testValue die op deze site echt geldig is - een postcode
-        die bestaat, een bedrag in de juiste eenheid. Bij een Choice neemt de app de eerste keuze, en
-        bij priceMin en priceMax rekent ze zelf een bedrag uit.
-
-        WAAR JE ZE VINDT: het filterformulier in de pagina (een select, een input of een checkbox met
-        een name), de links van de filters in de zijbalk, of een blok met de hele filterlijst erin
-        (__NEXT_DATA__, een taxonomy). Neem de namen letterlijk over en verzin niets: wat je niet in de
-        pagina ziet, laat je weg.
-
-        WAT ER DAARNA GEBEURT: de app probeert elk filter echt uit op deze zoekopdracht en vergelijkt
-        de resultaten met de ongefilterde pagina. Een filter dat niets verandert, gaat eruit - ook als
-        het er goed uitziet, want een site kan een parameter aanvaarden en meteen negeren. Er gaat ook
-        een parameter mee die niet bestaat, als controle. Een verkeerde gok kost dus niets; een filter
-        dat je niet noemt, bestaat nooit.
-
-        In notes: één of twee zinnen over wat onzeker is aan deze filters. Laat de lijsten leeg wanneer
-        je er geen ziet.
-        """;
 
     // ==================== de pagina van één zoekertje ====================
 
@@ -2257,6 +2216,38 @@ public class SiteAnalyzer
         name: de naam van de site zoals ze zichzelf noemt. shortName: enkel als name langer is dan een
         twaalftal tekens, een kortere vorm voor een tabblad; anders leeg. baseUrl: schema en host
         (https://www.site.be), tenzij je meer nodig hebt voor een link die uit een id gebouwd wordt.
+
+        ## Filters
+        Twee lijsten, en allebei mogen ze leeg blijven wanneer je geen filters ziet.
+
+        "filters" zijn de vaste, die de app van binnenuit kent omdat ze op elke site hetzelfde betekenen.
+        Enkel deze sleutels bestaan; noem je iets anders, dan doet het niets:
+        - priceMin, priceMax: een bedrag in euro
+        - priceRangeEuro, priceRangeCents: beide grenzen in één parameter, als "min:max"
+        - postcode of location: een postcode of een plaatsnaam
+        - radius: een straal in kilometer. radiusMeters: dezelfde straal in meter
+        Het fragment is het stukje URL met {value} erin, bijvoorbeeld "&priceTo={value}". Let op de eenheid:
+        staat er in de URL van de site een bedrag in centen, kies dan priceRangeCents, en bij een straal in
+        meter radiusMeters. Dat is bij een echte site fout gegaan.
+
+        "customFilters" is alles wat enkel op deze site bestaat: staat, categorie, brandstof, soort verkoper,
+        alleen met verzending. kind is "Choice" (een keuze uit een lijst; multiple op true als er meerdere
+        tegelijk mogen), "Number" (een vrij getal) of "Toggle" (aan of uit). Bij Choice geef je de keuzes
+        zoals de site ze verwacht, met het label in de taal van de site. Hoogstens acht, en dan de nuttigste.
+
+        Geef bij elk filter een testValue die op deze site echt geldig is: een postcode die bestaat, een
+        bedrag in de juiste eenheid. Bij een Choice neemt de app de eerste keuze, en bij priceMin en
+        priceMax rekent ze zelf een bedrag uit.
+
+        Waar je ze vindt: het filterformulier in de pagina (een select, een input of een checkbox met een
+        name), de links van de filters in de zijbalk, of een blok met de hele filterlijst (__NEXT_DATA__,
+        een taxonomy). Neem de namen letterlijk over, en noem geen parameter die al in de zoek-URL staat:
+        die komt er dan twee keer in, en sommige sites antwoorden daarop met een serverfout.
+
+        De app probeert elk filter daarna ECHT uit op deze zoekopdracht en vergelijkt de resultaten met de
+        ongefilterde pagina. Wat niets verandert gaat eruit, en er gaan twee parameters mee die niet bestaan
+        als controle. Een gok die fout blijkt kost dus niets, maar een filter dat je niet noemt bestaat
+        nooit. Een sortering is géén filter: die verandert de volgorde en niet wat er te zien valt.
 
         ## notes
         Een paar zinnen in het Nederlands voor wie de site later onderhoudt: wat onzeker is en wat opviel.
