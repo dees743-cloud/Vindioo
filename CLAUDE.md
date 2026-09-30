@@ -2948,6 +2948,39 @@ achter die drempel: een ontbrekend filter zie je meteen, een filter dat stil gen
 Het venster toont daarom per voorstel wat het deed en waarom het eruit ging, zodat je het met de
 hand kan terugzetten.
 
+**Live nagemeten op Vinted** (30 september 2026), een volledige analyse van begin tot einde in
+**2 minuten**. Van de vijf voorstellen bleven er drie over:
+
+| Voorstel | Veranderde | Oordeel |
+|---|---|---|
+| `priceMin` = `&price_from={value}` | 51% | gehouden |
+| `priceMax` = `&price_to={value}` | 52% | gehouden |
+| eigen filter `&status_ids={value}` (Staat, 5 keuzes) | **94%** | gehouden |
+| `&order={value}` | 10% | eruit |
+| `&catalog={value}` | 10% | eruit |
+
+De eerste twee zijn precies wat er met de hand in `vinted.json` staat. **Het derde stond daar
+niet**: de AI gaf er zelf bij dat die id's "op ervaring gebaseerd" waren en niet in de pagina
+stonden, en de meting hield het. Apart nagekeken op de staat die Vinted per zoekertje toont -
+dat is bij die site `DescriptionSelector` - en alle vijf de waarden kloppen: `status_ids=6` gaf
+96 van de 96 "Neuf avec étiquette", `=2` 96 van de 96 "Très bon état", `=4` 96 van de 96
+"Satisfaisant". Een filter dat handwerk gemist had.
+
+Dat `order` eruit ging is ook juist: een sortering is geen filter. En bij `catalog` twijfelde de
+AI zelf ("of catalog[]= als queryparameter werkt, moet de test uitwijzen") - de test zei nee.
+
+**Wat die run nog leerde, en het kost geld.** De filtervraag gaat als bericht verder in hetzelfde
+gesprek, met de bedoeling dat de pagina uit de cache komt. Dat doet ze **niet**: gemeten stond er
+`naar cache 75122, uit cache 0`, terwijl een gewone verbeterronde er wél 71 220 uit de cache las.
+Het verschil is het **schema**: dat hoort bij het gecachete begin, dus een andere vorm van antwoord
+betekent een nieuwe cache. Een hele analyse kost daardoor ongeveer **186 000 tokens** in plaats van
+76 000. Wie dat wil terugbrengen, zet de filtervelden in het schema van de eerste vraag; de app
+meet ze toch zelf na, dus ze hebben de verbeterronde niet nodig.
+
+En één notatiefout kostte een ronde: de AI schreef `[data-testid$='--image']@src, img@src`. De motor
+knipt bij het **laatste** apenstaartje (`LastIndexOf('@')`), dus daar bleef ongeldige CSS over. Dat
+staat nu in de opdracht: bij een komma-lijst hoort het `@attribuut` er één keer bij, achteraan.
+
 Wat de analyse **nog steeds niet doet**, en waar je dus zelf aan moet: `Headers`,
 `AllowsEmptyQuery`, `PriceReference`, `SellerSelector`, `AuctionSellers`,
 `DetailEndDateSelector`, `EndTimeApi` en een eigen `UrlStyle`. `Headers` en `EndTimeApi` zijn

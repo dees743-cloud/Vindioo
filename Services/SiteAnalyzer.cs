@@ -2150,7 +2150,10 @@ public class SiteAnalyzer
           "." is het zoekertje zelf: ".@aria-label", ".@data-id".
         - Een komma werkt zoals in CSS en vangt twee opbouwvormen van dezelfde kaart op, bijvoorbeeld
           "[data-testid='dealer-address'], [data-testid='private-seller-address']" wanneer handelaars en
-          particulieren anders getoond worden.
+          particulieren anders getoond worden. Het @attribuut hoort er dan ÉÉN keer bij, helemaal achteraan,
+          en geldt voor de hele lijst: "a.foto, img.foto@src". Schrijf je het twee keer ("a@src, img@src"),
+          dan knipt de motor enkel bij het laatste apenstaartje, blijft er ongeldige CSS over en wordt de
+          selector geweigerd.
         - "::replace(oud,nieuw)" achter een selector vervangt achteraf een stukje in de gevonden waarde. Geen
           komma's of haakjes in oud en nieuw; meerdere na elkaar mag.
         - "::match(patroon)" achter een selector houdt enkel over wat in groep 1 van dat patroon staat (een
