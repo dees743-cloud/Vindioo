@@ -198,7 +198,9 @@ goedkoper. Dus: wie een versie tagt, brengt die ook uit, of nummert opnieuw.
 dat je ziet: de knop *Nakijken* op het tabblad Favorieten, die per favoriet zegt of het zoekertje
 er nog staat en wat het nu kost (zie "Favorieten opvolgen" bij Wat je te zien krijgt). Dat is
 precies het onderscheid dat 0.9.1 níet haalde - daar deed een bestaand stuk zijn werk beter, zonder
-nieuw scherm en zonder nieuwe knop. Hier is het er wel een, dus geen 0.9.3.
+nieuw scherm en zonder nieuwe knop. Hier is het er wel een, dus geen 0.9.3. Uitgebracht op
+dezelfde dag als `v0.10.0`, met de zip erbij (117 MB, 601 bestanden), en anoniem nagegaan dat die
+te downloaden is: HTTP 206 en de eerste twee bytes zijn `PK`.
 
 Het is op twee plaatsen zichtbaar, en allebei om dezelfde reden - **er draaien twee exe's op
 deze pc**, een uit Visual Studio en een gepubliceerde (bij mij `C:\Zentrix`), met
