@@ -322,6 +322,30 @@
                             <TextBlock Text="{Binding Source}" Foreground="{StaticResource CardTextSubtleBrush}"
                                        FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
                         </StackPanel>
+
+                        <!-- Wat het opvolgen van een favoriet opleverde. Bij een gewoon
+                             zoekertje is WatchText leeg en staat deze regel er niet, dus dit
+                             sjabloon blijft gedeeld tussen de resultaten en de favorieten.
+                             De kleur staat als Setter in de stijl en niet als attribuut:
+                             een waarde op het element zelf wint van een trigger, en dan
+                             kleurde "Weg van de site" nooit. -->
+                        <TextBlock Text="{Binding WatchText}" FontSize="13" Margin="0,8,0,0"
+                                   TextTrimming="CharacterEllipsis">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource CardTextSubtleBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding WatchText}" Value="">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding WatchIsWarning}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource WarningOnCardBrush}" />
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -1165,8 +1189,17 @@
                 <Grid Grid.Row="0" Margin="0,0,0,12">
                     <TextBlock Text="Favorieten" FontSize="18" FontWeight="SemiBold"
                                Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
-                    <TextBlock x:Name="FavoritesCount" HorizontalAlignment="Right" VerticalAlignment="Center"
-                               Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" />
+
+                    <!-- Nakijken kost een verzoek per favoriet, dus het gebeurt niet vanzelf
+                         bij het openen van dit tabblad: jij vraagt het. Dezelfde afweging als
+                         bij de grote foto en bij Tweakers. -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock x:Name="FavoritesCount" VerticalAlignment="Center" Margin="0,0,12,0"
+                                   Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" />
+                        <ui:Button x:Name="WatchButton" Appearance="Secondary" Click="WatchFavorites_Click"
+                                   Content="Nakijken" Icon="{ui:SymbolIcon ArrowSync24}"
+                                   ToolTip="Kijkt per favoriet of het zoekertje er nog staat en wat het nu kost. Dat kost één verzoek per favoriet." />
+                    </StackPanel>
                 </Grid>
 
                 <ui:ListView Grid.Row="1" x:Name="FavoritesList" Background="Transparent" BorderThickness="0"

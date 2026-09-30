@@ -599,7 +599,7 @@ public static class DetailFetcher
     /// verantwoorden omdat het pas gebeurt wanneer je zelf op een zoekertje dubbelklikt -
     /// niet tijdens het zoeken.
     /// </summary>
-    private static async Task<string> HaalPaginaAsync(SiteDefinition def, string url, CancellationToken ct)
+    internal static async Task<string> HaalPaginaAsync(SiteDefinition def, string url, CancellationToken ct)
     {
         if (def.UseBridge)
             return await BridgeServer.Instance.FetchAsync(url, ct, headers: def.Headers);

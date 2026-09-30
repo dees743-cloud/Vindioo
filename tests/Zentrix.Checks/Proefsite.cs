@@ -36,6 +36,13 @@ public sealed class Proefsite : IDisposable
     /// </summary>
     public Func<string, string>? Antwoord { get; set; }
 
+    /// <summary>
+    /// Een andere status dan 200 voor een bepaald pad. Nodig om een zoekertje na te bootsen
+    /// dat van de site verdwenen is: 2dehands antwoordt daarop met 410, en dat is het enige
+    /// harde bewijs dat een site kan geven (zie <see cref="Zentrix.Services.FavoriteWatch"/>).
+    /// </summary>
+    public Dictionary<string, int> Status { get; } = new();
+
     /// <summary>Welke pagina's er gevraagd zijn, in volgorde.</summary>
     public List<int> Gevraagd { get; } = new();
 
@@ -142,8 +149,10 @@ public sealed class Proefsite : IDisposable
                 var body = isFoto ? foto! : Encoding.UTF8.GetBytes(
                     VasteInhoud ?? Antwoord?.Invoke(adres) ?? Pagina(pagina));
 
+                var code = Status.GetValueOrDefault(adres.Split('?')[0], 200);
+
                 await stream.WriteAsync(Encoding.ASCII.GetBytes(
-                    "HTTP/1.1 200 OK\r\n" +
+                    $"HTTP/1.1 {code} {Reden(code)}\r\n" +
                     (isFoto ? "Content-Type: image/jpeg\r\n" : "Content-Type: text/html; charset=utf-8\r\n") +
                     $"Content-Length: {body.Length}\r\nConnection: close\r\n\r\n"));
                 await stream.WriteAsync(body);
@@ -154,6 +163,15 @@ public sealed class Proefsite : IDisposable
             }
         }
     }
+
+    /// <summary>De reden bij een statuscode; HttpClient kijkt enkel naar het getal.</summary>
+    private static string Reden(int code) => code switch
+    {
+        200 => "OK",
+        404 => "Not Found",
+        410 => "Gone",
+        _ => "Status"
+    };
 
     private string Pagina(int pagina)
     {

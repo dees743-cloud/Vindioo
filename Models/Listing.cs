@@ -262,6 +262,32 @@ public class Listing : ObservableObject
         set => SetProperty(ref _isFavorite, value);
     }
 
+    /// <summary>
+    /// Wat het opvolgen van een favoriet opleverde: "Weg van de site", "Veiling afgelopen op
+    /// 14 september", "Nu € 24 - was € 5". Zie <see cref="Services.FavoriteWatch"/>.
+    ///
+    /// Bij een gewoon zoekertje blijft dit leeg, en dan staat die regel er niet. Zo blijft
+    /// het sjabloon van de kaart gedeeld tussen de resultaten en de favorieten, in plaats van
+    /// een tweede kopie die bij elke wijziging mee moet.
+    /// </summary>
+    private string _watchText = "";
+    public string WatchText
+    {
+        get => _watchText;
+        set => SetProperty(ref _watchText, value);
+    }
+
+    /// <summary>
+    /// Weg of afgelopen: dan krijgt die regel de waarschuwingskleur. Een prijs die veranderde
+    /// is nieuws, geen waarschuwing.
+    /// </summary>
+    private bool _watchIsWarning;
+    public bool WatchIsWarning
+    {
+        get => _watchIsWarning;
+        set => SetProperty(ref _watchIsWarning, value);
+    }
+
     /// <summary>Sleutel voor de "al gezien"-tabel in SQLite.</summary>
     public string Key => $"{Source}:{ExternalId}";
 

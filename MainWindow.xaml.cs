@@ -1281,7 +1281,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         EmptyHint.Text = LeegTekst();
 
-        FavoritesCount.Text = _favorites.Count == 1 ? "1 bewaard" : $"{_favorites.Count} bewaard";
+        FavoritesCount.Text = (_favorites.Count == 1 ? "1 bewaard" : $"{_favorites.Count} bewaard")
+                              + _watchSamenvatting;
     }
 
     /// <summary>
@@ -1336,6 +1337,103 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         foreach (var listing in _history.GetFavorites()) _favorites.Add(listing);
 
         _favoriteKeys = _history.GetFavoriteKeys();
+
+        // Wat er bij het vorige nakijken uitkwam, gaat mee weg: de lijst is opnieuw
+        // ingelezen, dus die regels horen bij zoekertjes die er niet meer staan.
+        _watchSamenvatting = "";
+    }
+
+    /// <summary>Loopt er een controle, dan is dit haar stopknop.</summary>
+    private CancellationTokenSource? _watchStop;
+
+    /// <summary>"· 1 weg, 2 afgelopen", achter het aantal bewaarde favorieten.</summary>
+    private string _watchSamenvatting = "";
+
+    /// <summary>
+    /// Kijkt elke favoriet na: staat het zoekertje er nog, en wat kost het nu?
+    ///
+    /// Een favoriet is een kopie, dus de prijs erop is die van de dag dat je hem bewaarde.
+    /// <see cref="FavoriteWatch"/> haalt de advertentiepagina op en zegt wat ze vandaag doet;
+    /// hier komt enkel het tonen bij.
+    ///
+    /// Eén voor een, en niet allemaal tegelijk: een brugsite heeft één wachtrij en de
+    /// browsersites delen één Chrome, dus tegelijk zou daar toch op elkaar staan wachten.
+    /// Daarom is de knop intussen een stopknop - dezelfde vorm als het vergrootglas op het
+    /// zoekscherm en de AI-controle, en om dezelfde reden: daar staat je muis al.
+    /// </summary>
+    private async void WatchFavorites_Click(object sender, RoutedEventArgs e)
+    {
+        if (_watchStop is not null)
+        {
+            _watchStop.Cancel();
+            return;
+        }
+
+        if (_favorites.Count == 0) return;
+
+        using var stop = new CancellationTokenSource();
+        _watchStop = stop;
+        ZetNakijkknop(true);
+
+        int weg = 0, afgelopen = 0, gewijzigd = 0, gedaan = 0;
+
+        try
+        {
+            // Een kopie van de lijst: het sterretje kan er intussen een afhalen.
+            foreach (var favoriet in _favorites.ToList())
+            {
+                stop.Token.ThrowIfCancellationRequested();
+                FavoritesCount.Text = $"nakijken... {gedaan + 1} van {_favorites.Count}";
+
+                var status = await FavoriteWatch.CheckAsync(favoriet, _store.Sites, stop.Token);
+
+                favoriet.WatchText = FavoriteWatch.Tekst(status, favoriet.Price);
+                favoriet.WatchIsWarning = status.Staat is FavoriteState.Weg or FavoriteState.Afgelopen;
+
+                if (status.Staat == FavoriteState.Weg) weg++;
+                else if (status.Staat == FavoriteState.Afgelopen) afgelopen++;
+                else if (status.PrijsNu is > 0 && favoriet.Price is > 0 &&
+                         status.PrijsNu != favoriet.Price) gewijzigd++;
+
+                gedaan++;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Gestopt. Wat al nagekeken was, blijft op de kaarten staan.
+        }
+        finally
+        {
+            _watchStop = null;
+            ZetNakijkknop(false);
+
+            _watchSamenvatting = Samenvatting(gedaan, weg, afgelopen, gewijzigd);
+            UpdateEmptyHints();
+        }
+    }
+
+    /// <summary>Wat er achter "3 bewaard" komt te staan.</summary>
+    private static string Samenvatting(int gedaan, int weg, int afgelopen, int gewijzigd)
+    {
+        if (gedaan == 0) return "";
+
+        var delen = new List<string>();
+        if (weg > 0) delen.Add($"{weg} weg");
+        if (afgelopen > 0) delen.Add($"{afgelopen} afgelopen");
+        if (gewijzigd > 0) delen.Add($"{gewijzigd} met een andere prijs");
+
+        return delen.Count == 0 ? " · alles staat er nog" : " · " + string.Join(", ", delen);
+    }
+
+    private void ZetNakijkknop(bool bezig)
+    {
+        WatchButton.Content = bezig ? "Stoppen" : "Nakijken";
+        WatchButton.Icon = new Wpf.Ui.Controls.SymbolIcon(
+            bezig ? Wpf.Ui.Controls.SymbolRegular.Stop24 : Wpf.Ui.Controls.SymbolRegular.ArrowSync24);
+
+        WatchButton.Appearance = bezig
+            ? Wpf.Ui.Controls.ControlAppearance.Caution
+            : Wpf.Ui.Controls.ControlAppearance.Secondary;
     }
 
     /// <summary>Zet een zoekertje bij de favorieten, of haalt het er weer af.</summary>
