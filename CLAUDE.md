@@ -233,13 +233,27 @@ ze opnieuw te maken:
 - Het venster op maat zetten met `SetWindowPos` (1700x1450 beeldpunten is op 150% gelijk aan
   1133x967 eenheden van WPF) en fotograferen met `tools/vensterfoto.py`.
 
-**Wat daarbij opviel en nog niet uitgezocht is: het raster bleef leeg.** Met de rasterweergave
-(`ResultView` 1) stonden de tabs, de pager en de teller er wel - 4341 resultaten over 44 pagina's -
-maar er werd geen enkele kaart getekend. Ook niet met het venster vooraan, ook niet na een
-maatwijziging, ook niet na muiswielberichten; dezelfde opstelling in de lijstweergave vulde zich
-meteen. Of dat enkel aan deze opstelling ligt - een venster dat nooit echt aangeklikt is - of ook
-bij een gewone geplande beurt gebeurt, is nog na te gaan. In dat laatste geval kijk je na een
-geplande beurt naar een lege pagina terwijl de statusregel resultaten meldt.
+**Wat daarbij opviel: het raster bleef leeg - en dat lag aan de opstelling, niet aan de app**
+(uitgezocht op 30 september 2026). Bij het maken van die schermafbeelding stonden met de
+rasterweergave (`ResultView` 1) de tabs, de pager en de teller er wel - 4341 resultaten over 44
+pagina's - maar werd er geen enkele kaart getekend. Nagemeten met een wegwerpprojectje dat het
+**echte** hoofdscherm buiten beeld opbouwt in rasterweergave en daarna in het paneel kijkt: 16
+kaarten opgebouwd, kaartmaat 278 x 309, 4 kolommen, bereik 1112 x 7733, geen fout in het logboek -
+en een foto van dat venster toont die kaarten ook echt getekend, door leveringen, opruimen en
+scrollen heen. Bij gewoon zoeken verschijnen de resultaten dus, zoals de eigenaar ook meldde.
+
+Leeg krijg je het enkel met een kunstgreep, en die twee zijn het noteren waard omdat ze zeggen
+waar het paneel bros is:
+
+- **Een kaartmaat die ooit ontaardt, blijft.** `_kaart` wordt één keer gemeten en nooit meer.
+  Met de maat via reflectie op 1 x 1 gezet: 100 kaarten opgebouwd, 1332 kolommen, bereik 1332 x 1 -
+  alles staat er, in vakjes van één beeldpunt, en het scherm is leeg.
+- **De herkansing is in een oogwenk op.** Wissel je van weergave terwijl de lijst al gevuld is, dan
+  wordt het nieuwe paneel gemeten voor zijn generator er is, en vraagt het een herkansing. Die tien
+  pogingen zijn binnen **5 ms** verbruikt - ze ketenen op `DispatcherPriority.Loaded`, dus ze lopen
+  zo snel als de dispatcher kan - terwijl de generator pas later komt. Daarna wacht het paneel op
+  iets dat een nieuwe meting uitlokt. Bij echt zoeken is dat de eerstvolgende levering, en dan staat
+  het er meteen; in een opstelling waar niets meer binnenkomt, blijft het leeg.
 
 **Wat niet op GitHub hoort** staat in `.gitignore`: `bin`, `obj`, `.vs`, de
 `.user`-bestanden en `.claude` (de adviseurs, met persoonlijke paden). Sinds 22 september 2026
