@@ -211,8 +211,24 @@ Voor wie eraan werkt:
 - De Services-map heeft geen globale `using System.IO` in dit WPF-project: schrijf die
   zelf bovenaan, of `Path` en `File` bestaan niet.
 - **Zonder API-sleutel** toont het venster bovenaan meteen een veld om de sleutel te
-  plakken. Die gaat naar de omgevingsvariabele `ANTHROPIC_API_KEY` van het Windows-account
-  én van het lopende proces, zodat herstarten niet nodig is. Vroeger kwam de melding pas na
+  plakken. Die wordt **beschermd door Windows** bewaard (DPAPI, in `instellingen.json`), net
+  als het mailwachtwoord en het Telegram-token - zie `docs/zoeken.md`.
+
+  Tot 1 oktober 2026 ging hij naar de **omgevingsvariabelen** van het Windows-account. Dat
+  léék veiliger dan een bestand, want hij stond niet in de code, maar het is het omgekeerde:
+  elk programma dat onder jouw account draait leest hem zo, hij staat zichtbaar in het
+  systeemscherm van Windows, en hij reist mee naar élk proces dat de app start - ook naar de
+  Chrome die Playwright opent. Gevonden in een codeanalyse van 30 september 2026.
+
+  `ANTHROPIC_API_KEY` blijft wél werken als terugval, want wie hem daar zelf zet verwacht niet
+  dat de app hem negeert - een wegwerpprojectje bijvoorbeeld. Stond hij er bij het opstarten en
+  nergens anders, dan **verhuist** hij één keer naar het instellingenbestand, met een regel in
+  het logboek erbij; de variabele zelf blijft staan, want die weghalen is een wijziging aan het
+  Windows-account van de gebruiker. Wie dat wil, doet het zelf:
+
+  ```bash
+  [Environment]::SetEnvironmentVariable("ANTHROPIC_API_KEY", $null, "User")
+  ``` Vroeger kwam de melding pas na
   het klikken op Analyseren, met de raad een omgevingsvariabele te zetten. Weigert de API de
   sleutel (401), dan verschijnt dat veld opnieuw; daarvoor kon je een verkeerde sleutel enkel
   in de omgevingsvariabelen van Windows vervangen. Het veld zegt ook waar je een sleutel maakt,

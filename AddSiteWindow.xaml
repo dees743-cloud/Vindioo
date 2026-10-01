@@ -35,7 +35,7 @@
                     Margin="0,0,0,12" Background="{StaticResource AccentSoftBrush}">
                 <StackPanel>
                     <TextBlock TextWrapping="Wrap"
-                               Text="Voor de automatische analyse heb je een Claude API-sleutel nodig; een analyse kost ongeveer 50 cent. Een sleutel maak je op console.anthropic.com, onder API Keys. Plak hem hieronder. Hij wordt bewaard bij je Windows-account (als ANTHROPIC_API_KEY), niet in een bestand van Zentrix. Let op: bij de analyse gaat de volledige zoekpagina naar Claude; meld je voor een site die persoonlijke gegevens toont liever niet aan." />
+                               Text="Voor de automatische analyse heb je een Claude API-sleutel nodig; een analyse kost ongeveer 50 cent. Een sleutel maak je op console.anthropic.com, onder API Keys. Plak hem hieronder. Hij wordt beschermd door Windows bewaard, net als je mailwachtwoord: enkel jouw Windows-account op deze pc kan hem lezen. Let op: bij de analyse gaat de volledige zoekpagina naar Claude; meld je voor een site die persoonlijke gegevens toont liever niet aan." />
                     <WrapPanel Margin="0,8,0,0">
                         <PasswordBox x:Name="ApiKeyBox" Width="340" Padding="8,6"
                                      Background="{StaticResource InputBrush}"

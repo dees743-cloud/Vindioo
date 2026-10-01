@@ -392,6 +392,75 @@ public static class StilFalenChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("De API-sleutel staat beschermd in het bestand, niet in de omgeving");
+        {
+            var vorige = AppSettings.Current.ApiKey;
+            var vorigeOmgeving = Environment.GetEnvironmentVariable(AppSettings.ApiKeyVariable);
+
+            try
+            {
+                // Zo ziet een echte sleutel eruit; de waarde zelf doet er niet toe.
+                const string sleutel = "sk-ant-api03-proefsleutel-NIET-ECHT";
+
+                AppSettings.Current.ApiKey = sleutel;
+                Environment.SetEnvironmentVariable(AppSettings.ApiKeyVariable, null);
+                AppSettings.Current.Save();
+
+                var ruw = File.ReadAllText(Path.Combine(AppPaths.Folder, "instellingen.json"));
+
+                Check.Dat(!ruw.Contains(sleutel),
+                    "de sleutel staat niet leesbaar in instellingen.json");
+
+                Check.Dat(ruw.Contains("dpapi:"),
+                    "hij staat er beschermd door Windows in");
+
+                // En hij komt er ook weer uit.
+                AppSettings.Current.ApiKey = "";
+                AppSettings.Load();
+
+                Check.Dat(AppSettings.Current.ApiKey == sleutel,
+                    "en hij komt er ongeschonden weer uit");
+
+                Check.Dat(AppSettings.ApiKeyInUse == sleutel,
+                    "de analyse krijgt die sleutel");
+
+                // De terugval blijft bestaan: wie hem zelf in de omgeving zet, werkt gewoon
+                // verder - een wegwerpprojectje bijvoorbeeld.
+                AppSettings.Current.ApiKey = "";
+                Environment.SetEnvironmentVariable(AppSettings.ApiKeyVariable, "sk-ant-uit-de-omgeving");
+
+                Check.Dat(AppSettings.ApiKeyInUse == "sk-ant-uit-de-omgeving",
+                    "zonder bewaarde sleutel telt de omgevingsvariabele nog");
+
+                // Maar de bewaarde wint, want die is de bedoeling.
+                AppSettings.Current.ApiKey = sleutel;
+
+                Check.Dat(AppSettings.ApiKeyInUse == sleutel,
+                    "staat er een bewaarde, dan wint die");
+
+                // En de verhuis: stond hij enkel in de omgeving, dan neemt Load hem over. Zo
+                // hoeft niemand hem opnieuw op te zoeken na het bijwerken.
+                AppSettings.Current.ApiKey = "";
+                AppSettings.Current.Save();
+                Environment.SetEnvironmentVariable(AppSettings.ApiKeyVariable, "sk-ant-verhuisd");
+                AppSettings.Load();
+
+                Check.Dat(AppSettings.Current.ApiKey == "sk-ant-verhuisd",
+                    "een sleutel die enkel in de omgeving stond, verhuist naar het bestand");
+
+                var na = File.ReadAllText(Path.Combine(AppPaths.Folder, "instellingen.json"));
+                Check.Dat(!na.Contains("sk-ant-verhuisd"),
+                    "en staat daar meteen beschermd in");
+            }
+            finally
+            {
+                AppSettings.Current.ApiKey = vorige;
+                Environment.SetEnvironmentVariable(AppSettings.ApiKeyVariable, vorigeOmgeving);
+                AppSettings.Current.Save();
+            }
+        }
+
+        // ---------------------------------------------------------------------------
         Check.Groep("Sites importeren: zeggen welke vervangen werden");
         {
             var map = Path.Combine(AppPaths.Folder, "import-proef");

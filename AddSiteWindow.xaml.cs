@@ -27,14 +27,17 @@ public partial class AddSiteWindow : Wpf.Ui.Controls.FluentWindow
         ApiKeyPanel.Visibility = HeeftApiSleutel() ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    private static bool HeeftApiSleutel() =>
-        !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY"));
+    private static bool HeeftApiSleutel() => AppSettings.ApiKeyInUse.Length > 0;
 
     /// <summary>
-    /// Bewaart de API-sleutel als omgevingsvariabele van het Windows-account, zoals
-    /// CLAUDE.md wil: de sleutel staat nooit in de code of in een bestand van de app.
-    /// Hij wordt ook meteen voor dit proces gezet, zodat de app niet herstart hoeft te
-    /// worden - de analyse leest hem bij elke aanvraag opnieuw.
+    /// Bewaart de API-sleutel beschermd door Windows (DPAPI) in het instellingenbestand, net
+    /// als het mailwachtwoord en het Telegram-token.
+    ///
+    /// Tot 1 oktober 2026 ging hij naar de omgevingsvariabelen van het Windows-account. Dat
+    /// léék veiliger dan een bestand - hij stond immers niet in de code - maar het is het
+    /// omgekeerde: elk programma dat onder jouw account draait leest hem zo, hij staat
+    /// zichtbaar in het systeemscherm van Windows, en hij reist mee naar élk proces dat de app
+    /// start, ook naar de Chrome die Playwright opent.
     /// </summary>
     private void SaveApiKey_Click(object sender, RoutedEventArgs e)
     {
@@ -48,8 +51,13 @@ public partial class AddSiteWindow : Wpf.Ui.Controls.FluentWindow
 
         try
         {
-            Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", sleutel);
-            Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", sleutel, EnvironmentVariableTarget.User);
+            AppSettings.Current.ApiKey = sleutel;
+
+            if (!AppSettings.Current.Save())
+            {
+                StatusText.Text = "Kon de sleutel niet bewaren; kijk in het logboek.";
+                return;
+            }
 
             ApiKeyBox.Clear();
             ApiKeyPanel.Visibility = Visibility.Collapsed;

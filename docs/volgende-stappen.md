@@ -177,7 +177,7 @@ Wat er verder uit kwam, en wat ermee gebeurd is:
 | Middel | een ander programma kan poort 8731 eerst bezetten en zich als de app voordoen | **klaar** - app en extensie tekenen met HMAC, zie `docs/brug.md` |
 | Middel | de koppelcode staat in de URL; elke `chrome-extension://`-herkomst wordt aanvaard | **half** - de code staat nergens meer in de URL (ze gaat helemaal niet meer mee). Het extensie-ID vastpinnen en de Host-kopregel nakijken staat nog open |
 | Middel | een pagina die geanalyseerd wordt kan via verborgen tekst `baseUrl` elders laten wijzen | **open** - dezelfde hostcontrole als op `searchUrlTemplate` |
-| Middel | de Anthropic-sleutel staat leesbaar in de omgevingsvariabelen van Windows | **open** - met DPAPI bewaren, zoals het mailwachtwoord |
+| Middel | de Anthropic-sleutel staat leesbaar in de omgevingsvariabelen van Windows | **klaar** - met DPAPI in `instellingen.json`, zie `docs/sites-toevoegen.md` |
 | Laag | e-mail kan zich aanmelden zonder TLS | **open** |
 | Laag | de extensie vraagt toegang tot alle sites | **open** - `optional_host_permissions` per site |
 | Onderhoud | geen CI: de controles draaien enkel als iemand eraan denkt | **klaar** - `.github/workflows/controles.yml`, zie `docs/fouten-opsporen.md` |

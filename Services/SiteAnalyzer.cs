@@ -210,7 +210,7 @@ public partial class SiteAnalyzer
     public async Task<SiteAnalysis> AnalyzeAsync(string searchUrl, string testQuery,
         bool forceBridge = false, IProgress<string>? status = null, CancellationToken ct = default)
     {
-        var apiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+        var apiKey = AppSettings.ApiKeyInUse;
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException(
                 "Geen API-sleutel gevonden. Plak je Claude API-sleutel bovenaan dit venster en probeer opnieuw.");

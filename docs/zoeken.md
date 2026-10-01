@@ -392,7 +392,7 @@ Server nakijken zonder de app, en zonder een wachtwoord te gebruiken (vervang
 python -c "import smtplib,ssl; s=smtplib.SMTP('smtp.voorbeeld.be',587); s.ehlo(); s.starttls(context=ssl.create_default_context()); s.ehlo(); print(s.esmtp_features.get('auth'))"
 ```
 
-**Het mailwachtwoord en het Telegram-token staan beschermd door Windows** in `instellingen.json`
+**Het mailwachtwoord, het Telegram-token en de API-sleutel staan beschermd door Windows** in `instellingen.json`
 (22 september 2026, een tip uit een beoordeling door ChatGPT). `AppSettings` gebruikt daarvoor DPAPI
 (`ProtectedData`, voor de huidige gebruiker, met het merkteken `dpapi:`): het bestand is enkel
 leesbaar voor jouw Windows-account op deze pc. Een kopie in een back-up, op OneDrive of op een

@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -148,6 +148,35 @@ public class AppSettings
 
     // ---------- lezen en schrijven ----------
 
+    /// <summary>
+    /// De naam van de omgevingsvariabele waarin de sleutel vroeger stond - en waarin hij nog
+    /// altijd mág staan, want wie hem daar zelf zet, verwacht niet dat de app hem negeert.
+    /// </summary>
+    public const string ApiKeyVariable = "ANTHROPIC_API_KEY";
+
+    /// <summary>
+    /// De sleutel voor de Claude-API, waarmee <see cref="SiteAnalyzer"/> een onbekende site
+    /// uitzoekt.
+    ///
+    /// Beschermd met DPAPI in het instellingenbestand, net als het mailwachtwoord en het
+    /// Telegram-token. Tot 1 oktober 2026 stond hij in de omgevingsvariabelen van het
+    /// Windows-account, en dat is geen bescherming: elk programma dat onder jouw account draait
+    /// leest hem, hij staat zichtbaar in het systeemscherm van Windows, en hij reist mee naar
+    /// élk proces dat de app start - ook naar de Chrome die Playwright opent. Een sleutel die
+    /// per analyse een halve euro kost, hoort daar niet.
+    /// </summary>
+    public string ApiKey { get; set; } = "";
+
+    /// <summary>
+    /// De sleutel waarmee er gewerkt wordt: de bewaarde, en anders die uit de
+    /// omgevingsvariabele. Die terugval blijft met opzet bestaan - wie hem daar zelf zet (of een
+    /// wegwerpprojectje dat hem meegeeft) werkt gewoon verder.
+    /// </summary>
+    public static string ApiKeyInUse =>
+        Current.ApiKey.Length > 0
+            ? Current.ApiKey
+            : Environment.GetEnvironmentVariable(ApiKeyVariable)?.Trim() ?? "";
+
     public static void Load()
     {
         try
@@ -162,13 +191,31 @@ public class AppSettings
                 ref oudeVorm, out settings._onleesbaarWachtwoord);
             settings.Notify.TelegramToken = Vrijgeven(settings.Notify.TelegramToken, "het Telegram-token",
                 ref oudeVorm, out settings._onleesbaarToken);
+            settings.ApiKey = Vrijgeven(settings.ApiKey, "de API-sleutel",
+                ref oudeVorm, out settings._onleesbaarSleutel);
 
             Current = settings;
+
+            // Stond de sleutel nog in de omgevingsvariabele en nergens anders, dan verhuist hij
+            // hierheen. De variabele zelf laten we staan: ze weghalen is een wijziging aan het
+            // Windows-account van de gebruiker, en andere hulpmiddelen kunnen ze gebruiken. Het
+            // logboek zegt wel hoe je ze kwijtraakt.
+            var uitOmgeving = Environment.GetEnvironmentVariable(ApiKeyVariable)?.Trim() ?? "";
+
+            if (settings.ApiKey.Length == 0 && uitOmgeving.Length > 0)
+            {
+                settings.ApiKey = uitOmgeving;
+                oudeVorm = true;
+
+                Log.Write("instellingen: de API-sleutel stond in de omgevingsvariabele " +
+                          $"{ApiKeyVariable} en is nu beschermd door Windows bewaard. Je mag die " +
+                          "variabele verwijderen; de app heeft ze niet meer nodig.");
+            }
 
             // Meteen herschrijven, en niet pas bij de volgende keer bewaren: anders blijft de
             // leesbare vorm staan tot je toevallig een instelling wijzigt.
             if (oudeVorm && settings.Save())
-                Log.Write("instellingen: wachtwoord en token (wat ingevuld was) staan nu beschermd door Windows");
+                Log.Write("instellingen: wachtwoord, token en API-sleutel (wat ingevuld was) staan nu beschermd door Windows");
         }
         catch (Exception ex)
         {
@@ -193,12 +240,15 @@ public class AppSettings
             melden[nameof(NotifySettings.SmtpPassword)] = Bescherm(Notify.SmtpPassword, _onleesbaarWachtwoord);
             melden[nameof(NotifySettings.TelegramToken)] = Bescherm(Notify.TelegramToken, _onleesbaarToken);
 
+            boom[nameof(ApiKey)] = Bescherm(ApiKey, _onleesbaarSleutel);
+
             File.WriteAllText(Path_, boom.ToJsonString(Options));
 
             // Een nieuw ingevulde waarde vervangt de onleesbare voorgoed: wie ze daarna leegmaakt,
             // wil ze echt weg.
             if (Notify.SmtpPassword.Length > 0) _onleesbaarWachtwoord = null;
             if (Notify.TelegramToken.Length > 0) _onleesbaarToken = null;
+            if (ApiKey.Length > 0) _onleesbaarSleutel = null;
 
             return true;
         }
@@ -238,7 +288,7 @@ public class AppSettings
     /// lukt het bij de volgende start alsnog, in plaats van dat een ander opgeslagen vinkje
     /// het wachtwoord gewist heeft.
     /// </summary>
-    private string? _onleesbaarWachtwoord, _onleesbaarToken;
+    private string? _onleesbaarWachtwoord, _onleesbaarToken, _onleesbaarSleutel;
 
     private static string Bescherm(string tekst, string? onleesbaar)
     {

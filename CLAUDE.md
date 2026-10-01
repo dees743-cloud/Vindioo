@@ -31,7 +31,7 @@ C# / .NET 10 (`net10.0-windows`), `Nullable` en `ImplicitUsings` aan, namespace 
 | Microsoft.Data.Sqlite | bewaarde zoekopdrachten, "al gezien", favorieten |
 | MailKit | e-mail — **niet** `System.Net.Mail.SmtpClient`, zie `docs/zoeken.md` |
 | CommunityToolkit.Mvvm | enkel als basisklasse (`ObservableObject`) |
-| Claude API | gewone `HttpClient`, sleutel uit `ANTHROPIC_API_KEY`, nooit in de code |
+| Claude API | gewone `HttpClient`; de sleutel staat beschermd door Windows (DPAPI) in `instellingen.json`, nooit in de code |
 | Ollama | lokaal op de pc (RTX 4060), voor de AI-controle op een foto |
 
 **`System.IO` is hier geen globale using** (door `UseWindowsForms`, zie `docs/zoeken.md`): schrijf
