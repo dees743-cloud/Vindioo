@@ -327,6 +327,32 @@ En één notatiefout kostte een ronde: de AI schreef `[data-testid$='--image']@s
 knipt bij het **laatste** apenstaartje (`LastIndexOf('@')`), dus daar bleef ongeldige CSS over. Dat
 staat nu in de opdracht: bij een komma-lijst hoort het `@attribuut` er één keer bij, achteraan.
 
+**10. De pagina die geanalyseerd wordt, is niet te vertrouwen** (1 oktober 2026). Dat klinkt
+vanzelfsprekend, maar het heeft een gevolg dat makkelijk over het hoofd te zien is: het
+*antwoord* van de AI is gebaseerd op die pagina. Verborgen tekst erin kan het model vragen iets
+anders neer te zetten dan wat er te zien is.
+
+Het aantrekkelijkste veld daarvoor is **`baseUrl`**, want dat vult élke relatieve link en élke
+relatieve foto aan (`MakeAbsolute`). Stond daar een vreemde host, dan haalde de app voortaan
+daar vandaan - en bij een brugsite doet jouw eigen Chrome dat, mét jouw cookies. Voor
+`searchUrlTemplate` werd dat al nagekeken sinds punt 7; voor `baseUrl` niet.
+
+`VeiligeBasis` eist nu **dezelfde host én hetzelfde schema** als de zoek-URL. Dat tweede is er
+niet voor niets: anders zou `http://dezelfde.site` aanvaard worden op een zoekpagina die https
+is, en haalt de app voortaan alles onversleuteld op zonder dat iemand het ziet. Wat niet door de
+controle komt, valt terug op de host van de zoek-URL zelf, met een regel in het logboek.
+
+Het kost niets: een relatief pad hoort per definitie bij de site waar het staat. Een eigen
+testsite op `127.0.0.1` werkt gewoon - het gaat erom dat het antwoord niet van de zoekpagina
+mag afwijken, niet om waar die staat. Nagemeten in `ImportChecks`.
+
+**Wat hier nog openstaat**, en dat is bewust niet meegenomen: een selector mag met `::replace`
+ook het adres van een **foto** herschrijven (`img@src::replace(250x188,1024x768)`), en in
+principe kan daar een andere host in geschoven worden. De schade is kleiner - die foto's worden
+opgehaald zonder jouw cookies, dus het is hoogstens een verzoek naar een vreemde server - maar
+het is dezelfde soort injectie. De fotocontrole (punt 8) merkt het niet: een vreemde server kan
+gewoon een geldige foto terugsturen.
+
 Wat de analyse **nog steeds niet doet**, en waar je dus zelf aan moet: `Headers`,
 `AllowsEmptyQuery`, `PriceReference`, `SellerSelector`, `AuctionSellers`,
 `DetailEndDateSelector`, `EndTimeApi` en een eigen `UrlStyle`. `Headers` en `EndTimeApi` zijn

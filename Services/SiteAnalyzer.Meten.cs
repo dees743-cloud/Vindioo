@@ -171,7 +171,7 @@ public partial class SiteAnalyzer
             {
                 Name = Get(root, "name"),
                 ShortName = Get(root, "shortName"),
-                BaseUrl = Get(root, "baseUrl"),
+                BaseUrl = VeiligeBasis(Get(root, "baseUrl"), searchUrl, uri),
                 ItemSelector = Get(root, "itemSelector"),
                 TitleSelector = Get(root, "titleSelector"),
                 DescriptionSelector = Get(root, "descriptionSelector"),
@@ -210,14 +210,48 @@ public partial class SiteAnalyzer
                 UseBridge = route == FetchRoute.Bridge
             };
 
-            if (string.IsNullOrWhiteSpace(definition.BaseUrl))
-                definition.BaseUrl = $"{uri.Scheme}://{uri.Host}";
-
             if (string.IsNullOrWhiteSpace(definition.Name))
                 definition.Name = uri.Host.StartsWith("www.") ? uri.Host[4..] : uri.Host;
 
             return definition;
         }
+    }
+
+    /// <summary>
+    /// De <c>baseUrl</c> die we overnemen uit het antwoord van de AI - of anders die van de
+    /// zoek-URL zelf.
+    ///
+    /// Dit is de plek waar de app een antwoord krijgt dat gebaseerd is op een pagina die ze
+    /// <b>niet vertrouwt</b>. Verborgen tekst op zo'n pagina kan het model vragen hier iets
+    /// anders neer te zetten, en <c>baseUrl</c> is daar het aantrekkelijkste veld voor: hij
+    /// vult élke relatieve link en élke relatieve foto aan (zie <c>MakeAbsolute</c>). Stond er
+    /// een vreemde host, dan haalde de app voortaan daar vandaan - en bij een brugsite doet
+    /// jouw eigen Chrome dat, met jouw cookies.
+    ///
+    /// Dezelfde regel als voor <c>searchUrlTemplate</c>: enkel dezelfde site. Dat kost niets,
+    /// want een relatief pad hoort per definitie bij de site waar het staat. Gevonden in een
+    /// codeanalyse van 30 september 2026.
+    /// </summary>
+    internal static string VeiligeBasis(string voorstel, string searchUrl, Uri zoekadres)
+    {
+        var eigen = $"{zoekadres.Scheme}://{zoekadres.Host}";
+
+        if (voorstel.Length == 0) return eigen;
+
+        // Dezelfde host, én hetzelfde schema. Dat tweede is er niet voor niets: anders zou
+        // "http://dezelfde.site" aanvaard worden op een zoekpagina die https is, en dan haalt
+        // de app voortaan alles onversleuteld op zonder dat iemand het ziet.
+        if (ZelfdeHost(voorstel, searchUrl) &&
+            Uri.TryCreate(voorstel, UriKind.Absolute, out var voorgesteld) &&
+            string.Equals(voorgesteld.Scheme, zoekadres.Scheme, StringComparison.OrdinalIgnoreCase))
+        {
+            return voorstel;
+        }
+
+        Log.Write($"analyse: de voorgestelde baseUrl '{(voorstel.Length <= 60 ? voorstel : voorstel[..57] + "...")}' " +
+                  $"wijst niet naar {zoekadres.Host} en is genegeerd");
+
+        return eigen;
     }
 
     private static string Get(JsonElement e, string name) =>

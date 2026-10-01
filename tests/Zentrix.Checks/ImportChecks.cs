@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.Json;
 using Zentrix.Models;
 using Zentrix.Services;
@@ -117,6 +117,52 @@ public static class ImportChecks
 
             Check.Dat(site is not null && File.Exists(Path.Combine(AppPaths.SitesFolder, site.Id + ".json")),
                 "en het bestand staat gewoon in de sitesmap");
+        }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("De AI-analyse: een pagina mag de app niet ergens anders heen sturen");
+        {
+            // De analyse stelt een sitebestand op uit een pagina die we NIET vertrouwen.
+            // Verborgen tekst op zo'n pagina kan het model vragen een ander adres neer te
+            // zetten, en baseUrl is daar het aantrekkelijkste veld voor: hij vult élke
+            // relatieve link en foto aan. Bij een brugsite haalt jouw eigen Chrome die dan op,
+            // met jouw cookies.
+            const string zoek = "https://www.voorbeeld.be/zoeken?q={query}";
+            var adres = new Uri("https://www.voorbeeld.be/zoeken?q=cd");
+
+            Check.Dat(SiteAnalyzer.VeiligeBasis("https://www.voorbeeld.be", zoek, adres)
+                      == "https://www.voorbeeld.be",
+                "dezelfde site: overgenomen");
+
+            Check.Dat(SiteAnalyzer.VeiligeBasis("https://aanvaller.be", zoek, adres)
+                      == "https://www.voorbeeld.be",
+                "een andere site: genegeerd, en teruggevallen op de zoek-URL");
+
+            // Ook een subdomein is een andere host. Dat is met opzet streng: een relatief pad
+            // hoort per definitie bij de site waar het staat, dus er gaat niets verloren.
+            Check.Dat(SiteAnalyzer.VeiligeBasis("https://beelden.aanvaller.be", zoek, adres)
+                      == "https://www.voorbeeld.be",
+                "een subdomein van een vreemde site ook");
+
+            // En een stille terugval naar onversleuteld telt evengoed als wegsturen.
+            Check.Dat(SiteAnalyzer.VeiligeBasis("http://www.voorbeeld.be", zoek, adres)
+                      == "https://www.voorbeeld.be",
+                "dezelfde site maar via http: genegeerd");
+
+            Check.Dat(SiteAnalyzer.VeiligeBasis("", zoek, adres) == "https://www.voorbeeld.be",
+                "niets voorgesteld: de host van de zoek-URL");
+
+            Check.Dat(SiteAnalyzer.VeiligeBasis("zomaar wat tekst", zoek, adres) == "https://www.voorbeeld.be",
+                "geen geldig adres: ook teruggevallen");
+
+            // Wie zelf een site op zijn eigen pc toevoegt, mag dat gewoon - het gaat erom dat
+            // het ANTWOORD niet van de zoekpagina mag afwijken, niet om waar die staat.
+            const string lokaal = "http://127.0.0.1:8080/zoeken?q={query}";
+            var lokaalAdres = new Uri("http://127.0.0.1:8080/zoeken?q=cd");
+
+            Check.Dat(SiteAnalyzer.VeiligeBasis("http://127.0.0.1:8080", lokaal, lokaalAdres)
+                      == "http://127.0.0.1:8080",
+                "een eigen testsite op deze pc werkt gewoon");
         }
 
         // ---------------------------------------------------------------------------

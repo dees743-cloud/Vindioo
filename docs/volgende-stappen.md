@@ -176,7 +176,7 @@ Wat er verder uit kwam, en wat ermee gebeurd is:
 | Bug 8 | de stopknop wachtte een trage pagina tot 45 s af | **klaar** - de token gaat mee met `WaitAsync` |
 | Middel | een ander programma kan poort 8731 eerst bezetten en zich als de app voordoen | **klaar** - app en extensie tekenen met HMAC, zie `docs/brug.md` |
 | Middel | de koppelcode staat in de URL; elke `chrome-extension://`-herkomst wordt aanvaard | **half** - de code staat nergens meer in de URL (ze gaat helemaal niet meer mee). Het extensie-ID vastpinnen en de Host-kopregel nakijken staat nog open |
-| Middel | een pagina die geanalyseerd wordt kan via verborgen tekst `baseUrl` elders laten wijzen | **open** - dezelfde hostcontrole als op `searchUrlTemplate` |
+| Middel | een pagina die geanalyseerd wordt kan via verborgen tekst `baseUrl` elders laten wijzen | **klaar** - dezelfde host én hetzelfde schema, zie `docs/sites-toevoegen.md` punt 10. Blijft open: een `::replace` in een fotoselector kan nog een andere host inschuiven (kleinere schade: geen cookies) |
 | Middel | de Anthropic-sleutel staat leesbaar in de omgevingsvariabelen van Windows | **klaar** - met DPAPI in `instellingen.json`, zie `docs/sites-toevoegen.md` |
 | Laag | e-mail kan zich aanmelden zonder TLS | **open** |
 | Laag | de extensie vraagt toegang tot alle sites | **open** - `optional_host_permissions` per site |
