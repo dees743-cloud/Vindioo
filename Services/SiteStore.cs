@@ -73,6 +73,12 @@ public class SiteStore
 
     public void Add(SiteDefinition site)
     {
+        // Een gedeeld bestand mag niet bepalen WAAR er geschreven wordt. De Id gaat
+        // rechtstreeks in een bestandspad, en Path.Combine laat "..\..\x" gewoon door - een
+        // volledig pad als "C:\ergens" negeert de sitesmap zelfs helemaal. Door de slug halen
+        // houdt enkel [a-z0-9-] over. Gevonden in een codeanalyse van 30 september 2026.
+        if (!string.IsNullOrWhiteSpace(site.Id)) site.Id = MakeSlug(site.Id);
+
         // Bestaande site met dezelfde naam vervangen (zoals voorheen).
         var existing = Sites.FirstOrDefault(s => s.Name.Equals(site.Name, StringComparison.OrdinalIgnoreCase));
         if (existing is not null)
@@ -114,12 +120,38 @@ public class SiteStore
     /// Leest een gedeeld sitebestand in en voegt het toe (met ontdubbeling).
     /// Geeft de ingelezen site terug, of null bij een ongeldig bestand.
     /// </summary>
-    public SiteDefinition? Import(string filePath)
+    public SiteDefinition? Import(string filePath) => Import(filePath, out _);
+
+    /// <summary>
+    /// Dezelfde import, met de reden erbij wanneer het niet lukt. Die hoort op het scherm: een
+    /// bestandsnaam alleen zegt niet of het bestand kapot is of geweigerd werd.
+    /// </summary>
+    public SiteDefinition? Import(string filePath, out string reden)
     {
+        reden = "";
+
         try
         {
             var def = JsonSerializer.Deserialize<SiteDefinition>(File.ReadAllText(filePath), Options);
-            if (def is null || string.IsNullOrWhiteSpace(def.Name)) return null;
+
+            if (def is null || string.IsNullOrWhiteSpace(def.Name))
+            {
+                reden = "geen geldige sitebeschrijving";
+                return null;
+            }
+
+            // Een sitebestand is bedoeld om te DELEN, en de brug voert zijn zoek-URL uit in
+            // jouw eigen Chrome, met jouw cookies. Wat van buiten binnenkomt, wordt dus
+            // nagekeken; zie SiteUrlCheck voor waarom dat op twee plaatsen gebeurt.
+            if (!SiteUrlCheck.IsVeilig(def, out var waarom))
+            {
+                reden = waarom;
+                Log.Write($"importeren van {Path.GetFileName(filePath)} geweigerd - {waarom}");
+                return null;
+            }
+
+            Log.Write($"sitebestand {Path.GetFileName(filePath)} ({def.Name}) zoekt op " +
+                      string.Join(", ", SiteUrlCheck.Hosts(def)));
 
             Add(def);
             return def;
@@ -127,7 +159,8 @@ public class SiteStore
         catch (Exception ex)
         {
             // Wie een kapot gedeeld bestand importeert, zag enkel de bestandsnaam; de reden
-            // staat nu in het logboek.
+            // staat nu in het logboek en op het scherm.
+            reden = FriendlyError.Describe(ex);
             Log.Write($"importeren van {Path.GetFileName(filePath)} mislukt - {ex.Message}");
             return null;
         }
@@ -166,11 +199,11 @@ public class SiteStore
 
         foreach (var file in files)
         {
-            var site = Import(file);
+            var site = Import(file, out var reden);
 
             if (site is null)
             {
-                failed.Add(Path.GetFileName(file));
+                failed.Add(Path.GetFileName(file) + (reden.Length > 0 ? $" ({reden})" : ""));
                 continue;
             }
 
@@ -228,7 +261,11 @@ public class SiteStore
         File.WriteAllText(FilePathFor(site.Id), JsonSerializer.Serialize(site, Options));
     }
 
-    private static string FilePathFor(string id) => Path.Combine(SitesFolder, id + ".json");
+    /// <summary>
+    /// Het bestand van een site. De Id gaat ook hier door <see cref="MakeSlug"/>: dit is de
+    /// plaats waar het pad werkelijk gemaakt wordt, en dat is het tweede slot.
+    /// </summary>
+    private static string FilePathFor(string id) => Path.Combine(SitesFolder, MakeSlug(id) + ".json");
 
     /// <summary>Maakt een sleutel die nog niet door een andere site gebruikt wordt.</summary>
     private string UniqueSlug(string name)

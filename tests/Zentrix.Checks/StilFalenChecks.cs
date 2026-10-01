@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
@@ -398,12 +398,29 @@ public static class StilFalenChecks
             Directory.CreateDirectory(map);
 
             var opties = new JsonSerializerOptions { WriteIndented = true };
-            File.WriteAllText(Path.Combine(map, "proefsite.json"), JsonSerializer.Serialize(site.Site("Proefsite"), opties));
-            File.WriteAllText(Path.Combine(map, "nieuwe.json"), JsonSerializer.Serialize(site.Site("Nieuwe site"), opties));
+
+            // Een gewoon https-adres, want sinds 1 oktober 2026 weigert het importeren een
+            // bestand dat naar een privé-adres wijst - en de proefsite draait op 127.0.0.1.
+            // Deze controle gaat over "welke sites werden vervangen" en haalt niets op, dus
+            // het adres doet er verder niet toe. Zie ImportChecks voor de regel zelf.
+            SiteDefinition Gedeeld(string naam)
+            {
+                var def = site.Site(naam);
+                def.BaseUrl = "https://www.voorbeeld.be";
+                def.SearchUrlTemplate = "https://www.voorbeeld.be/q/{query}/";
+                return def;
+            }
+
+            File.WriteAllText(Path.Combine(map, "proefsite.json"), JsonSerializer.Serialize(Gedeeld("Proefsite"), opties));
+            File.WriteAllText(Path.Combine(map, "nieuwe.json"), JsonSerializer.Serialize(Gedeeld("Nieuwe site"), opties));
             File.WriteAllText(Path.Combine(map, "kapot.json"), "{ dit is geen json");
 
             var (aantal, mislukt, vervangen) = store.ImportFolder(map);
-            Check.Dat(aantal == 2 && mislukt.SequenceEqual(new[] { "kapot.json" }) && vervangen.SequenceEqual(new[] { "Proefsite" }),
+
+            // "mislukt" draagt nu ook de reden mee, zodat het scherm niet enkel een
+            // bestandsnaam toont: "kapot.json (gaf iets anders terug dan ...)".
+            Check.Dat(aantal == 2 && mislukt.Count == 1 && mislukt[0].StartsWith("kapot.json")
+                      && vervangen.SequenceEqual(new[] { "Proefsite" }),
                 $"2 geïmporteerd, Proefsite vervangen, kapot.json mislukt ({aantal}; {string.Join(",", vervangen)}; {string.Join(",", mislukt)})");
         }
     }

@@ -48,6 +48,7 @@ await FotoChecks.RunAsync();
 await FavorietChecks.RunAsync();
 await PrijslezerChecks.RunAsync();
 DocsChecks.Run();
+ImportChecks.Run();
 BrowserChecks.Run();
 await BrugChecks.RunAsync();
 

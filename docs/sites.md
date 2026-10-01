@@ -398,3 +398,31 @@ schuifregelaars, samen met alles wat alleen daar bestaat.
 De vaste filters — locatie, prijs, aantal per pagina, volgorde — blijven wel altijd
 staan en dimmen enkel: die betekenen overal hetzelfde, en een rij knoppen die per tab
 van lengte verspringt leest onrustig.
+
+
+## Een gedeeld sitebestand is niet te vertrouwen
+
+Een sitebestand is bedoeld om door te geven. Dat is de kracht ervan - en de reden dat er sinds
+1 oktober 2026 naar gekeken wordt bij het **importeren** (`Services/SiteUrlCheck.cs`,
+`SiteStore.Import`). Twee dingen kwamen uit de codeanalyse van 30 september 2026:
+
+- **Waar het bestand de app naartoe stuurt.** De brug voert de zoek-URL uit in jouw eigen Chrome,
+  met jouw cookies; zie `docs/brug.md` voor wat daar misgaat. Bij het importeren worden daarom de
+  zoek-URL, het basisadres én de einddatum-API nagekeken: enkel `https`, en geen adres op je eigen
+  netwerk of pc. Wordt een bestand geweigerd, dan zegt het scherm **waarom** - vroeger zag je
+  enkel een bestandsnaam. Wat er wél binnenkomt, zet zijn hosts in het logboek, zodat na te lezen
+  is waar een gedeeld bestand heen gaat (`SiteUrlCheck.Hosts`).
+
+  Let op: dit geldt enkel bij **importeren**. Een site die je zelf toevoegt gaat via `Add` en mag
+  gerust naar een lokale testsite wijzen - het gaat erom wat er van buiten binnenkomt.
+
+- **De `Id` bepaalde waar er geschreven werd.** Die ging ongefilterd in `Path.Combine`, en dus
+  schreef `"Id": "..\\..\\..\\..\\Temp\\ontsnapt"` buiten de sitesmap. Nagemeten met
+  `Path.GetFullPath`: `C:\Users\davyb\AppData\Roaming\Zentrix\sites` werd
+  `C:\Users\davyb\Temp\ontsnapt.json`, en met een volledig pad (`C:\Windows\Temp\boos`) werd de
+  sitesmap zelfs helemaal genegeerd. De `Id` gaat nu door `MakeSlug` - in `Add`, en nog eens in
+  `FilePathFor` waar het pad werkelijk gemaakt wordt. Bestaande sites merken er niets van: hun
+  Id's zijn al slugs.
+
+Nagemeten in `ImportChecks`: veertien controles, van `http://` tot `file:///` tot een Id die uit
+de sitesmap probeert te breken.

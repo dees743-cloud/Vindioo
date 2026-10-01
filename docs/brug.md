@@ -187,3 +187,35 @@ Nagemeten in `PaginaChecks` met een proefsite die het eerste verzoek doorstuurt 
 tegenproef: op de vorige code viel de zoekopdracht om met "gaf een bijna lege pagina terug (64
 tekens) in plaats van resultaten" - het vangnet tegen stil falen pakte het dus al, maar er kwam
 nooit een resultaat binnen.
+
+
+## Waar de brug heen mag
+
+**De extensie weigert sinds 1 oktober 2026 zelf een opdracht naar een onveilig adres**
+(`waaromNiet` in `extension/background.js`, versiestempel 7, manifest 1.8).
+
+Waarom dat nodig was, kwam uit een codeanalyse van 30 september 2026, en het is het punt met de
+hoogste ernst dat daaruit kwam. De extensie is het stuk dat met **jouw** cookies werkt: ze opent
+de zoek-URL in jouw Chrome, en bij een API-opdracht doet ze daar een `fetch` met
+`credentials: "include"`. Dat adres komt uit een **sitebestand**, en zo'n bestand is bedoeld om te
+delen - je krijgt het van iemand anders. Een verzonnen zoek-URL kon jouw aangemelde browser dus
+verzoeken laten doen naar eender welke site, of naar een adres op je eigen netwerk; de
+beheerpagina van een router vraagt daar vaak niet eens een aanmelding voor.
+
+Wat er nu geweigerd wordt: een ander schema dan `https`, een naam zonder punt (`router`), de
+lokale achtervoegsels (`.local`, `.localhost`, `.internal`, `.home`, `.lan`), de privé-reeksen
+van IPv4 (10/8, 172.16/12, 192.168/16, 169.254/16, 127/8, 0/8) en de lokale adressen van IPv6.
+De app zegt dan gewoon dat die site mislukte, met de reden erbij.
+
+**Twee sloten, want één vergeet je.** Dezelfde controle staat aan de kant van de app in
+`Services/SiteUrlCheck.cs`, en die draait bij het **importeren** van een sitebestand - zie
+`docs/sites.md`. Het verschil is dat een extensie in Chrome blijft staan terwijl de app
+verandert: wie een oude extensie heeft, heeft het slot van de app nog wel.
+
+**Na deze wijziging moet de extensie herladen worden** (`chrome://extensions` → 🔄), anders draait
+Chrome de oude code verder. Zo zie je welke versie er loopt: in de console van de service worker
+staat `[brug] versie 7 geladen`.
+
+Nagemeten op dertien adressen, met de functie los uitgevoerd: de twee gewone zoek-URL's van
+2dehands en Marktplaats mogen, en `http://`, `192.168.1.1`, `127.0.0.1`, `10.0.0.5`, `172.20.1.1`,
+`169.254.1.1`, `router`, `nas.local`, `file:///`, `[::1]` en `onzin` worden alle elf geweigerd.

@@ -1972,7 +1972,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             ? "In die map staan geen sitebestanden."
             : $"{aantal} site(s) geïmporteerd" +
               (vervangen.Count > 0 ? $", waarvan {vervangen.Count} vervangen ({string.Join(", ", vervangen)})" : "") +
-              (mislukt.Count > 0 ? $"; geen geldige sitebeschrijving: {string.Join(", ", mislukt)}." : ".");
+              (mislukt.Count > 0 ? $"; niet geïmporteerd: {string.Join(", ", mislukt)}." : ".");
     }
 
     /// <summary>

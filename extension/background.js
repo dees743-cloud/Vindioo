@@ -32,7 +32,58 @@ let bezig = 0;      // hoeveel opdrachten er nu lopen
 
 // Versiestempel: zie je deze regel niet in de console van de service worker,
 // dan draait Chrome nog de oude versie en moet de extensie herladen worden.
-console.log("[brug] versie 6 geladen — stuurt de kopregel X-Zentrix-Brug mee, zodat enkel de extensie een verkeerde koppelcode kan melden");
+// ---------- waar mogen we heen? ----------
+
+// Wat wij openen, opent met JOUW cookies - bij een API-opdracht zelfs met
+// credentials: "include". Het adres komt uit een sitebestand, en zo'n bestand krijg je van
+// iemand anders. Een verzonnen zoek-URL zou jouw aangemelde browser dus verzoeken kunnen
+// laten doen naar eender welke site, of naar een adres op je eigen netwerk - de beheerpagina
+// van je router vraagt daar vaak niet eens een aanmelding voor.
+//
+// De app kijkt het ook na bij het importeren (Services/SiteUrlCheck.cs). Hier nog eens, want
+// een extensie blijft in Chrome staan terwijl de app verandert, en twee sloten vergeet je
+// niet allebei tegelijk.
+//
+// Geeft null terug als het mag, en anders de reden.
+function waaromNiet(adres) {
+  let u;
+
+  try {
+    u = new URL(adres);
+  } catch {
+    return "geen geldig webadres";
+  }
+
+  if (u.protocol !== "https:") return `${u.protocol.replace(":", "")} in plaats van https`;
+
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+
+  // Een naam zonder punt ("router") staat per definitie op je eigen netwerk.
+  if (!host.includes(".")) return `'${host}' is een naam op je eigen netwerk`;
+  if (/\.(local|localhost|internal|home|lan)$/.test(host)) return `'${host}' is een lokale naam`;
+
+  const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+
+  if (v4) {
+    const a = +v4[1];
+    const b = +v4[2];
+
+    if (a === 10 || a === 127 || a === 0 ||
+        (a === 172 && b >= 16 && b <= 31) ||
+        (a === 192 && b === 168) ||
+        (a === 169 && b === 254)) {
+      return `'${host}' is een adres op je eigen netwerk`;
+    }
+  }
+
+  if (host === "::1" || /^f[cd][0-9a-f]{2}:/.test(host) || /^fe80:/.test(host)) {
+    return `'${host}' is een adres op je eigen netwerk`;
+  }
+
+  return null;
+}
+
+console.log("[brug] versie 7 geladen — weigert zelf een opdracht naar een ander schema dan https of naar een privé-adres");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -124,6 +175,16 @@ async function handleRawJob(job, token) {
 
   const t0 = Date.now();
   const since = () => ((Date.now() - t0) / 1000).toFixed(1) + "s";
+
+  // Voor er iets opengaat: mag dit adres wel?
+  const bezwaar = waaromNiet(job.url);
+
+  if (bezwaar) {
+    console.warn("[brug] geweigerd:", job.url, "-", bezwaar);
+    await sendResult(token, { id: job.id, error: `de brug weigerde dit adres: ${bezwaar}` });
+    return;
+  }
+
   console.log("[brug] API-opdracht opgepikt:", job.url);
 
   try {
@@ -182,6 +243,16 @@ async function handleJob(job, token) {
   // Tijdmeting, zodat we in de console zien waar de seconden blijven.
   const t0 = Date.now();
   const since = () => ((Date.now() - t0) / 1000).toFixed(1) + "s";
+
+  // Voor er iets opengaat: mag dit adres wel?
+  const bezwaar = waaromNiet(job.url);
+
+  if (bezwaar) {
+    console.warn("[brug] geweigerd:", job.url, "-", bezwaar);
+    await sendResult(token, { id: job.id, error: `de brug weigerde dit adres: ${bezwaar}` });
+    return;
+  }
+
   console.log("[brug] opdracht opgepikt:", job.url);
 
   try {
