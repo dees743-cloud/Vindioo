@@ -2516,7 +2516,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     /// geschreven worden. Dat kostte in september 2026 al twee keer werk ("nieuw tot je kijkt",
     /// de nieuwe rem op het aantal) en gaf stille verschillen: de prijsgrens die op het scherm
     /// anders telde dan bij de planner, en filters die je wijzigde en die de planner niet kende.
-    /// Zie Volgende stappen 9 in CLAUDE.md.
+    /// Zie punt 9 in docs/volgende-stappen.md.
     /// </summary>
     private async Task RunSearchAsync()
     {

@@ -1,0 +1,300 @@
+# Het project: naam, versie, gegevensmap, publiceren en GitHub
+
+Onderdeel van de documentatie van Zentrix; de korte versie staat in
+[CLAUDE.md](../CLAUDE.md).
+
+## De naam, de gegevensmap en GitHub
+
+Tot september 2026 heette de app in de code **zoekhulp**; in de interface was ze al
+Zentrix. Nu heet alles zo: de namespace `Zentrix`, het project `Zentrix.csproj`, de exe
+`Zentrix.exe`, de gegevensmap `%APPDATA%\Zentrix` met `zentrix.db` en
+`zentrix-log.txt`, en de extensie "Zentrix Brug". Alleen de projectmap
+`source\repos\zoekhulp` heet nog zo; die hernoem je met Visual Studio dicht, of bij het
+aanmaken van de repository op GitHub.
+
+**De gegevensmap verhuist vanzelf.** `AppPaths` is de enige plaats die weet waar de
+gegevens staan; vroeger schreven zeven klassen `%APPDATA%\Zoekhulp` elk zelf uit. Bij de
+eerste start na het hernoemen wordt de oude map hernoemd naar de nieuwe, en daarin
+`zoekhulp.db` en `zoekhulp-log.txt`. Een naamswijziging op dezelfde schijf, geen kopie:
+ook de 540 MB van het browserprofiel gaan mee zonder wachten. Lukt het niet - een bestand
+in gebruik, bijvoorbeeld door een achtergebleven Chrome van Playwright - dan blijft de app
+de oude map gebruiken en probeert ze het bij de volgende start opnieuw. Wat er gebeurde,
+staat in het logboek.
+
+Twee valkuilen die daarbij horen:
+
+- `AppPaths` mag het logboek **niet** gebruiken. Het logboek vraagt zijn eigen pad aan
+  `AppPaths`; een verhuis die zelf wil loggen, wacht dan op zichzelf. Daarom zet ze wat
+  er gebeurde in `MigrationNote`, en `App` schrijft dat weg.
+- Opstarten met Windows bewaart het **volledige pad** van de exe. Na het hernoemen wees
+  dat naar `zoekhulp.exe`, die niet meer bestaat, en dan start Windows stilletjes niets.
+  `Autostart.RefreshPath` zet het bij elke start gelijk.
+
+## De versie
+
+Het nummer staat op **één plaats**: `<Version>` in `Zentrix.csproj`. `Services/Versie.cs` leest
+het daar uit de assembly, zodat het scherm nooit iets anders zegt dan het bestand. Sinds
+27 september 2026 staat er een nul vooraan: de app doet wat ze moet doen, maar er staan nog
+stukken open (zie "Volgende stappen"), en dat is wat die nul betekent.
+
+**0.9.1** sinds 29 september 2026. Wat er veranderde zit helemaal in *Site toevoegen*: de
+AI-analyse bekijkt nu ook de pagina van een zoekertje, stuurt de zoek-URL bij voor paginering in
+het pad, en meet de paginering, de grote foto en de filters na in plaats van ze te geloven (zie
+"Hoe de AI-analyse werkt", punten 5 tot 9). Geen nieuw scherm en geen nieuwe knop, dus geen 0.10:
+dezelfde app, met een stuk dat zijn werk beter doet. Wat er voor 1.0 nog moet, staat onveranderd
+bij "Volgende stappen".
+
+**0.9.2** sinds 30 september 2026, en daar zit een les in over versienummers. 0.9.1 kreeg een tag,
+en daarna kwamen er nog twee commits met echte verbeteringen aan diezelfde analyse: de filters
+naar het eerste schema (186 000 tokens terug naar 113 000) en de prijsgrens die op de prijzen
+beoordeeld wordt in plaats van op het verschil in de lijst. Toen er een release met de exe moest
+komen, botste dat: **wat je uitbrengt moet zijn wat het nummer zegt.** De tag verplaatsen kan wel,
+maar dan klopt een nummer dat al gepusht is niet meer met wat het ooit aanwees. Een nieuw nummer is
+goedkoper. Dus: wie een versie tagt, brengt die ook uit, of nummert opnieuw.
+
+**0.10.0** sinds 30 september 2026, en het tweede cijfer gaat mee omhoog omdat er iets **bij**komt
+dat je ziet: de knop *Nakijken* op het tabblad Favorieten, die per favoriet zegt of het zoekertje
+er nog staat en wat het nu kost (zie "Favorieten opvolgen" bij Wat je te zien krijgt). Dat is
+precies het onderscheid dat 0.9.1 níet haalde - daar deed een bestaand stuk zijn werk beter, zonder
+nieuw scherm en zonder nieuwe knop. Hier is het er wel een, dus geen 0.9.3. Uitgebracht op
+dezelfde dag als `v0.10.0`, met de zip erbij (117 MB, 601 bestanden), en anoniem nagegaan dat die
+te downloaden is: HTTP 206 en de eerste twee bytes zijn `PK`.
+
+Het is op twee plaatsen zichtbaar, en allebei om dezelfde reden - **er draaien twee exe's op
+deze pc**, een uit Visual Studio en een gepubliceerde (bij mij `C:\Zentrix`), met
+dezelfde gegevensmap:
+
+- **Onderaan het tandwielmenu**, als een grijs regeltje ("Zentrix 0.9.0"). Geen menu-item: er
+  valt niets te klikken.
+- **In het logboek bij elke start**, met de map erbij: `Zentrix 0.9.0 gestart vanuit
+  C:\Zentrix`. Zonder die regel staat er in een logboek van twee weken niet bij
+  welke versie een fout maakte.
+
+`Version` levert ook `FileVersion` en `ProductVersion` op het bestand zelf, en die laatste
+krijgt van de bouwomgeving de commit-hash erachter (`0.9.0+5998a84...`). `Versie.Nummer` knipt
+dat af. Nagemeten met het hoofdscherm buiten beeld: het menu toont "Zentrix 0.9.0".
+
+Let op bij het controleproject: dat compileert de broncode zelf, dus `Versie` leest daar de
+assembly van *dat* project (1.0.0). Het nummer van de app is er dus niet na te meten - enkel
+dat er een leesbaar nummer uit komt.
+
+**Zentrix staat openbaar op GitHub** sinds 29 september 2026
+(`dees743-cloud/Zentrix`, MIT-licentie); **`zentrix-sites` blijft privé**. Wat daarvoor nodig was
+en waarom de sites niet meegaan, staat bij "Volgende stappen" punt 8. Twee bestanden zijn er toen
+bijgekomen en horen bij een openbare repository: `README.md` (de voordeur: wat het is, hoe je het
+bouwt, en dat de app zonder sites komt) en `LICENSE`.
+
+**In de README staat een schermafbeelding** (`docs/schermafbeelding.png`, 29 september 2026), en
+die is met opzet niet van de eigen Zentrix gemaakt. Ze toont een **lege gegevensmap**
+(`ZENTRIX_DATA` naar een verse map) met vier rechtstreekse sites, zodat er geen bewaarde
+zoekopdrachten, favorieten, postcode of straal in beeld staan. Facebook blijft er bewust uit: die
+zoekt in je eigen regio, en dan staan de steden rond je thuis op een foto die openbaar gaat. Zo is
+ze opnieuw te maken:
+
+- De sitebestanden naar `<map>\sites` kopiëren, de app één keer starten zodat `zentrix.db`
+  bestaat, en dan met een scriptje een bewaarde zoekopdracht in de tabel `searches` zetten met
+  `RunOnStartup` aan. De planner draait ze dan bij het opstarten
+  (`SearchScheduler.RunStartupSearchesAsync`) en het scherm staat vanzelf klaar. Dat is de
+  eenvoudigste weg, want de vinkjes voor de sites zitten in het chipje achteraan de tabstrip en
+  dat is niet met het toetsenbord te bereiken.
+- Het venster op maat zetten met `SetWindowPos` (1700x1450 beeldpunten is op 150% gelijk aan
+  1133x967 eenheden van WPF) en fotograferen met `tools/vensterfoto.py`.
+
+**Wat daarbij opviel: het raster bleef leeg - en dat lag aan de opstelling, niet aan de app**
+(uitgezocht op 30 september 2026). Bij het maken van die schermafbeelding stonden met de
+rasterweergave (`ResultView` 1) de tabs, de pager en de teller er wel - 4341 resultaten over 44
+pagina's - maar werd er geen enkele kaart getekend. Nagemeten met een wegwerpprojectje dat het
+**echte** hoofdscherm buiten beeld opbouwt in rasterweergave en daarna in het paneel kijkt: 16
+kaarten opgebouwd, kaartmaat 278 x 309, 4 kolommen, bereik 1112 x 7733, geen fout in het logboek -
+en een foto van dat venster toont die kaarten ook echt getekend, door leveringen, opruimen en
+scrollen heen. Bij gewoon zoeken verschijnen de resultaten dus, zoals de eigenaar ook meldde.
+
+Leeg krijg je het enkel met een kunstgreep, en die twee zijn het noteren waard omdat ze zeggen
+waar het paneel bros is:
+
+- **Een kaartmaat die ooit ontaardt, blijft.** `_kaart` wordt één keer gemeten en nooit meer.
+  Met de maat via reflectie op 1 x 1 gezet: 100 kaarten opgebouwd, 1332 kolommen, bereik 1332 x 1 -
+  alles staat er, in vakjes van één beeldpunt, en het scherm is leeg.
+- **De herkansing is in een oogwenk op.** Wissel je van weergave terwijl de lijst al gevuld is, dan
+  wordt het nieuwe paneel gemeten voor zijn generator er is, en vraagt het een herkansing. Die tien
+  pogingen zijn binnen **5 ms** verbruikt - ze ketenen op `DispatcherPriority.Loaded`, dus ze lopen
+  zo snel als de dispatcher kan - terwijl de generator pas later komt. Daarna wacht het paneel op
+  iets dat een nieuwe meting uitlokt. Bij echt zoeken is dat de eerstvolgende levering, en dan staat
+  het er meteen; in een opstelling waar niets meer binnenkomt, blijft het leeg.
+
+**Wat niet op GitHub hoort** staat in `.gitignore`: `bin`, `obj`, `.vs`, de
+`.user`-bestanden en `.claude` (de adviseurs, met persoonlijke paden). Sinds 22 september 2026
+ook wat andere hulpmiddelen achterlieten: `.codex` (een kopie van die adviseurs), `AGENTS.md` (een
+kopie van dit bestand) en `chatgpt_tips.md`. De sites staan sowieso niet in het project maar in de gegevensmap.
+
+**De app komt zonder sites.** Die staan in een aparte repository, `zentrix-sites`: een
+algemene zoekmotor publiek delen is iets anders dan kant-en-klare bestanden die op
+bepaalde sites gericht zijn, en een deel daarvan omzeilt bewust de beveiliging tegen
+robots. Wie de app voor het eerst start, ziet daarom geen lege lijst met "typ hierboven
+wat je zoekt", maar **"Nog geen sites"** met twee knoppen: *Sites importeren uit map* en
+*Site toevoegen* (`NoSitesPanel`, getoond vanuit `UpdateEmptyHints`). Importeren staat ook in
+het tandwielmenu.
+
+`SiteStore.ImportFolder` leest alle sitebestanden uit een map, elk met dezelfde
+ontdubbeling als een losse import. Heeft de gekozen map een submap `sites`, dan leest hij
+die: zo mag je de map van de repository zelf kiezen, of je eigen gegevensmap, waar naast
+de sites ook `instellingen.json` staat. Nagemeten in een lege gegevensmap: 0 naar 10
+sites, met elke sleutel, motor en eigen filter intact, en een tweede import gaf geen
+dubbels.
+
+**Een andere gegevensmap** kan met de omgevingsvariabele `ZENTRIX_DATA`. Zo is een lege
+eerste start na te bootsen zonder aan je eigen sites en zoekopdrachten te komen:
+
+```bash
+set ZENTRIX_DATA=C:\ergens\leeg
+```
+
+Er wordt dan niets verhuisd; `AppPaths` gebruikt die map gewoon.
+
+**De brug-extensie staat in `extension\`.** Chrome laadt een uitgepakte extensie vanaf een
+vaste map; sinds 15 september 2026 is dat deze. Wie nog een oude kopie heeft (bv.
+`C:\zoekhulp-brug`): `chrome://extensions`, de oude extensie verwijderen, "Uitgepakte
+extensie laden", deze map kiezen en de koppelcode opnieuw plakken - een andere map is voor
+Chrome een andere extensie, met een lege opslag.
+
+## Starten zonder Visual Studio
+
+Een versie die je gewoon dubbelklikt, zet je met het commando hieronder in een map naar keuze
+(hier `C:\Zentrix`, sinds 18 september 2026). Ze is **zelfstandig**: .NET zit erin, dus ze start ook op een pc zonder
+Visual Studio of .NET. Opnieuw maken na een wijziging, met Zentrix dicht (anders zijn de
+bestanden in gebruik):
+
+```bash
+dotnet publish Zentrix.csproj -c Release -r win-x64 --self-contained true -o C:\Zentrix
+```
+
+Wat daarbij hoort:
+
+- **Snelkoppelingen** "Zentrix" staan op het bureaublad en in het startmenu. Let op als je
+  bureaublad door OneDrive beheerd wordt: dan staat het niet waar je het verwacht. Die in het
+  startmenu staat onder `%APPDATA%`, dus vanuit de Claude-app aangemaakt via
+  `Win32_Process.Create` - anders belandt hij in de omgeleide kopie en verschijnt hij nooit.
+  Verhuist de map, dan wijzen ze nergens meer naar.
+- **De hele map hoort bij elkaar**, niet enkel de exe: ruim zeshonderd bestanden, samen zo'n
+  290 MB. Het grootste deel is .NET zelf en het stuk van Playwright dat Chrome aanstuurt
+  (`.playwright\node`). Daarom geen "enkel bestand": Playwright zoekt die map naast de exe.
+  Browsers hoeven er niet bij, want Playwright gebruikt de gewone Chrome (`Channel = "chrome"`).
+- **Dezelfde gegevens als vanuit Visual Studio**: `%APPDATA%\Zentrix`, met dezelfde sites,
+  favorieten en zoekopdrachten. En er draait er maar één tegelijk: sluit de ene voor je de
+  andere start.
+- **Opstarten met Windows volgt de exe die het laatst draaide.** `Autostart.RefreshPath` zet het
+  pad bij elke start gelijk. Start je vanuit Visual Studio, dan wijst het naar
+  `bin\Debug\...\Zentrix.exe`; start je daarna de gepubliceerde, dan naar die. Wie wil dat
+  Windows de gepubliceerde start, start die dus één keer na het werken in Visual Studio.
+- **Proefstarten vanuit de Claude-app** gebeurt met `ZENTRIX_DATA` naar een lege map (zie "Fouten
+  opsporen" over de omgeleide gegevensmap). Het register hoeft daarbij niet bewaakt te worden:
+  ook dat is vanuit de Claude-app omgeleid, dus de proef kan het echte "opstarten met Windows"
+  niet wijzigen. Zo nagemeten: proces draaiend na 7 s, "hoofdscherm opgebouwd" in het logboek,
+  databank aangemaakt, brug op 8731.
+
+## Wat er al werkt
+
+- Zoeken over meerdere aangevinkte sites tegelijk, met voortgang en tijd per
+  bron. De app komt zonder sites: welke er zijn en wat elk kan, staat in `SITES.md`
+  van `zentrix-sites`. Tijdens het zoeken wordt het vergrootglas een **stopknop**: wat al
+  binnen was blijft staan, en de zoekopdracht telt die halve beurt niet mee
+- Sites importeren uit een map (ook meteen bij een lege eerste start), toevoegen
+  met de AI-analyse, en verwijderen in het instellingen-scherm (de knop
+  "Verwijderen" op de kaart van die site)
+- Vastgezette zoekopdrachten op hun eigen tabblad, met een teller en een NIEUW-markering
+  voor wat je nog niet bekeek - dat stapelt op over de beurten heen tot je de zoekopdracht
+  opent. Een klik op de teller toont enkel de nieuwe (schakelaar "Enkel nieuwe"), dubbelklikken
+  alles. Overleeft een herstart; "Huidige vastzetten" voegt er een toe
+- **Favorieten**: het sterretje op elke foto zet een zoekertje apart. Wat je
+  bewaart, wordt als kopie opgeslagen, dus het blijft zichtbaar ook als de site
+  het zoekertje intussen weghaalt. De knop **Nakijken** zegt per favoriet of het er nog
+  staat ("Weg van de site", "Veiling afgelopen op 14 september") en wat het nu kost
+  ("Nu € 24 - was € 5")
+- **Recent**: elke zoekterm komt in een lijst met wanneer je hem gebruikte;
+  dubbelklikken herhaalt de zoekopdracht
+- **Automatisch zoeken**: elke zoekopdracht heeft zijn eigen schema (om de zoveel
+  minuten of dagelijks op een uur), eventueel binnen een tijdvenster, eventueel
+  ook bij het opstarten. De app blijft daarvoor in het systeemvak draaien. Is er
+  iets nieuws, dan komt er een melding — ballon, Telegram of e-mail
+- **Filters per site binnen één zoekopdracht**: zoeken op "commodore" mag op
+  de ene site een postcode en straal hebben en op de andere een keuze uit
+  provincies. Het instellingenscherm toont per site enkel wat díe site kent
+- **Filters die maar op één site bestaan**, beschreven in het sitebestand zelf:
+  een keuze uit een lijst (ook meerdere tegelijk), een getal of aan/uit, in de
+  filterpopup of bij de locatie. Een filter bijzetten is een regel JSON, geen code
+- **Zoeken zonder zoekterm** op sites die enkel op filters werken
+  (`AllowsEmptyQuery`), zoals een autosite waar het zoekwoord het merk is: met een
+  lege balk zoek je dan niet merkgebonden en bepalen de filters wat je krijgt
+- Filters per site: minimum- en maximumprijs, postcode, straal en maximum
+  aantal. Wat een site niet kan, wordt gedimd of verborgen — afgeleid
+  uit zijn `Filters`-mapping, dus zonder lijstje "welke site kan wat"
+- **Resultaten over pagina's**, met de pager links van het locatiespeldje en nog
+  eens onder de resultaten (hoogstens zeven nummers, schuivend). Het aantal per pagina (50/100/150/200) staat achter het `#`;
+  de app haalt intussen op wat de sites geven: tot 2000 bij een site die rechtstreeks antwoordt,
+  300 bij Facebook, 500 bij de rest
+- Een tabblad **Alles** vooraan, met de resultaten van alle sites samen. De
+  tabstrip toont verder enkel de sites die meezoeken; kiezen welke dat zijn
+  gebeurt in het chipje achteraan de rij. Een site mag met `ShortName` een
+  kortere naam voor zijn tab opgeven
+- **Sorteren** op prijs (beide richtingen), op nieuwste of op de veiling die het eerst
+  afloopt (over Catawiki, eBay en AlleVeilingen heen); de keuze wordt onthouden tussen twee starts
+- **Prijsindicatie**: rechtsklik op een foto - of de knop in het detailvenster - geeft de
+  marktwaarde van dat model uit de vraagprijzen op de sites met het vinkje, met varianten apart,
+  zonder veilingen, sets en toebehoren, en verbreed naar de reeks als er te weinig zijn. Kwam je
+  er via de AI-controle, dan staan de namen die van de foto's gelezen zijn erbij als klikbare
+  voorstellen voor de zoekterm
+- **Nieuw bij Tweakers** in hetzelfde prijsvenster: wat het ding nieuw kost, of wat het laatst
+  kostte toen het nog te koop was, plus hun eigen tweedehandsaanbod. De app stelt producten voor
+  en jij klikt het juiste aan; hun zoekpagina wordt niet aangeraakt (die verbiedt robots.txt),
+  het opzoeken gebeurt in een kopie van hun sitemap
+- **Prijs per titel** voor een partij: elke naam die de AI van de foto's las, apart opgezocht en
+  op volgorde van duur naar goedkoop. Zo zie je of er in een doos spellen of een stapel platen
+  iets waardevols zit; klikken op een regel geeft de vergelijkingen van die ene titel
+- **AI-controle op een foto**: rechtsklik op een foto laat een model op je eigen grafische kaart
+  lezen wat er op de voorwerpen staat, en erover vertellen in gewone taal - voor een doos vol
+  dvd's waarvan de titels te klein zijn, of het typenummer op een label. Lokaal, dus er gaat geen
+  foto de deur uit. Ook voor alle foto's van een zoekertje tegelijk, zodra het sitebestand zegt
+  waar die staan (`DetailImagesSelector`); daarvan komt **één** verhaal over alles samen, dat na
+  elke foto bijgewerkt wordt, met per foto wat daar gelezen is. Is de foto van de zoekpagina een
+  miniatuur - Facebook geeft er van 260 px - dan wordt de grotere van de advertentiepagina
+  gelezen
+- Naast de prijs de **stad** (en anders het land), en bij een veiling erachter **hoelang er nog
+  geboden kan worden**. Past die regel niet, dan vervaagt het einde en schuift ze zodra je er met
+  de muis op gaat staan. Staat die tijd niet op de zoekpagina van de site maar wel op de pagina van
+  het kavel, dan haalt de app ze daar op - enkel voor de kavels die je op dat moment ziet
+- Rechtsonder op een veilingkaart een **timer** die echt aftelt waar het tijdstip exact is
+  (AlleVeilingen, Catawiki via zijn API, eBay op het einde), in het laatste uur in amber
+- Miniaturen in de resultatenlijst. **Dubbelklikken opent een venster met alles van dat zoekertje**:
+  de foto's van de advertentie (miniaturen boven, één grote eronder; klikken wisselt, en een klik op
+  de grote foto legt ze schermvullend over het venster), de verkoper, hoelang het online staat en de
+  volledige beschrijving, met knoppen naar de site en naar de AI-controle
+- *Sites beheren* met een tab per site: alle velden bewerkbaar, per site testen,
+  aanmelden bij sites die dat vragen, en exporteren/importeren van losse sitebestanden
+- Server-side zoekfilters via de `Filters`-mapping
+- Resultatenlijst: prijs staat links naast de foto, met op de foto zelf enkel het NIEUW-label
+  en de favorietenster. De grote foto vraag je op met een **dubbelklik**, die het detailvenster
+  opent; `LargeImageSelector` in het sitebestand (een puntpad naar een groter formaat, of
+  `::replace` op de URL van de miniatuur) bepaalt welke dat is, met terugval op de miniatuur
+- Miniaturen in een vast vak (260×220, bijgesneden), met afgeronde hoeken en schaduw
+- Twee weergaven voor de resultaten: **Lijst** (brede kaart: foto, titel,
+  prijs — om te lezen) en **Raster** (foto's naast en onder elkaar zoals
+  Facebook Marketplace — om te overzien). Wisselen kan met de weergaveknop bij
+  de zoekinstellingen of via het tandwiel bij *Weergave*. Alleen het sjabloon en
+  het paneel wisselen, dus de resultaten blijven staan. De keuze geldt voor de
+  hele app en wordt onthouden tussen twee starts
+- Alle sites zijn bestanden. Er is geen ingebouwde bron meer: een site met een
+  afwijkende opbouw krijgt een andere motor via het `Engine`-veld
+- Resultaten verschijnen per bron zodra die klaar is, en bij de brug zelfs al
+  tijdens het laden van de pagina (tussentijdse leveringen)
+- Paginering via `PageTemplate`, `{page}` of `{offset}` in de zoek-URL: de app haalt extra
+  pagina's op tot de rem van die soort site (20 of 10 pagina's). Geeft een site bij
+  pagina 2 hetzelfde terug, dan stopt hij vanzelf. Eén browser wordt hergebruikt
+  over alle pagina's. Een API die meteen genoeg teruggeeft, heeft het niet nodig
+- Prijsfilter op de site zelf wanneer het sitebestand er een heeft; anders filtert
+  de app achteraf
+- **Fouten bij de site zelf**: een waarschuwingsteken op de tab, en bij een bewaarde
+  zoekopdracht "· 1 site mislukt" in de lijst. Mislukt een geplande zoekopdracht twee keer
+  op rij op dezelfde site, dan komt er een melding
+- **De brug zegt waarom ze niet werkt** (verkeerde koppelcode, extensie uit, geen Chrome),
+  zowel in de app als in de popup van de extensie, en slaat de brugsites dan meteen over
+- Maar **één Zentrix tegelijk**; een tweede start haalt het open venster naar voren

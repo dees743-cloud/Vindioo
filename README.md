@@ -88,13 +88,14 @@ zijn selectors en zijn filters. Bij de eerste start zie je *Nog geen sites* met 
 - **Sites importeren uit map** — als je er al hebt.
 
 Hoe je een site inregelt, wat er dan meestal misgaat en hoe je meet of een filter écht iets doet,
-staat uitgebreid in [CLAUDE.md](CLAUDE.md) onder *Sites toevoegen*.
+staat uitgebreid in [docs/sites-toevoegen.md](docs/sites-toevoegen.md).
 
 ## Documentatie
 
-[CLAUDE.md](CLAUDE.md) is het werkdagboek van dit project: hoe alles in elkaar zit, waarom het zo
-gebouwd is, wat er gemeten is en vooral **wat er misging en waarom**. Het is geschreven om niets
-twee keer te moeten uitzoeken. Wie aan de code wil werken, begint daar.
+[CLAUDE.md](CLAUDE.md) is de voordeur voor wie aan de code werkt: de werkafspraken, de stack, de
+mappenstructuur en de commando's. Daarin staat ook een tabel met één regel per onderwerp, die
+verwijst naar [docs/](docs): hoe alles in elkaar zit, waarom het zo gebouwd is, wat er gemeten is
+en vooral **wat er misging en waarom**. Het is geschreven om niets twee keer te moeten uitzoeken.
 
 De controles draai je zonder testframework en zonder netwerk:
 
@@ -104,8 +105,8 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 ## Status
 
-**Versie 0.9.2.** De app wordt dagelijks gebruikt en doet wat ze moet doen, maar er staan nog
-stukken open — zie *Volgende stappen* in CLAUDE.md. Vandaar de nul vooraan.
+**Versie 0.10.0.** De app wordt dagelijks gebruikt en doet wat ze moet doen, maar er staan nog
+stukken open — zie [docs/volgende-stappen.md](docs/volgende-stappen.md). Vandaar de nul vooraan.
 
 ## Licentie
 

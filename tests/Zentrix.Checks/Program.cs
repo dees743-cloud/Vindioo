@@ -46,6 +46,7 @@ PricewatchChecks.Run();
 await NieuwChecks.RunAsync();
 await FotoChecks.RunAsync();
 await FavorietChecks.RunAsync();
+DocsChecks.Run();
 BrowserChecks.Run();
 await BrugChecks.RunAsync();
 
