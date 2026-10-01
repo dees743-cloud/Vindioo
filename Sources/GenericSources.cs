@@ -61,22 +61,12 @@ public class GenericSource : ISearchSource
 
     private static readonly HttpClient Http = CreateClient();
 
-    private static HttpClient CreateClient()
-    {
-        // Gecomprimeerde antwoorden vragen en uitpakken. Zonder dit stuurde de app geen
-        // Accept-Encoding mee: pagina's kwamen ongecomprimeerd binnen (HTML en JSON zijn
-        // gezipt doorgaans vijf tot tien keer kleiner), en een Chrome-User-Agent die geen
-        // compressie aankan, is precies wat een robot verraadt.
-        var client = new HttpClient(new SocketsHttpHandler
-        {
-            AutomaticDecompression = System.Net.DecompressionMethods.All
-        });
-        client.DefaultRequestHeaders.Add("User-Agent",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-            "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36");
-        client.Timeout = TimeSpan.FromSeconds(30);
-        return client;
-    }
+    /// <summary>
+    /// Dertig seconden: dit is de zoekpagina zelf, en daar wacht de gebruiker op.
+    /// Waarom gecomprimeerd en met koekjespot, staat bij <see cref="Services.HttpFactory"/>.
+    /// </summary>
+    private static HttpClient CreateClient() =>
+        Services.HttpFactory.MaakClient(TimeSpan.FromSeconds(30));
 
     public async Task<List<Listing>> SearchAsync(string query, int maxResults,
         SearchFilters? filters = null, IProgress<List<Listing>>? progress = null,

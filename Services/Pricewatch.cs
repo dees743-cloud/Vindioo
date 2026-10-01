@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.IO;
 using System.Net.Http;
 using System.Text.Json;
@@ -48,21 +48,15 @@ public static class Pricewatch
 
     private static readonly HttpClient Http = Client();
 
-    private static HttpClient Client()
-    {
-        // Met een koekjespot, en dat is hier de hele truc - zie HaalAsync.
-        var client = new HttpClient(new SocketsHttpHandler
-        {
-            AutomaticDecompression = System.Net.DecompressionMethods.All,
-            CookieContainer = new System.Net.CookieContainer(),
-            UseCookies = true
-        });
-        client.DefaultRequestHeaders.Add("User-Agent",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-            "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36");
-        client.Timeout = TimeSpan.FromSeconds(90);
-        return client;
-    }
+    /// <summary>
+    /// Negentig seconden, want hier hangt de sitemap aan: 11 MB in één keer.
+    ///
+    /// De koekjespot is hier de hele truc (zie <c>HaalAsync</c>): de privacymuur van DPG zet
+    /// een sessiecookie en laat het tweede verzoek door. Die stond vroeger hier apart
+    /// aangezet, maar <see cref="HttpFactory"/> heeft hem sowieso - een
+    /// <c>SocketsHttpHandler</c> houdt zijn cookies vanzelf bij.
+    /// </summary>
+    private static HttpClient Client() => HttpFactory.MaakClient(TimeSpan.FromSeconds(90));
 
     /// <summary>Eén product uit de sitemap: genoeg om zijn pagina te bouwen en zijn naam te tonen.</summary>
     public sealed record Voorstel(string Id, string Slug)

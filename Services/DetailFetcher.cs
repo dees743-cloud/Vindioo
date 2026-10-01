@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO;
 using System.Net.Http;
@@ -57,23 +57,11 @@ public static class DetailFetcher
 
     private static readonly HttpClient Http = MaakClient();
 
-    private static HttpClient MaakClient()
-    {
-        var client = new HttpClient(new SocketsHttpHandler
-        {
-            AutomaticDecompression = System.Net.DecompressionMethods.All
-        });
-
-        client.DefaultRequestHeaders.Add("User-Agent",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-            "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36");
-
-        // Korter dan de 30 seconden van een zoekopdracht: dit is een extraatje bij
-        // resultaten die al op het scherm staan, en niemand wacht erop.
-        client.Timeout = TimeSpan.FromSeconds(10);
-
-        return client;
-    }
+    /// <summary>
+    /// Tien seconden, korter dan de dertig van een zoekopdracht: dit is een extraatje bij
+    /// resultaten die al op het scherm staan, en niemand wacht erop.
+    /// </summary>
+    private static HttpClient MaakClient() => HttpFactory.MaakClient(TimeSpan.FromSeconds(10));
 
     /// <summary>
     /// Vult de sluitingsdatum aan van de zoekertjes die meegegeven worden, voor zover hun

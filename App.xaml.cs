@@ -1,4 +1,4 @@
-using System.Threading;
+﻿using System.Threading;
 using System.Windows;
 using System.Windows.Media;
 using Wpf.Ui.Appearance;
@@ -153,15 +153,28 @@ namespace Zentrix
             // het altijd, ook bij een start door Windows. Daar werd het meteen weer verborgen,
             // maar het vlak waarop de grafische kaart tekent, was dan al gemaakt - een minuut na
             // het aanmelden, terwijl Windows nog opstartte - en bleef soms wit. Nu wordt het bij
-            // zo'n start niet getoond, en pas getekend wanneer je het opent (MainWindow.StartOpAchtergrond).
+            // zo'n start niet getoond, en pas getekend wanneer je het opent (MainWindow.StartOpAchtergrondAsync).
             var stil = Services.AppSettings.Current.StartMinimized ||
                        e.Args.Any(a => string.Equals(a, "--systeemvak", StringComparison.OrdinalIgnoreCase));
 
             var venster = new MainWindow();
             MainWindow = venster;
 
-            if (stil) venster.StartOpAchtergrond();
-            else venster.Show();
+            if (stil)
+            {
+                // Niet afwachten: OnStartup hoort niet te blijven staan terwijl de planner en
+                // het systeemvakpictogram opstarten. Maar de taak wordt wél nagekeken - bij een
+                // async void zou een fout hierin als onbehandelde uitzondering op de dispatcher
+                // belanden, en dat is precies het soort fout dat spoorloos verdwijnt.
+                _ = venster.StartOpAchtergrondAsync().ContinueWith(
+                    taak => Services.Log.Write("starten in het systeemvak mislukt - " +
+                                               taak.Exception?.GetBaseException().Message),
+                    TaskContinuationOptions.OnlyOnFaulted);
+            }
+            else
+            {
+                venster.Show();
+            }
         }
     }
 }

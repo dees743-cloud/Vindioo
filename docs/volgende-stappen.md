@@ -180,10 +180,10 @@ Wat er verder uit kwam, en wat ermee gebeurd is:
 | Middel | de Anthropic-sleutel staat leesbaar in de omgevingsvariabelen van Windows | **open** - met DPAPI bewaren, zoals het mailwachtwoord |
 | Laag | e-mail kan zich aanmelden zonder TLS | **open** |
 | Laag | de extensie vraagt toegang tot alle sites | **open** - `optional_host_permissions` per site |
-| Onderhoud | geen CI: de controles draaien enkel als iemand eraan denkt | **open** - een workflow op `windows-latest` |
-| Onderhoud | `MainWindow.xaml.cs` (2804 regels) en `SiteAnalyzer.cs` (2261) opsplitsen | **open** |
-| Onderhoud | dezelfde User-Agent staat vijf keer in de code | **open** - één `Services/Http.cs` |
-| Onderhoud | `public async void StartOpAchtergrond()` is geen event-handler | **open** - `async Task` |
+| Onderhoud | geen CI: de controles draaien enkel als iemand eraan denkt | **klaar** - `.github/workflows/controles.yml`, zie `docs/fouten-opsporen.md` |
+| Onderhoud | `MainWindow.xaml.cs` (2804 regels) en `SiteAnalyzer.cs` (2261) opsplitsen | **klaar** - zie hieronder |
+| Onderhoud | dezelfde User-Agent staat vijf keer in de code | **klaar** - `Services/HttpFactory.cs` |
+| Onderhoud | `public async void StartOpAchtergrond()` is geen event-handler | **klaar** - `StartOpAchtergrondAsync`, en App kijkt de taak na |
 
 ### Twee dingen die bij het nameten bovenkwamen
 
@@ -199,3 +199,30 @@ importeren weigerde meteen een bestaande controle die sitebestanden importeerde 
 lokale proefsite (`http://127.0.0.1`) wezen. Terecht - haar proefgegevens wijzen nu naar een
 gewone https-site. Let erop bij het schrijven van nieuwe controles: **importeren** is streng,
 `Add` (een site die je zelf toevoegt) niet.
+
+### Het opsplitsen van de twee grote bestanden
+
+Gedaan op 1 oktober 2026, en met opzet **zuiver verschoven**: er is geen regel logica gewijzigd.
+De snijlijnen kwamen niet van mij maar stonden er al - allebei de bestanden hadden nette
+sectiemarkeringen, en die zijn de grenzen geworden.
+
+| | was | nu |
+|---|---|---|
+| `SiteAnalyzer.cs` | 2256 regels | 298, plus `.Fetch` 467, `.Filters` 402, `.Advertentie` 385, `.Meten` 334, `.Paginering` 266, `.Prompts` 256 |
+| `MainWindow.xaml.cs` | 2824 regels | 614, plus `.Zoeken` 787, `.Tabs` 418, `.Zoekopdrachten` 349, `.Tabbladen` 261, `.Menu` 239, `.Filters` 216 |
+| `RunSearchAsync` | ~275 regels | **202**, met `ZoekenVoorbereiden` en `ZoekenAfrondenAsync` ernaast |
+
+Dat het zuiver was, is **nageteld** en niet aangenomen: een script telde elke regel van het
+origineel en van de nieuwe bestanden, en het enige verschil was de documentatiekop die elk nieuw
+bestand erbij kreeg. Doe dat ook bij een volgende splitsing - een bouw die slaagt bewijst niet dat
+er niets wegviel, enkel dat wat er staat compileert.
+
+**Het middenstuk van `RunSearchAsync` is met rust gelaten.** Daar haken het slot, de annulering en
+de `finally` in elkaar, en dat uit elkaar trekken is precies waar een stil verschil in sluipt -
+zie de les over `SemaphoreFullException` in `docs/zoeken.md`. Het voorbereiden (de drie uitgangen
+met hun eigen melding) en het afronden (het bewaren en het slot) staan er nu naast.
+
+Nagemeten met het hoofdscherm buiten beeld, want de controles raken `MainWindow` niet: het venster
+bouwt nog op, de knop *Nakijken* bij de favorieten werkt nog, en allebei de uitgangen van het
+uitgenomen voorbereiden komen er goed uit - "Kies eerst welke sites meezoeken..." zonder
+aangevinkte site, en "2dehands heeft een zoekterm nodig." bij een lege zoekterm.

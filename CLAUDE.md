@@ -60,12 +60,15 @@ Sources/
   ISearchSource.cs      contract waar elke bron aan voldoet
   SourceFactory.cs      kiest per site de motor (Generic of LinkText)
   SearchUrlBuilder.cs   zoek-URL met {query} en de filters uit de site
+  PriceParser.cs        de prijs uit de tekst van een site, voor allebei de motoren
   GenericSources.cs     voert een SiteDefinition uit (HTML of JSON)
   LinkTextSource.cs     de linkmotor: volgt links in plaats van selectors
 Services/
   SiteStore.cs       sitesmap: één JSON-bestand per site, met migratie/import/export
   HistoryStore.cs    SQLite: zoekopdrachten, "al gezien", favorieten en recent
-  SiteAnalyzer.cs    laat Claude de selectors van een onbekende site bepalen, en telt na
+  SiteAnalyzer*.cs   laat Claude de selectors van een onbekende site bepalen, en telt na
+                     (partial, per onderwerp: Fetch, Meten, Paginering, Filters, Advertentie,
+                     Prompts)
   BrowserFetcher.cs  Playwright met een eigen Chrome-profielmap
   BrowserPool.cs     één Chrome voor alle sites van dezelfde zoekopdracht
   BridgeServer.cs    lokale server waarmee de browserextensie praat
@@ -80,6 +83,7 @@ Services/
   Log.cs             logboek in een tekstbestand
   Versie.cs          welk versienummer er draait, uit de assembly
   FriendlyError.cs   zet een fout om in een zin die de gebruiker iets zegt
+  HttpFactory.cs     de User-Agent en hoe een HttpClient hier gemaakt wordt
   PriceIndicator.cs  wat is een toestel ongeveer waard
   FavoriteWatch.cs   staat een bewaarde favoriet nog te koop, en tegen welke prijs nu
   Pricewatch.cs      wat kost het nieuw bij Tweakers
@@ -95,7 +99,8 @@ Controls/
   CountdownBadge.cs         de timer op een veilingkaart, met één gedeelde klok
   CustomFilterControls.cs   de invoer voor sitegebonden filters
 Vensters (root):
-  MainWindow            zoeken, filters, bewaarde zoekopdrachten
+  MainWindow*.cs        zoeken, filters, bewaarde zoekopdrachten (partial: Tabs, Filters,
+                        Tabbladen, Zoekopdrachten, Menu, Zoeken)
   AddSiteWindow         nieuwe site toevoegen met AI-analyse en testen
   SettingsWindow        tabs met een bewerkbare kaart per site
   SearchSettingsWindow  alles van één zoekopdracht
