@@ -60,6 +60,26 @@ nieuw scherm en zonder nieuwe knop. Hier is het er wel een, dus geen 0.9.3. Uitg
 dezelfde dag als `v0.10.0`, met de zip erbij (117 MB, 601 bestanden), en anoniem nagegaan dat die
 te downloaden is: HTTP 206 en de eerste twee bytes zijn `PK`.
 
+**0.10.1** sinds 1 oktober 2026. Een derde cijfer, want er komt niets bij dat je ziet: het zijn
+rechtzettingen uit een codeanalyse die een collega liet maken van de openbare code (zie "Codeanalyse
+van 30 september 2026" in `docs/volgende-stappen.md`). Wat je er wél van merkt:
+
+- een prijs met een **harde spatie** ("1 499 €", zoals Franse en Spaanse sites ze schrijven) werd
+  `null`, en zo'n zoekertje glipte door je prijsgrens heen en viel uit de prijsindicatie;
+- de **afteltimer** van een veiling zat een uur fout rond de overgang naar de wintertijd - en dat
+  is zondag 25 oktober;
+- de **stopknop** kon een trage browserpagina tot 45 seconden niet onderbreken;
+- **stoppen tijdens een brugsite** telde als een fout van die site, met een waarschuwingsteken op
+  haar tab voor iets wat je zelf deed;
+- de **brug** zag de Chrome van Playwright soms voor die van jou aan, wachtte dertig seconden op
+  een extensie die er niet was, en sloeg dan alle brugsites over;
+- en een gedeeld **sitebestand** wordt nu nagekeken voor het binnenkomt.
+
+Het nummer is opgehoogd **voor** het publiceren, en met opzet: wat er in `C:\Zentrix` staat moet
+zeggen wat het is. Bleef het op 0.10.0, dan stond er in het logboek "Zentrix 0.10.0 gestart" bij
+iets anders dan de release met dat nummer, en dat is precies de les van 0.9.2 hierboven. Er hoort
+dus nog een release `v0.10.1` bij, of het nummer gaat later opnieuw omhoog.
+
 Het is op twee plaatsen zichtbaar, en allebei om dezelfde reden - **er draaien twee exe's op
 deze pc**, een uit Visual Studio en een gepubliceerde (bij mij `C:\Zentrix`), met
 dezelfde gegevensmap:
