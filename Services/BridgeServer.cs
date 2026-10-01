@@ -24,6 +24,63 @@ public class BridgeServer
     /// </summary>
     public const string ExtensionHeader = "X-Zentrix-Brug";
 
+    /// <summary>
+    /// De handtekening over een verzoek of een antwoord: HMAC-SHA256 met de koppelcode.
+    ///
+    /// Hiermee gaat de code zélf nooit meer over de lijn. Dat was het lek: de extensie stuurde
+    /// hem als <c>?token=</c> naar wie poort 8731 ook maar vasthield, dus een programma dat die
+    /// poort eerst bezet kende hem - en kon jouw aangemelde browser pagina's laten ophalen, met
+    /// jouw cookies. Nu bewijst elke kant enkel dát hij de code kent.
+    /// </summary>
+    public const string SignatureHeader = "X-Zentrix-Sig";
+
+    /// <summary>
+    /// De handtekening over <b>enkel de nonce</b>, die dus al na te kijken is met de kopregels
+    /// in de hand - voor er één byte van de body gelezen is.
+    ///
+    /// Dat klinkt dubbelop naast <see cref="SignatureHeader"/>, en dat is het niet. De brug kon
+    /// de koppelcode vroeger nakijken voor ze een body las, omdat die in het adres stond: wie de
+    /// code niet kende, kreeg nooit een body gelezen, hoe groot die ook zei te zijn. Een
+    /// handtekening óver de body kan dat per definitie niet, dus zonder deze tweede kopregel zou
+    /// die rem er stilletjes uit zijn.
+    /// </summary>
+    public const string PreHeader = "X-Zentrix-Voor";
+
+    /// <summary>Het wegwerpgetal dat per verzoek meegaat. Geen geheim: het mag in het adres.</summary>
+    public const string NonceParam = "n";
+
+    /// <summary>
+    /// HMAC-SHA256 van <paramref name="data"/> met de koppelcode, in kleine letters hexadecimaal.
+    /// De extensie doet precies hetzelfde met WebCrypto; zie <c>teken()</c> in background.js.
+    /// </summary>
+    internal static string Teken(string code, string data)
+    {
+        using var hmac = new System.Security.Cryptography.HMACSHA256(Encoding.UTF8.GetBytes(code));
+        return Convert.ToHexStringLower(hmac.ComputeHash(Encoding.UTF8.GetBytes(data)));
+    }
+
+    /// <summary>
+    /// Klopt de handtekening? Vergelijken gebeurt in vaste tijd, zodat er niets uit de duur van
+    /// de vergelijking af te leiden valt.
+    /// </summary>
+    private bool Klopt(string nonce, string handtekening, string inhoud)
+    {
+        if (nonce.Length == 0 || handtekening.Length == 0) return false;
+
+        return System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(handtekening),
+            Encoding.UTF8.GetBytes(Teken(Token, nonce + "\n" + inhoud)));
+    }
+
+    /// <summary>
+    /// Meldde er zich recent een extensie die nog de oude manier gebruikt (de code in het
+    /// adres)? Dan hoort de app te zeggen dat ze herladen moet worden, en niet "verkeerde code".
+    /// </summary>
+    public bool OudeExtensieRecent => DateTime.Now - _laatsteOude < TimeSpan.FromSeconds(10);
+
+    private DateTime _laatsteOude = DateTime.MinValue;
+    private DateTime _oudeGelogd = DateTime.MinValue;
+
     private static readonly Lazy<BridgeServer> Shared = new(() => new BridgeServer());
     public static BridgeServer Instance => Shared.Value;
 
@@ -315,6 +372,8 @@ public class BridgeServer
                 var contentLength = 0L;
                 string? origin = null;
                 var vanExtensie = false;
+                var handtekening = "";
+                var voorcontrole = "";
 
                 foreach (var line in lines.Skip(1))
                 {
@@ -324,13 +383,22 @@ public class BridgeServer
                         origin = line[7..].Trim();
                     else if (line.StartsWith(ExtensionHeader + ":", StringComparison.OrdinalIgnoreCase))
                         vanExtensie = true;
+                    else if (line.StartsWith(SignatureHeader + ":", StringComparison.OrdinalIgnoreCase))
+                        handtekening = line[(SignatureHeader.Length + 1)..].Trim();
+                    else if (line.StartsWith(PreHeader + ":", StringComparison.OrdinalIgnoreCase))
+                        voorcontrole = line[(PreHeader.Length + 1)..].Trim();
                 }
 
-                // De koppelcode staat in het adres, dus die kan nagekeken worden voor er iets van
-                // de body gelezen wordt. Wie de code niet kent - elke webpagina - krijgt zo nooit
-                // een body gelezen, hoe groot die ook zegt te zijn. Handle weigert zo'n verzoek
-                // daarna zoals altijd, met de boekhouding van een verkeerde code.
-                var codeKlopt = GetParam(QueryVan(path), "token") == Token;
+                var nonce = GetParam(QueryVan(path), NonceParam);
+
+                // Wie de koppelcode niet kent, krijgt nooit een body gelezen - hoe groot die ook
+                // zegt te zijn. Dat kon vroeger omdat de code in het adres stond; nu kan het met
+                // de voorcontrole, die enkel over de nonce gaat en dus al klaar is voor er één
+                // byte van de body binnen is. De handtekening over de body zelf komt daarna.
+                var codeKlopt = vanExtensie && nonce.Length > 0 &&
+                                System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+                                    Encoding.UTF8.GetBytes(voorcontrole),
+                                    Encoding.UTF8.GetBytes(Teken(Token, nonce)));
 
                 if (codeKlopt && contentLength > MaxBodyBytes)
                 {
@@ -362,8 +430,13 @@ public class BridgeServer
                     body = bodyBytes.GetBuffer().AsMemory(0, (int)bodyBytes.Length);
                 }
 
-                var response = Handle(method, path, body, vanExtensie);
-                await WriteAsync(stream, response, origin);
+                var response = Handle(method, path, body, vanExtensie, nonce, handtekening);
+
+                // Het antwoord wordt óók getekend. Zo weet de extensie dat zij met de échte app
+                // praat en niet met een programma dat de poort eerst bezette - dat is de helft
+                // die haar beschermt, want zij voert uit wat hieruit komt.
+                await WriteAsync(stream, response, origin,
+                    handtekening: nonce.Length > 0 ? Teken(Token, nonce + "\n" + response) : null);
             }
             catch (OperationCanceledException) when (tijd.IsCancellationRequested)
             {
@@ -392,15 +465,31 @@ public class BridgeServer
     }
 
     /// <param name="vanExtensie">Droeg het verzoek de kopregel <see cref="ExtensionHeader"/>?</param>
-    private string Handle(string method, string path, ReadOnlyMemory<byte> body, bool vanExtensie)
+    private string Handle(string method, string path, ReadOnlyMemory<byte> body, bool vanExtensie,
+                          string nonce, string handtekening)
     {
         // De extensie stuurt eerst een controlevraag; die moet zonder inhoud slagen.
         if (method == "OPTIONS") return "";
 
         var route = path.Split('?')[0];
 
-        var token = GetParam(QueryVan(path), "token");
-        if (token != Token)
+        // Een extensie van voor 1 oktober 2026 stuurt de code nog in het adres. Die werkt niet
+        // meer, en dat hoort de app te zeggen - "verkeerde koppelcode" zou je naar het verkeerde
+        // scherm sturen, want aan de code zelf is niets mis.
+        if (vanExtensie && handtekening.Length == 0 && GetParam(QueryVan(path), "token").Length > 0)
+        {
+            _laatsteOude = DateTime.Now;
+
+            if (DateTime.Now - _oudeGelogd > TimeSpan.FromMinutes(1))
+            {
+                _oudeGelogd = DateTime.Now;
+                Log.Write("brug: een oude versie van de extensie meldt zich - herlaad ze in chrome://extensions");
+            }
+
+            return JsonSerializer.Serialize(new { error = "verouderde extensie" });
+        }
+
+        if (!Klopt(nonce, handtekening, Encoding.UTF8.GetString(body.Span)))
         {
             // Onthouden, zodat de app "verkeerde code" kan zeggen in plaats van "geen
             // contact". De extensie zelf leest dit antwoord ook: zie background.js.
@@ -569,13 +658,15 @@ public class BridgeServer
     /// Een verkeerde koppelcode krijgt gewoon 200, met de fout in de JSON: zo leest de
     /// extensie die. Enkel een verzoek dat te groot is, krijgt een foutcode van HTTP.
     /// </summary>
-    private static async Task WriteAsync(NetworkStream stream, string json, string? origin, string status = "200 OK")
+    private static async Task WriteAsync(NetworkStream stream, string json, string? origin,
+                                        string status = "200 OK", string? handtekening = null)
     {
         var payload = Encoding.UTF8.GetBytes(json);
 
         var cors = origin is not null && origin.StartsWith("chrome-extension://", StringComparison.OrdinalIgnoreCase)
             ? $"Access-Control-Allow-Origin: {origin}\r\n" +
-              $"Access-Control-Allow-Headers: Content-Type, {ExtensionHeader}\r\n" +
+              $"Access-Control-Allow-Headers: Content-Type, {ExtensionHeader}, {SignatureHeader}, {PreHeader}\r\n" +
+              $"Access-Control-Expose-Headers: {SignatureHeader}\r\n" +
               "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" +
               "Access-Control-Max-Age: 600\r\n" +
               "Vary: Origin\r\n"
@@ -585,6 +676,7 @@ public class BridgeServer
             $"HTTP/1.1 {status}\r\n" +
             "Content-Type: application/json; charset=utf-8\r\n" +
             $"Content-Length: {payload.Length}\r\n" +
+            (handtekening is null ? "" : $"{SignatureHeader}: {handtekening}\r\n") +
             cors +
             "Connection: close\r\n\r\n";
 

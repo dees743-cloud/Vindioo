@@ -19,6 +19,37 @@ public static class BrugChecks
 {
     public static async Task RunAsync()
     {
+        // ---------------------------------------------------------------------------
+        Check.Groep("Brug: app en extensie tekenen hetzelfde");
+        {
+            // Sinds 1 oktober 2026 gaat de koppelcode niet meer over de lijn; allebei de kanten
+            // bewijzen enkel dát ze hem kennen. Dan moeten die twee implementaties wél precies
+            // hetzelfde opleveren, en die staan in verschillende talen: HMACSHA256 in C# en
+            // crypto.subtle in de extensie.
+            //
+            // De waarden hieronder zijn met Node uitgerekend (crypto.createHmac), dus dit meet
+            // C# tegen een ONAFHANKELIJKE implementatie en niet tegen zichzelf.
+            Check.Dat(BridgeServer.Teken("koppelcode-proef", "abc123\nhallo")
+                      == "3a62f4d07ded1eb949895250011b5fef46fc0d4ebfe794457bca7a15cf3c98cd",
+                "dezelfde handtekening als JavaScript, met inhoud");
+
+            Check.Dat(BridgeServer.Teken("koppelcode-proef", "abc123\n")
+                      == "d3d709fa19efed9eb4a63b5b4758370eaa01b64dc6d99ee5766791f465f617dd",
+                "en met een lege body (zoals bij /job en /ping)");
+
+            // Een andere code geeft een andere handtekening - anders bewijst ze niets.
+            Check.Dat(BridgeServer.Teken("andere-code", "abc123\nhallo")
+                      != BridgeServer.Teken("koppelcode-proef", "abc123\nhallo"),
+                "een andere koppelcode geeft een andere handtekening");
+
+            // En een andere nonce ook, anders is een opgevangen handtekening eindeloos te
+            // hergebruiken.
+            Check.Dat(BridgeServer.Teken("koppelcode-proef", "xyz789\nhallo")
+                      != BridgeServer.Teken("koppelcode-proef", "abc123\nhallo"),
+                "een andere nonce ook");
+        }
+
+        // ---------------------------------------------------------------------------
         Check.Groep("Brug: enkel de extensie kan een verkeerde koppelcode melden");
 
         if (!PoortVrij())
@@ -83,10 +114,12 @@ public static class BrugChecks
                   voorvraagExt.Contains(BridgeServer.ExtensionHeader),
             "voorvraag van de extensie: toegestaan");
 
-        var fout = await StuurAsync("GET", "/job?token=verzonnen", BridgeServer.ExtensionHeader + ": 1");
+        var n1 = Guid.NewGuid().ToString("N");
+        var fout = await StuurAsync("GET", $"/job?{BridgeServer.NonceParam}={n1}", Getekend("verzonnen", n1));
         Check.Dat(brug.WrongCodeRecently && fout.Contains("verkeerde koppelcode"), "extensie met een verkeerde code: gemeld");
 
-        var ping = await StuurAsync("GET", "/ping?token=" + brug.Token, BridgeServer.ExtensionHeader + ": 1");
+        var n2 = Guid.NewGuid().ToString("N");
+        var ping = await StuurAsync("GET", $"/ping?{BridgeServer.NonceParam}={n2}", Getekend(brug.Token, n2));
         Check.Dat(ping.Contains("\"ok\":true") && brug.ExtensionAlive, "extensie met de juiste code: /ping klopt");
 
         // ---------------------------------------------------------------------------
@@ -94,12 +127,30 @@ public static class BrugChecks
         {
             // Telkens enkel de kop, zonder de aangekondigde body. De oude brug reserveerde dan
             // die maat en bleef op de body wachten, en deze verzoeken liepen af zonder antwoord.
-            var groot = await RauwAsync($"POST /result?token={brug.Token} HTTP/1.1\r\nContent-Length: 1500000000\r\n\r\n");
+            // Met een geldige voorcontrole: die kan de brug nakijken voor ze een byte van de body
+            // leest, dus de 413 komt meteen. Dat is precies waarvoor die tweede handtekening er is.
+            string Voor(string nonce) =>
+                $"{BridgeServer.ExtensionHeader}: 1\r\n" +
+                $"{BridgeServer.PreHeader}: {BridgeServer.Teken(brug.Token, nonce)}\r\n";
+
+            var nG = Guid.NewGuid().ToString("N");
+            var groot = await RauwAsync($"POST /result?{BridgeServer.NonceParam}={nG} HTTP/1.1\r\n" +
+                                        Voor(nG) + "Content-Length: 1500000000\r\n\r\n");
             Check.Dat(groot.Antwoord.StartsWith("HTTP/1.1 413"),
                 $"juiste code, 1,5 GB aangekondigd: meteen geweigerd ({Eerste(groot.Antwoord)})");
 
-            var ruim = await RauwAsync($"POST /result?token={brug.Token} HTTP/1.1\r\nContent-Length: 99999999999\r\n\r\n");
+            var nR = Guid.NewGuid().ToString("N");
+            var ruim = await RauwAsync($"POST /result?{BridgeServer.NonceParam}={nR} HTTP/1.1\r\n" +
+                                       Voor(nR) + "Content-Length: 99999999999\r\n\r\n");
             Check.Dat(ruim.Antwoord.StartsWith("HTTP/1.1 413"), "een maat voorbij de 2 GB: ook geweigerd, niet als 0 gelezen");
+
+            // En zonder de code: dan wordt die body sowieso niet gelezen, dus geen 413 maar een
+            // gewone weigering. Het punt is dat er niets gereserveerd wordt.
+            var nZ = Guid.NewGuid().ToString("N");
+            var zonder = await RauwAsync($"POST /result?{BridgeServer.NonceParam}={nZ} HTTP/1.1\r\n" +
+                                         $"{BridgeServer.ExtensionHeader}: 1\r\nContent-Length: 1500000000\r\n\r\n");
+            Check.Dat(zonder.Antwoord.Contains("verkeerde koppelcode"),
+                $"zonder de code wordt die body niet eens gelezen ({Eerste(zonder.Antwoord)})");
 
             var vreemd = await RauwAsync("POST /result?token=verzonnen HTTP/1.1\r\nContent-Length: 50000000\r\n\r\n");
             Check.Dat(vreemd.Antwoord.Contains("verkeerde koppelcode"),
@@ -137,12 +188,16 @@ public static class BrugChecks
                     }
 
                     await Task.Delay(300);
-                    var teVeel = await RauwAsync($"GET /ping?token={brug.Token} HTTP/1.1\r\n\r\n");
+                    var nV = Guid.NewGuid().ToString("N");
+                    var teVeel = await RauwAsync($"GET /ping?{BridgeServer.NonceParam}={nV} HTTP/1.1\r\n" +
+                                                 string.Join("\r\n", Getekend(brug.Token, nV)) + "\r\n\r\n");
                     Check.Dat(teVeel.Gesloten && teVeel.Antwoord.Length == 0,
                         $"de plaatsen vol ({BridgeServer.MaxConnections}): een volgende wordt meteen gesloten");
 
                     await Task.Delay(2500);
-                    var weer = await RauwAsync($"GET /ping?token={brug.Token} HTTP/1.1\r\n\r\n");
+                    var nW = Guid.NewGuid().ToString("N");
+                    var weer = await RauwAsync($"GET /ping?{BridgeServer.NonceParam}={nW} HTTP/1.1\r\n" +
+                                               string.Join("\r\n", Getekend(brug.Token, nW)) + "\r\n\r\n");
                     Check.Dat(weer.Antwoord.Contains("\"ok\":true"), "na hun wachttijd is er weer plaats");
                 }
                 finally
@@ -157,6 +212,87 @@ public static class BrugChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("Brug: de koppelcode gaat niet meer over de lijn");
+        {
+            var nonce = Guid.NewGuid().ToString("N");
+
+            string Teken(string code, string inhoud) => BridgeServer.Teken(code, nonce + "\n" + inhoud);
+
+            // Zonder handtekening komt er geen opdracht uit, hoe goed het verzoek er ook uitziet.
+            var zonder = await StuurAsync("GET", $"/job?{BridgeServer.NonceParam}={nonce}",
+                $"{BridgeServer.ExtensionHeader}: 1");
+
+            Check.Dat(zonder.Contains("verkeerde koppelcode"),
+                "zonder handtekening: geweigerd");
+
+            // En met een handtekening van een ANDERE code ook niet. Dit is het geval dat ertoe
+            // doet: een programma dat poort 8731 eerst bezet kende vroeger de code uit het adres,
+            // en kon daarmee de extensie pagina's laten ophalen met jouw cookies. Nu komt die
+            // code nergens meer, dus valt er niets af te kijken.
+            var verkeerd = await StuurAsync("GET", $"/job?{BridgeServer.NonceParam}={nonce}",
+                $"{BridgeServer.ExtensionHeader}: 1",
+                $"{BridgeServer.SignatureHeader}: {Teken("een-andere-code", "")}");
+
+            Check.Dat(verkeerd.Contains("verkeerde koppelcode"),
+                "met de handtekening van een andere code: geweigerd");
+
+            // Met de juiste wél.
+            var goed = await StuurAsync("GET", $"/ping?{BridgeServer.NonceParam}={nonce}",
+                $"{BridgeServer.ExtensionHeader}: 1",
+                $"{BridgeServer.SignatureHeader}: {Teken(brug.Token, "")}");
+
+            Check.Dat(goed.Contains("\"ok\":true"), "met de juiste handtekening: binnen");
+
+            // En het ANTWOORD is ook getekend. Dat is de helft die de extensie beschermt: zij
+            // voert uit wat eruit komt, dus zij moet weten dat ze met de echte app praat.
+            var kop = goed.Split("\r\n\r\n")[0];
+            var lijf = goed.Split("\r\n\r\n").Length > 1 ? goed.Split("\r\n\r\n")[1] : "";
+
+            var meegestuurd = kop.Split("\r\n")
+                .FirstOrDefault(r => r.StartsWith(BridgeServer.SignatureHeader + ":",
+                                                  StringComparison.OrdinalIgnoreCase))
+                ?.Split(':', 2)[1].Trim() ?? "";
+
+            Check.Dat(meegestuurd == Teken(brug.Token, lijf),
+                "het antwoord van de app is getekend met de koppelcode");
+
+            Check.Dat(meegestuurd != Teken("een-andere-code", lijf),
+                "en met een andere code zou die handtekening niet kloppen");
+
+            // Een extensie van voor deze wijziging stuurt de code nog in het adres. Die werkt
+            // niet meer - en de app hoort dat te zeggen, want aan de code zelf is niets mis.
+            var oud = await StuurAsync("GET", $"/job?token={brug.Token}",
+                $"{BridgeServer.ExtensionHeader}: 1");
+
+            Check.Dat(oud.Contains("verouderde extensie"),
+                "een oude extensie krijgt te horen dat ze verouderd is");
+
+            Check.Dat(brug.OudeExtensieRecent, "en de app onthoudt dat");
+
+            // En de melding wijst dan naar chrome://extensions in plaats van naar de koppelcode -
+            // aan de code zelf is immers niets mis.
+            Check.Dat(ChromeLauncher.Describe(BridgeStatus.OldExtension).Contains("chrome://extensions") &&
+                      ChromeLauncher.Describe(BridgeStatus.OldExtension).Contains("Herlaad"),
+                "de melding stuurt je naar het juiste scherm");
+
+            // EnsureBridgeAsync zegt hier Ready, en dat is juist: er meldde zich net ook een
+            // werkende extensie (de geldige /ping hierboven). Een brug die wérkt weegt zwaarder
+            // dan een oude die ook aanklopte; de melding over herladen is voor het geval er
+            // niets werkends is.
+            var status = await ChromeLauncher.EnsureBridgeAsync(TimeSpan.FromSeconds(2));
+            Check.Dat(status == BridgeStatus.Ready,
+                $"een werkende extensie weegt zwaarder dan een oude die ook aanklopte ({status})");
+
+            // En een webpagina die het hele verhaal nabootst - code én nonce - komt er nog
+            // steeds niet in: zij kan de handtekening niet maken, want ze kent de code niet.
+            var webpagina = await StuurAsync("GET", $"/job?{BridgeServer.NonceParam}={nonce}",
+                "Origin: https://kwaadaardig.be",
+                $"{BridgeServer.SignatureHeader}: {Teken("geraden", "")}");
+
+            Check.Dat(webpagina.Contains("verkeerde koppelcode") && !webpagina.Contains("\"url\""),
+                "een webpagina met een verzonnen handtekening krijgt geen opdracht");
+        }
+
         Check.Groep("Brug: stoppen is geen time-out");
         {
             using var stop = new CancellationTokenSource();
@@ -285,6 +421,17 @@ public static class BrugChecks
         string Tekst() => Encoding.UTF8.GetString(ontvangen.ToArray());
     }
 
+    /// <summary>
+    /// De kopregels die een verzoek sinds 1 oktober 2026 nodig heeft: de kopregel van de
+    /// extensie, de handtekening over nonce + body, en de voorcontrole over enkel de nonce.
+    /// </summary>
+    private static string[] Getekend(string code, string nonce, string body = "") => new[]
+    {
+        BridgeServer.ExtensionHeader + ": 1",
+        $"{BridgeServer.SignatureHeader}: {BridgeServer.Teken(code, nonce + "\n" + body)}",
+        $"{BridgeServer.PreHeader}: {BridgeServer.Teken(code, nonce)}"
+    };
+
     /// <summary>De eerste regel van een antwoord, of "geen antwoord".</summary>
     private static string Eerste(string antwoord) =>
         antwoord.Length == 0 ? "geen antwoord" : antwoord.Split("\r\n")[0];
@@ -366,13 +513,43 @@ public sealed class NepExtensie : IDisposable
         }
     }
 
-    private async Task<(string Id, string Url, bool Stream)?> VraagAsync()
+    /// <summary>
+    /// Een getekend verzoek, zoals de echte extensie het sinds 1 oktober 2026 stuurt: de
+    /// koppelcode gaat niet mee, enkel een bewijs dat we hem kennen. En het antwoord van de app
+    /// wordt óók nagekeken - dat is de helft die de extensie beschermt.
+    /// </summary>
+    private async Task<string> VraagAppAsync(string pad, object? inhoud = null)
     {
-        using var verzoek = new HttpRequestMessage(HttpMethod.Get, $"http://127.0.0.1:{BridgeServer.Port}/job?token={_token}");
+        var nonce = Guid.NewGuid().ToString("N");
+        var body = inhoud is null ? "" : JsonSerializer.Serialize(inhoud);
+
+        using var verzoek = new HttpRequestMessage(
+            inhoud is null ? HttpMethod.Get : HttpMethod.Post,
+            $"http://127.0.0.1:{BridgeServer.Port}{pad}?{BridgeServer.NonceParam}={nonce}");
+
         verzoek.Headers.Add(BridgeServer.ExtensionHeader, "1");
+        verzoek.Headers.Add(BridgeServer.SignatureHeader, BridgeServer.Teken(_token, nonce + "\n" + body));
+        verzoek.Headers.Add(BridgeServer.PreHeader, BridgeServer.Teken(_token, nonce));
+
+        if (inhoud is not null)
+            verzoek.Content = new StringContent(body, Encoding.UTF8, "application/json");
 
         using var antwoord = await Http.SendAsync(verzoek, _stop.Token);
-        using var doc = JsonDocument.Parse(await antwoord.Content.ReadAsStringAsync(_stop.Token));
+        var tekst = await antwoord.Content.ReadAsStringAsync(_stop.Token);
+
+        var getekend = antwoord.Headers.TryGetValues(BridgeServer.SignatureHeader, out var waarden)
+                       ? waarden.FirstOrDefault()
+                       : null;
+
+        if (getekend != BridgeServer.Teken(_token, nonce + "\n" + tekst))
+            throw new InvalidOperationException("het antwoord is niet van de app getekend");
+
+        return tekst;
+    }
+
+    private async Task<(string Id, string Url, bool Stream)?> VraagAsync()
+    {
+        using var doc = JsonDocument.Parse(await VraagAppAsync("/job"));
 
         if (!doc.RootElement.TryGetProperty("url", out var url)) return null;
 
@@ -393,16 +570,7 @@ public sealed class NepExtensie : IDisposable
         await StuurAsync(new { id = opdracht.Id, html });
     }
 
-    private async Task StuurAsync(object inhoud)
-    {
-        using var verzoek = new HttpRequestMessage(HttpMethod.Post, $"http://127.0.0.1:{BridgeServer.Port}/result?token={_token}")
-        {
-            Content = new StringContent(JsonSerializer.Serialize(inhoud), Encoding.UTF8, "application/json")
-        };
-        verzoek.Headers.Add(BridgeServer.ExtensionHeader, "1");
-
-        using var _ = await Http.SendAsync(verzoek, _stop.Token);
-    }
+    private async Task StuurAsync(object inhoud) => await VraagAppAsync("/result", inhoud);
 
     public void Dispose() => _stop.Cancel();
 }

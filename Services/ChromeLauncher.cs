@@ -130,7 +130,9 @@ public static class ChromeLauncher
         // De extensie vraagt elke 250 ms om werk; meldt ze zich, dan is alles klaar.
         if (bridge.ExtensionAlive) return BridgeStatus.Ready;
 
-        // Meldt ze zich wel, maar met een andere code, dan heeft wachten geen zin.
+        // Meldt ze zich wel, maar met een andere code of op de oude manier, dan heeft wachten
+        // geen zin - en het verschil bepaalt waar de gebruiker naartoe moet.
+        if (bridge.OudeExtensieRecent) return BridgeStatus.OldExtension;
         if (bridge.WrongCodeRecently) return BridgeStatus.WrongCode;
 
         if (IsRunning)
@@ -148,6 +150,12 @@ public static class ChromeLauncher
         while (DateTime.Now < until)
         {
             if (bridge.ExtensionAlive) return BridgeStatus.Ready;
+
+            if (bridge.OudeExtensieRecent)
+            {
+                Log.Write("brug: de extensie is een oudere versie en moet herladen worden");
+                return BridgeStatus.OldExtension;
+            }
 
             if (bridge.WrongCodeRecently)
             {
@@ -168,6 +176,9 @@ public static class ChromeLauncher
         BridgeStatus.WrongCode =>
             "de Zentrix Brug in Chrome gebruikt een andere koppelcode. Kies tandwiel > Koppelcode " +
             "en plak de code opnieuw in de extensie.",
+        BridgeStatus.OldExtension =>
+            "de Zentrix Brug in Chrome is een oudere versie. Herlaad ze: chrome://extensions, en " +
+            "klik op het pijltje bij 'Zentrix Brug'. Met de koppelcode is niets mis.",
         // Heeft de extensie zich sinds de start nooit gemeld, dan is ze misschien niet
         // geïnstalleerd, en nergens in de app stond hoe dat moet.
         BridgeStatus.NoExtension when !BridgeServer.Instance.ExtensionConnected =>
@@ -193,6 +204,13 @@ public enum BridgeStatus
 
     /// <summary>De extensie meldt zich, maar met een andere koppelcode.</summary>
     WrongCode,
+
+    /// <summary>
+    /// De extensie meldt zich nog op de oude manier (de koppelcode in het adres). Sinds
+    /// 1 oktober 2026 tekent de app elk antwoord; een extensie van voor die datum werkt niet
+    /// meer en moet herladen worden.
+    /// </summary>
+    OldExtension,
 
     /// <summary>De server van de brug kan niet starten: de poort is bezet.</summary>
     PortInUse,

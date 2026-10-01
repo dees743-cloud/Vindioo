@@ -418,8 +418,8 @@ Een sitebestand is bedoeld om door te geven. Dat is de kracht ervan - en de rede
 
 - **De `Id` bepaalde waar er geschreven werd.** Die ging ongefilterd in `Path.Combine`, en dus
   schreef `"Id": "..\\..\\..\\..\\Temp\\ontsnapt"` buiten de sitesmap. Nagemeten met
-  `Path.GetFullPath`: `C:\Users\davyb\AppData\Roaming\Zentrix\sites` werd
-  `C:\Users\davyb\Temp\ontsnapt.json`, en met een volledig pad (`C:\Windows\Temp\boos`) werd de
+  `Path.GetFullPath`: `%APPDATA%\Zentrix\sites` werd
+  `%USERPROFILE%\Temp\ontsnapt.json`, en met een volledig pad (`C:\Windows\Temp\boos`) werd de
   sitesmap zelfs helemaal genegeerd. De `Id` gaat nu door `MakeSlug` - in `Add`, en nog eens in
   `FilePathFor` waar het pad werkelijk gemaakt wordt. Bestaande sites merken er niets van: hun
   Id's zijn al slugs.

@@ -110,7 +110,7 @@ Vensters (root):
   PhotoInsightWindow    wat de AI op de foto van een zoekertje ziet
   ListingDetailWindow   alles van één zoekertje (dubbelklik)
 extension/   de brug: een Chrome-extensie die pagina's ophaalt in je eigen browser
-tools/       python-hulpmiddelen (zie docs/fouten-opsporen.md)
+tools/       hulpmiddelen om buiten de app om na te meten (zie docs/fouten-opsporen.md)
 tests/Zentrix.Checks/   controles zonder testframework
 docs/        de uitgebreide documentatie, zie onderaan
 ```

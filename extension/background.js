@@ -13,6 +13,72 @@ const APP_URL = "http://127.0.0.1:8731";
 // vragen, en die geeft de app enkel aan de extensie. Zonder deze kopregel kon een
 // webpagina met een verzonnen code de app laten denken dat de koppelcode niet klopte.
 const BRUG_KOP = { "X-Zentrix-Brug": "1" };
+
+// ---------- bewijzen dat je de koppelcode kent, zonder hem te versturen ----------
+//
+// Tot 1 oktober 2026 ging de code als "?token=..." mee naar wie poort 8731 ook maar
+// vasthield. Een ander programma dat die poort eerst bezet, kende hem daarmee - en kon
+// deze extensie pagina's laten ophalen met JOUW cookies. De code hoort dus nergens heen.
+//
+// Nu: per verzoek een nonce (een wegwerpgetal, geen geheim), en de andere kant tekent met
+// de code. Dat werkt twee kanten op:
+//   - wij tekenen wat we sturen, zodat de app weet dat het van ons komt;
+//   - de app tekent wat ze antwoordt, zodat wij weten dat we met de ECHTE app praten.
+// Dat tweede is wat deze extensie beschermt: zij voert uit wat daaruit komt.
+const SIG_KOP = "X-Zentrix-Sig";
+const VOOR_KOP = "X-Zentrix-Voor";
+
+async function teken(code, data) {
+  const enc = new TextEncoder();
+
+  const sleutel = await crypto.subtle.importKey(
+    "raw", enc.encode(code), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+
+  const ruw = await crypto.subtle.sign("HMAC", sleutel, enc.encode(data));
+
+  return [...new Uint8Array(ruw)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function nonce() {
+  return crypto.randomUUID().replace(/-/g, "");
+}
+
+/// Een verzoek aan de app, getekend. Geeft het antwoord terug, of null wanneer de
+/// handtekening van de app niet klopt - dan praten we niet met Zentrix.
+async function vraagApp(code, pad, body = null) {
+  const n = nonce();
+  const inhoud = body === null ? "" : JSON.stringify(body);
+
+  // Twee handtekeningen, en dat is geen dubbelop: de tweede gaat enkel over de nonce, zodat de
+  // app de code kan nakijken VOOR ze een body leest. Zonder dat zou een programma dat de poort
+  // bezet houdt haar een reusachtige body kunnen laten inlezen.
+  const kop = {
+    ...BRUG_KOP,
+    [SIG_KOP]: await teken(code, n + "\n" + inhoud),
+    [VOOR_KOP]: await teken(code, n)
+  };
+  if (body !== null) kop["Content-Type"] = "application/json";
+
+  const antwoord = await fetch(`${APP_URL}${pad}?n=${n}`, {
+    method: body === null ? "GET" : "POST",
+    headers: kop,
+    body: body === null ? undefined : inhoud
+  });
+
+  const tekst = await antwoord.text();
+
+  // En nu de andere kant: heeft de app dit getekend? Zo niet, dan zit er iets anders op
+  // die poort, en voeren we er zeker niets van uit.
+  if (antwoord.headers.get(SIG_KOP) !== await teken(code, n + "\n" + tekst)) {
+    return { nietDeApp: true };
+  }
+
+  try {
+    return JSON.parse(tekst);
+  } catch {
+    return { nietDeApp: true };
+  }
+}
 const POLL_MS = 250;           // hoe vaak we om werk vragen
 const LOAD_TIMEOUT_MS = 45000; // hoe lang we op een pagina wachten
 const SNAPSHOT_MS = 750;       // hoe vaak we tussentijds een momentopname sturen
@@ -83,7 +149,7 @@ function waaromNiet(adres) {
   return null;
 }
 
-console.log("[brug] versie 7 geladen — weigert zelf een opdracht naar een ander schema dan https of naar een privé-adres");
+console.log("[brug] versie 8 geladen — de koppelcode gaat niet meer over de lijn; app en extensie tekenen met HMAC");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -119,10 +185,13 @@ async function loop() {
     }
 
     try {
-      const response = await fetch(`${APP_URL}/job?token=${encodeURIComponent(token)}`, { headers: BRUG_KOP });
-      const job = await response.json();
+      const job = await vraagApp(token, "/job");
 
-      if (job && job.error) {
+      if (job && job.nietDeApp) {
+        // Er zit iets op poort 8731 dat de koppelcode niet kent. Dat telt niet als contact,
+        // en we nemen er zeker geen opdracht van aan.
+        lastWrongCode = Date.now();
+      } else if (job && job.error) {
         // De app draait, maar weigert deze koppelcode. Dat telt NIET als contact: de
         // popup toonde dan "verbonden" terwijl de app de extensie weigerde.
         lastWrongCode = Date.now();
@@ -440,11 +509,7 @@ async function waitUntilStable(tabId, selector) {
 
 async function sendResult(token, payload) {
   try {
-    await fetch(`${APP_URL}/result?token=${encodeURIComponent(token)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...BRUG_KOP },
-      body: JSON.stringify(payload)
-    });
+    await vraagApp(token, "/result", payload);
   } catch (error) {
     // App gestopt: niets meer te doen.
   }
@@ -475,9 +540,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // aan te nemen. Zo zie je het verschil tussen "klopt", "klopt niet" en "Zentrix
   // draait niet" op het moment dat je de code plakt, en niet pas bij het zoeken.
   if (message && message.type === "check") {
-    fetch(`${APP_URL}/ping?token=${encodeURIComponent(message.token)}`, { headers: BRUG_KOP })
-      .then((response) => response.json())
-      .then((uit) => sendResponse({ result: uit && uit.ok ? "ok" : "wrong" }))
+    vraagApp(message.token, "/ping")
+      .then((uit) => sendResponse({ result: uit && uit.ok && !uit.nietDeApp ? "ok" : "wrong" }))
       .catch(() => sendResponse({ result: "noapp" }));
     return true;
   }

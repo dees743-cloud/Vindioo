@@ -219,3 +219,57 @@ staat `[brug] versie 7 geladen`.
 Nagemeten op dertien adressen, met de functie los uitgevoerd: de twee gewone zoek-URL's van
 2dehands en Marktplaats mogen, en `http://`, `192.168.1.1`, `127.0.0.1`, `10.0.0.5`, `172.20.1.1`,
 `169.254.1.1`, `router`, `nas.local`, `file:///`, `[::1]` en `onzin` worden alle elf geweigerd.
+
+## De koppelcode gaat niet meer over de lijn
+
+**Sinds 1 oktober 2026 tekenen de app en de extensie elkaars berichten** in plaats van de
+koppelcode mee te sturen (`BridgeServer.Teken`, `teken()` in `background.js`, extensie 1.9 /
+stempel 8).
+
+Het lek was dit: de extensie stuurde `?token=<koppelcode>` naar wie poort 8731 ook maar
+vasthield. Een ander programma dat die poort **eerst** bezet, kende daarmee de code - en kon van
+dan af jouw aangemelde browser pagina's laten ophalen, met jouw cookies, en het antwoord
+meelezen. Gevonden in een codeanalyse van 30 september 2026, als een van de drie punten met
+ernst "middel".
+
+Hoe het nu gaat. Per verzoek maakt de extensie een **nonce**: een wegwerpgetal, geen geheim, dus
+dat mag gewoon in het adres. Daarnaast gaan er twee kopregels mee:
+
+| kopregel | waarover | waarvoor |
+|---|---|---|
+| `X-Zentrix-Sig` | `nonce \n body` | bewijst dat dit bericht van iemand komt die de code kent, en dat de body onderweg niet veranderd is |
+| `X-Zentrix-Voor` | enkel `nonce` | hetzelfde bewijs, maar **al na te kijken met enkel de kopregels in de hand** |
+
+**En de app tekent haar antwoord óók.** Dat is de helft die de extensie beschermt: zij voert uit
+wat uit `/job` komt, dus zij moet weten dat ze met de echte Zentrix praat. Klopt de handtekening
+niet, dan gaat er geen tabblad open.
+
+**Waarom twee handtekeningen, en niet één.** De brug kon de koppelcode vroeger nakijken *voor* ze
+een body las - die stond immers in het adres - en daar hing een rem aan: "wie de code niet kent,
+krijgt nooit een body gelezen, hoe groot die ook zegt te zijn". Een handtekening óver de body kan
+dat per definitie niet. Zonder die tweede kopregel zou die rem er dus stilletjes uit zijn
+gegaan; dat kwam boven doordat een bestaande controle (1,5 GB aangekondigd → 413) ineens een 200
+gaf.
+
+**Een oude extensie werkt niet meer**, en de app zegt dat ook zo: `BridgeStatus.OldExtension`
+("de Zentrix Brug in Chrome is een oudere versie. Herlaad ze: chrome://extensions...") in plaats
+van over de koppelcode te klagen, want daar is niets mis mee. Omgekeerd geldt hetzelfde: een
+nieuwe extensie met een oude app krijgt geen geldige handtekening terug en weigert dan elke
+opdracht. **App en extensie moeten dus samen mee.**
+
+Nagemeten, allebei de kanten:
+
+- **Dat C# en JavaScript hetzelfde tekenen**, met waarden die met Node uitgerekend zijn - dus
+  tegen een onafhankelijke implementatie en niet tegen zichzelf (`BrugChecks`, en die groep
+  draait óók met Zentrix open, want ze heeft de poort niet nodig).
+- **Dat de app weigert** zonder handtekening, met die van een andere code, en bij een webpagina
+  met een verzonnen handtekening; dat haar antwoord getekend is; en dat een oud verzoek
+  "verouderde extensie" krijgt (`BrugChecks`, met de poort vrij).
+- **Dat de extensie weigert** wat niet van de app komt: `tools/meet-brug-handtekening.mjs` draait
+  de échte `vraagApp()` uit `background.js` tegen een nep-app op een vrije poort. Die zegt ook of
+  de koppelcode nog ergens in een adres of kopregel opduikt - dat doet ze niet.
+
+```bash
+node tools/meet-brug-handtekening.mjs
+```
+
