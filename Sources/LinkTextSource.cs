@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text.RegularExpressions;
 using AngleSharp.Dom;
 using AngleSharp.Html.Parser;
@@ -300,15 +300,9 @@ public class LinkTextSource : ISearchSource
         return parts.Select(p => p.Trim()).Where(p => p.Length > 0).ToList();
     }
 
-    private static decimal? ParsePrice(string text)
-    {
-        var match = Regex.Match(text, @"\d[\d.,\s]*");
-        if (!match.Success) return null;
-
-        var raw = match.Value.Replace(" ", "").Replace(".", "").Replace(',', '.');
-
-        return decimal.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var value)
-            ? value
-            : null;
-    }
+    /// <summary>
+    /// De prijs uit een tekstregel van een kaart. Dezelfde lezer als de gewone motor: deze
+    /// haalde de punt er altijd uit, en maakte zo van "12.50" een bedrag van 1250.
+    /// </summary>
+    private static decimal? ParsePrice(string text) => PriceParser.Parse(text);
 }

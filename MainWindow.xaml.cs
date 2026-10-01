@@ -2763,21 +2763,41 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
         finally
         {
-            // Wat we van het scherm overnamen hoort in de databank, ook als de beurt gestopt of
-            // niet uitgevoerd werd: je wijzigde die filters, en dat staat los van of er
-            // resultaten kwamen. Bij een gelukte beurt schreef de runner ze al weg; nog eens
-            // schrijven is één UPDATE te veel en verder onschuldig.
-            if (overgenomen.Length > 0 && _activeSearch is not null)
+            // HET SLOT MOET ALTIJD TERUG, en daarom staat het bewaren in een eigen try. Het is
+            // een semafoor van één, gedeeld met de planner en de prijsindicatie: komt
+            // Gate.Release() niet aan de beurt, dan wacht vanaf dat moment ELKE zoekopdracht
+            // voor altijd, en lijkt de app gewoon stuk tot ze herstart wordt. Er staan hier twee
+            // dingen die kunnen falen - een UPDATE op een bezette databank, en het bewaren op de
+            // achtergrond (een volle schijf) - en die mogen het slot niet meenemen.
+            try
             {
-                _history.Update(_activeSearch);
-                Log.Write($"zoeken: de gewijzigde {overgenomen} zijn bewaard in '{_activeSearch.Name}'");
-            }
+                // Wat we van het scherm overnamen hoort in de databank, ook als de beurt gestopt
+                // of niet uitgevoerd werd: je wijzigde die filters, en dat staat los van of er
+                // resultaten kwamen. Bij een gelukte beurt schreef de runner ze al weg; nog eens
+                // schrijven is één UPDATE te veel en verder onschuldig.
+                if (overgenomen.Length > 0 && _activeSearch is not null)
+                {
+                    _history.Update(_activeSearch);
+                    Log.Write($"zoeken: de gewijzigde {overgenomen} zijn bewaard in '{_activeSearch.Name}'");
+                }
 
-            // Pas het slot vrijgeven als de resultaten bewaard zijn: zo schrijft de volgende
-            // zoekopdracht nooit tegelijk. Het scherm blijft intussen gewoon reageren, en wat
-            // hierboven nog op _activeSearch werkte, liep al voor deze wachttijd.
-            await bewaren;
-            SearchRunner.Gate.Release();
+                // Pas het slot vrijgeven als de resultaten bewaard zijn: zo schrijft de volgende
+                // zoekopdracht nooit tegelijk. Het scherm blijft intussen gewoon reageren, en wat
+                // hierboven nog op _activeSearch werkte, liep al voor deze wachttijd.
+                await bewaren;
+            }
+            catch (Exception fout)
+            {
+                // Mislukt bewaren is erg genoeg, maar het is geen reden om de app te laten
+                // hangen. Het staat in het logboek en achter de statusregel, en de volgende
+                // zoekopdracht kan gewoon draaien.
+                Log.Write($"zoeken: het bewaren van '{zoekopdracht.Name}' mislukte - {fout.Message}");
+                StatusText.Text += $" (het bewaren mislukte: {FriendlyError.Describe(fout)})";
+            }
+            finally
+            {
+                SearchRunner.Gate.Release();
+            }
 
             ZoekenGedaan();
 

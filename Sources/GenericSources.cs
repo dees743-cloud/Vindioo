@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -934,23 +934,11 @@ public class GenericSource : ISearchSource
     // ---------- hulpjes ----------
 
     /// <summary>Haalt een bedrag uit tekst als "€ 1.499,00", "1499", "Bieden".</summary>
-    private static decimal? ParsePrice(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) return null;
-
-        var match = Regex.Match(text, @"\d[\d.,\s]*");
-        if (!match.Success) return null;
-
-        var raw = match.Value.Replace(" ", "");
-
-        // Nederlandse notatie: punt is duizendtal, komma is decimaal.
-        if (raw.Contains(',')) raw = raw.Replace(".", "").Replace(',', '.');
-        else if (raw.Count(c => c == '.') == 1 && raw.Split('.')[1].Length == 3) raw = raw.Replace(".", "");
-
-        return decimal.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var value)
-            ? value
-            : null;
-    }
+    /// <summary>
+    /// De prijs uit de tekst van de site. Het lezen zelf staat in <see cref="PriceParser"/>,
+    /// want de linkmotor doet precies hetzelfde en die twee waren uit elkaar gegroeid.
+    /// </summary>
+    private static decimal? ParsePrice(string text) => PriceParser.Parse(text);
 
     private string MakeAbsolute(string url)
     {
