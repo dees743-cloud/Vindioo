@@ -60,6 +60,24 @@ koppelcode-controles vallen dan weg, zoals hieronder beschreven), en 398 met Zen
   dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
   nakijken dat een webpagina die vlag niet kan zetten, vallen dan weg (397 in plaats van 399).
 
+**Ze draaien ook op GitHub, bij elke push** (`.github/workflows/controles.yml`, 1 oktober 2026).
+Een controle die enkel draait wanneer iemand eraan denkt, is geen controle - dat was het punt in
+de codeanalyse van 30 september. De workflow doet precies wat je hier zelf zou doen: de app
+bouwen in Release (de XAML-compiler vangt wat de controles niet zien) en dan
+`dotnet run --project tests/Zentrix.Checks -- --snel`. `Check.Einde` geeft exitcode 1 zodra er
+iets FOUT is, dus GitHub ziet het vanzelf.
+
+Op `windows-latest`, want het is een WPF-project en een deel van de controles leest de
+opdrachtregel van een proces uit via een Windows-API. Twee dingen zijn daar anders dan thuis, en
+allebei zijn ze goed:
+
+- **Er draait geen Zentrix en geen Chrome**, dus de brug-groep en de twee koppelcode-controles
+  draaien er juist allemaal mee - thuis vallen er dan 23 weg.
+- **De tijdzone is UTC**, en die kent geen zomertijd. De controle op de overgang naar de
+  wintertijd merkt dat zelf (ze vergelijkt de verschuiving van de twee momenten) en slaat het
+  stuk over dat een uur verschil verwacht. Schrijf een controle die van de klok afhangt dus
+  altijd zo dat ze haar eigen tijdzone nakijkt.
+
 Drie regels waar het aan vastzit:
 
 - **Het compileert de broncode zelf mee** (`Models`, `Sources`, `Services`, zonder

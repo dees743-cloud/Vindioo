@@ -1,0 +1,52 @@
+# De controles draaien bij elke push, in plaats van enkel wanneer iemand eraan denkt.
+#
+# Dat laatste was het punt: er zijn er intussen 468, ze draaien in ongeveer een minuut, en ze
+# vinden precies het soort fout dat je zelf niet ziet - een site die stil niets meer teruggeeft,
+# een prijs die null wordt, een slot dat blijft hangen. Een controle die niet draait, is geen
+# controle.
+#
+# windows-latest, want het is een WPF-project (net10.0-windows) en een deel van de controles
+# leest de opdrachtregel van een proces uit via een Windows-API.
+
+name: Controles
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:   # en met de hand, vanaf het tabblad Actions
+
+# Een nieuwe push maakt een lopende beurt overbodig.
+concurrency:
+  group: controles-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  controles:
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: De code ophalen
+        uses: actions/checkout@v4
+
+      - name: .NET 10 klaarzetten
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # De app zelf bouwen vangt wat de controles niet zien: de XAML-compiler kijkt elke
+      # Click= na in de code-behind, dus een verkeerde naam komt er niet door.
+      - name: De app bouwen
+        run: dotnet build Zentrix.csproj -c Release --nologo
+
+      # --snel slaat de ene controle over die dertig seconden op een time-out wacht.
+      # Zentrix.Checks geeft exitcode 1 zodra er iets FOUT is, dus GitHub ziet het vanzelf.
+      #
+      # Wat er op deze machine anders is dan thuis, en waarom dat geen fouten geeft:
+      #   - geen Zentrix en geen Chrome, dus de brug-groep en de koppelcode-controles draaien
+      #     hier juist allemaal mee (thuis vallen er dan 23 weg);
+      #   - de tijdzone is UTC, en die kent geen zomertijd. De controle op de overgang naar de
+      #     wintertijd merkt dat zelf en slaat het stuk over dat een uur verschil verwacht.
+      - name: De controles draaien
+        run: dotnet run --project tests/Zentrix.Checks -c Release -- --snel
