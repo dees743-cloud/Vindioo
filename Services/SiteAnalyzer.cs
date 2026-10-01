@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.IO;
 using System.Net.Http;
 using System.Text;
@@ -330,8 +330,10 @@ public class SiteAnalyzer
 
             try
             {
-                await using var browser = new BrowserFetcher();
-                viaBrowser = FromPre(await browser.GetHtmlAsync(url, null, ct));
+                // Via de pool, niet een eigen browser: er kan een zoekopdracht lopen, en
+                // twee Chrome's op dezelfde profielmap botsen.
+                using var lening = BrowserPool.Lease();
+                viaBrowser = FromPre(await BrowserPool.Get().GetHtmlAsync(url, null, ct));
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -1776,8 +1778,8 @@ public class SiteAnalyzer
                        ?? throw new InvalidOperationException("de pagina kwam niet binnen");
 
             case FetchRoute.Browser:
-                await using (var browser = new BrowserFetcher())
-                    return FromPre(await browser.GetHtmlAsync(url, null, ct));
+                using (BrowserPool.Lease())
+                    return FromPre(await BrowserPool.Get().GetHtmlAsync(url, null, ct));
 
             default:
                 var brug = await ChromeLauncher.EnsureBridgeAsync(TimeSpan.FromSeconds(30), null);

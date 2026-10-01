@@ -74,6 +74,31 @@ public class Listing : ObservableObject
     private static readonly Regex Aftelklok = new(@"\b(\d{1,2}):(\d{2}):(\d{2})\b", RegexOptions.Compiled);
 
     /// <summary>
+    /// Hoelang er nog te gaan is, gerekend op de <b>echte</b> tijdlijn en niet op de klok aan
+    /// de muur.
+    ///
+    /// Twee lokale tijdstippen van elkaar aftrekken geeft het verschil in wandklok. Dat is
+    /// bijna altijd hetzelfde als de tijd die er werkelijk tussen zit - behalve rond de
+    /// overgang van zomer- naar wintertijd. Op zondag 25 oktober 2026 gaat de klok hier een
+    /// uur terug: staat "nu" ervoor en het einde erna, dan telt dat extra uur niet mee en
+    /// toonde de timer een uur te weinig. <see cref="DateTimeOffset"/> zoekt voor elk tijdstip
+    /// apart de juiste verschuiving op, dus het verschil klopt weer - ook voor een tijdstip dat
+    /// als UTC binnenkwam (Catawiki) of zonder soort (AlleVeilingen).
+    ///
+    /// Gevonden in een codeanalyse van 30 september 2026.
+    /// </summary>
+    internal static TimeSpan Resterend(DateTime einde, DateTime nu) =>
+        new DateTimeOffset(einde) - new DateTimeOffset(nu);
+
+    /// <summary>
+    /// Een tijdstip zoveel verder, op diezelfde echte tijdlijn. De tegenhanger van
+    /// <see cref="Resterend"/>: een geschat einde wordt zo gemaakt, zodat "Nog 9d 12u" meteen
+    /// daarna ook weer als 9d 12u teruggelezen wordt - en niet als 9d 13u.
+    /// </summary>
+    internal static DateTime Verschuif(DateTime nu, TimeSpan over) =>
+        new DateTimeOffset(nu).Add(over).LocalDateTime;
+
+    /// <summary>
     /// Rekent een aftelklok zoals de veilingsites ze schrijven om naar een tijdstip:
     /// "Nog 3 dagen", "Nog 1 dag", "Nog 21 uur" (Catawiki), "Nog 9d 12u" (eBay), "Nog 45 min",
     /// en een aftelklok "01:23:45". Wat daar niet op lijkt ("Afgelopen", "Morgen"), geeft niets.
@@ -95,9 +120,9 @@ public class Listing : ObservableObject
 
         var klok = Aftelklok.Match(tekst);
         if (klok.Success)
-            return (nu + new TimeSpan(int.Parse(klok.Groups[1].Value),
-                                      int.Parse(klok.Groups[2].Value),
-                                      int.Parse(klok.Groups[3].Value)), true);
+            return (Verschuif(nu, new TimeSpan(int.Parse(klok.Groups[1].Value),
+                                              int.Parse(klok.Groups[2].Value),
+                                              int.Parse(klok.Groups[3].Value))), true);
 
         var totaal = TimeSpan.Zero;
         var gevonden = false;
@@ -121,7 +146,7 @@ public class Listing : ObservableObject
                 opMinuut = true;
         }
 
-        return gevonden ? (nu + totaal, opMinuut) : (null, false);
+        return gevonden ? (Verschuif(nu, totaal), opMinuut) : (null, false);
     }
 
     /// <summary>
@@ -166,7 +191,7 @@ public class Listing : ObservableObject
     {
         if (exactEinde is { } einde)
         {
-            var over = einde - nu;
+            var over = Resterend(einde, nu);
 
             if (over <= TimeSpan.Zero) return "Afgelopen";
             if (over.TotalDays >= 1) return $"{(int)over.TotalDays}d {over.Hours:00}u";
@@ -183,7 +208,8 @@ public class Listing : ObservableObject
 
     /// <summary>Het laatste uur: dan kleurt de timer, want dan moet je beslissen.</summary>
     public static bool IsDringend(DateTime? exactEinde, DateTime nu) =>
-        exactEinde is { } einde && einde > nu && einde - nu < TimeSpan.FromHours(1);
+        exactEinde is { } einde &&
+        Resterend(einde, nu) is { Ticks: > 0 } over && over < TimeSpan.FromHours(1);
 
     /// <summary>
     /// Hoelang het nog duurt, in dezelfde stijl als de veilingsites het zelf schrijven.
@@ -193,7 +219,7 @@ public class Listing : ObservableObject
     {
         if (einde is null) return "";
 
-        var over = einde.Value - nu;
+        var over = Resterend(einde.Value, nu);
 
         if (over <= TimeSpan.Zero) return "Afgelopen";
         if (over.TotalDays >= 2) return $"Nog {(int)over.TotalDays} dagen";

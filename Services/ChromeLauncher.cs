@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
 using Microsoft.Win32;
 
@@ -11,8 +11,49 @@ namespace Zentrix.Services;
 /// </summary>
 public static class ChromeLauncher
 {
-    /// <summary>Draait er al een Chrome?</summary>
-    public static bool IsRunning => Process.GetProcessesByName("chrome").Length > 0;
+    /// <summary>
+    /// Draait er al een Chrome <b>van de gebruiker</b>?
+    ///
+    /// Niet zomaar "er loopt een chrome.exe": de app start er zelf een met Playwright, op haar
+    /// eigen profielmap, en díe heeft de brug-extensie niet. Sinds de rijstroken start die
+    /// browserstrook tegelijk met de brug, dus dat valt geregeld samen. Telde zo'n Chrome mee,
+    /// dan dacht de app "Chrome draait al, de extensie wordt wel wakker", wachtte ze dertig
+    /// seconden op een extensie die er nooit komt, en sloeg ze alle brugsites over met "de
+    /// extensie meldde zich niet". Gevonden in een codeanalyse van 30 september 2026.
+    /// </summary>
+    public static bool IsRunning
+    {
+        get
+        {
+            var processen = Process.GetProcessesByName("chrome");
+
+            try
+            {
+                return processen.Any(p => !IsVanOnsProfiel(p));
+            }
+            finally
+            {
+                foreach (var p in processen) p.Dispose();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Een Chrome die Playwright voor ons startte, herkenbaar aan onze profielmap in zijn
+    /// opdrachtregel. Is die niet te lezen, dan telt hij gewoon mee - zoals vroeger.
+    /// </summary>
+    private static bool IsVanOnsProfiel(Process proces)
+    {
+        try
+        {
+            return BrowserFetcher.LeesOpdrachtregel(proces.Id) is { } regel &&
+                   regel.Contains(BrowserFetcher.ProfilePath, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     /// <summary>Het pad naar chrome.exe, of null wanneer Chrome niet gevonden wordt.</summary>
     public static string? FindChrome()

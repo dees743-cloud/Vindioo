@@ -228,14 +228,28 @@ public class BridgeServer
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(TimeSpan.FromSeconds(90));
 
-        await using (timeout.Token.Register(() => job.Completion.TrySetException(
-            new TimeoutException("Geen antwoord van de browserextensie. Staat Chrome open en is de extensie geïnstalleerd?"))))
+        // De token is gekoppeld aan die van de zoekopdracht, dus hij vuurt om TWEE redenen:
+        // de negentig seconden zijn om, of jij drukte op de stopknop. Dat verschil moet eruit
+        // komen. Vroeger werd het allebei een TimeoutException, en dan kreeg die site "gaf geen
+        // antwoord binnen de tijd" aan haar tab, ging haar foutteller omhoog, en telde de
+        // zoekopdracht een mislukking die er geen was.
+        await using (timeout.Token.Register(() =>
+        {
+            if (ct.IsCancellationRequested) job.Completion.TrySetCanceled(ct);
+            else job.Completion.TrySetException(new TimeoutException(
+                "Geen antwoord van de browserextensie. Staat Chrome open en is de extensie geïnstalleerd?"));
+        }))
         {
             try
             {
                 var html = await job.Completion.Task;
                 Log.Write($"brug: opdracht {job.Id[..8]} volledig binnen ({html.Length} tekens)");
                 return html;
+            }
+            catch (OperationCanceledException)
+            {
+                Log.Write($"brug: opdracht {job.Id[..8]} afgebroken (gestopt)");
+                throw;
             }
             catch (Exception ex)
             {

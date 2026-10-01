@@ -53,7 +53,7 @@ public class BrowserFetcher : IAsyncDisposable
         }
 
         // Nooit eindeloos wachten op een profiel dat nog vastzit.
-        var context = await GetContextAsync().WaitAsync(TimeSpan.FromSeconds(30));
+        var context = await GetContextAsync().WaitAsync(TimeSpan.FromSeconds(30), ct);
         Meet("chrome");
 
         var page = await context.NewPageAsync();
@@ -61,11 +61,14 @@ public class BrowserFetcher : IAsyncDisposable
 
         try
         {
+            // De token gaat mee met WaitAsync: Playwright kent zelf geen CancellationToken,
+            // dus zonder dit zat de stopknop tot 45 seconden te wachten op een trage pagina en
+            // leek de app te hangen. Het tabblad gaat hoe dan ook dicht - zie de finally.
             await page.GotoAsync(url, new PageGotoOptions
             {
                 WaitUntil = WaitUntilState.DOMContentLoaded,
                 Timeout = 45000
-            });
+            }).WaitAsync(ct);
             Meet("laden");
 
             // Wachten tot het EERSTE zoekertje er staat, niet tot het netwerk stil
@@ -83,7 +86,8 @@ public class BrowserFetcher : IAsyncDisposable
                 try
                 {
                     await page.WaitForSelectorAsync(waitSelector,
-                        new PageWaitForSelectorOptions { Timeout = vervolgpagina ? 3000 : 8000 });
+                        new PageWaitForSelectorOptions { Timeout = vervolgpagina ? 3000 : 8000 })
+                        .WaitAsync(ct);
                     gevonden = true;
                 }
                 catch (TimeoutException)
@@ -101,7 +105,7 @@ public class BrowserFetcher : IAsyncDisposable
                 try
                 {
                     await page.WaitForLoadStateAsync(LoadState.NetworkIdle,
-                        new PageWaitForLoadStateOptions { Timeout = 2500 });
+                        new PageWaitForLoadStateOptions { Timeout = 2500 }).WaitAsync(ct);
                 }
                 catch (TimeoutException)
                 {
@@ -410,13 +414,21 @@ public class BrowserFetcher : IAsyncDisposable
     /// Het slot staat enkel rond het *starten*. Tabbladen in een draaiende context mogen
     /// gerust naast elkaar.
     /// </summary>
-    private readonly SemaphoreSlim _startSlot = new(1, 1);
+    /// <remarks>
+    /// <b>Statisch</b>, en dat is de hele zaak: er zijn aanroepers die hun eigen
+    /// <c>BrowserFetcher</c> maken in plaats van die van <see cref="BrowserPool"/> te lenen -
+    /// de aanmeldknop heeft een zichtbaar venster nodig en kan de gedeelde niet gebruiken. Met
+    /// een veld per instantie beschermde dit slot enkel tegen zichzelf, en konden er alsnog
+    /// twee Chrome's tegelijk op dezelfde profielmap starten. Gevonden in een codeanalyse van
+    /// 30 september 2026.
+    /// </remarks>
+    private static readonly SemaphoreSlim StartSlot = new(1, 1);
 
     private async Task<IBrowserContext> GetContextAsync()
     {
         if (_context is not null) return _context;
 
-        await _startSlot.WaitAsync();
+        await StartSlot.WaitAsync();
 
         try
         {
@@ -424,7 +436,7 @@ public class BrowserFetcher : IAsyncDisposable
         }
         finally
         {
-            _startSlot.Release();
+            StartSlot.Release();
         }
     }
 
@@ -433,11 +445,16 @@ public class BrowserFetcher : IAsyncDisposable
         Directory.CreateDirectory(ProfilePath);
         _playwright = await Playwright.CreateAsync();
 
-        // LaunchPersistentContext gebruikt een echte profielmap op schijf,
-        // waardoor cookies en logins bewaard blijven.
-        SluitAchtergeblevenChrome();
+        // Mislukt het starten hieronder - meestal een profiel dat nog vastzit - dan bleef het
+        // node-proces van Playwright draaien, en de volgende poging maakte er weer een. Na een
+        // paar keer heb je zo een handvol zwevende processen.
+        try
+        {
+            // LaunchPersistentContext gebruikt een echte profielmap op schijf,
+            // waardoor cookies en logins bewaard blijven.
+            SluitAchtergeblevenChrome();
 
-        return await _playwright.Chromium.LaunchPersistentContextAsync(ProfilePath,
+            return await _playwright.Chromium.LaunchPersistentContextAsync(ProfilePath,
             new BrowserTypeLaunchPersistentContextOptions
             {
                 Headless = !Visible,
@@ -447,6 +464,13 @@ public class BrowserFetcher : IAsyncDisposable
                 TimezoneId = "Europe/Brussels",
                 Args = new[] { "--disable-blink-features=AutomationControlled" }
             });
+        }
+        catch
+        {
+            _playwright.Dispose();
+            _playwright = null;
+            throw;
+        }
     }
 
     /// <summary>
@@ -557,8 +581,18 @@ public class BrowserFetcher : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (_context is not null) await _context.CloseAsync();
-        _playwright?.Dispose();
-        GC.SuppressFinalize(this);
+        try
+        {
+            if (_context is not null) await _context.CloseAsync();
+        }
+        finally
+        {
+            // In een finally, om dezelfde reden: valt het sluiten van de context om, dan bleef
+            // het node-proces van Playwright achter.
+            _playwright?.Dispose();
+            _playwright = null;
+            _context = null;
+            GC.SuppressFinalize(this);
+        }
     }
 }

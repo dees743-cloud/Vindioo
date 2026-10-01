@@ -1,4 +1,4 @@
-using Zentrix.Models;
+﻿using Zentrix.Models;
 using Zentrix.Sources;
 
 namespace Zentrix.Services;
@@ -458,6 +458,16 @@ public class SearchRunner
                     if (!eerderGezien.ContainsKey(listing.Key)) outcome.New.Add(listing);
                 }
             }
+
+            // EEN HALVE BEURT IS GEEN BEURT. Drukte je op de stopknop, dan is dit niet wat de
+            // zoekopdracht opleverde maar wat er toevallig al binnen was. Hieronder wordt
+            // weggeschreven dat je dat allemaal "gezien" hebt, wordt het tijdstip verzet (en
+            // dus de volgende geplande beurt) en wordt de teller opnieuw berekend. Dat hoort
+            // niet te gebeuren: je zou zoekertjes als gezien wegzetten die je nooit zag.
+            //
+            // Wat al binnen was, blijft gewoon op het scherm staan - het hoofdscherm vangt deze
+            // annulering op en toont "Gestopt. N resultaten van de sites die wel klaar waren."
+            ct.ThrowIfCancellationRequested();
 
             if (onthouden)
             {

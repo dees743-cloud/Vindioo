@@ -153,3 +153,49 @@ Hieronder enkel wat aan de app zelf te doen valt.
    (`_scheduler.RunAsync`), en niet `RunSearchAsync`. Dat laatste loopt bij het vergrootglas, bij
    Enter, bij het sluiten van een filterpopup, en bij het openen van een zoekopdracht zonder
    bewaarde resultaten.
+
+## Codeanalyse van 30 september 2026
+
+Een collega liet de openbare code (commit `729f603`, versie 0.10.0) nalezen door een AI. Het
+oordeel was mild over de code zelf; de grootste winst zat in **CLAUDE.md**, dat 281 kB groot was
+en bij elke sessie volledig wordt ingeladen. Dat is opgelost (zie onderaan `CLAUDE.md`).
+
+Wat er verder uit kwam, en wat ermee gebeurd is:
+
+| | Punt | Stand |
+|---|---|---|
+| **Hoog** | de extensie haalt elke URL op die de app doorgeeft, met jouw cookies | **klaar** - twee sloten, zie `docs/brug.md` en `docs/sites.md` |
+| Middel-laag | de `Id` uit een sitebestand ging ongefilterd in een bestandspad | **klaar**, zie `docs/sites.md` |
+| Bug 1 | het zoekslot werd pas na het bewaren vrijgegeven, zonder eigen `finally` | **klaar** - anders wacht élke zoekopdracht daarna voor altijd |
+| Bug 2 | een harde spatie in een prijs gaf `null`; de linkmotor maakte van "12.50" 1250 | **klaar** - één `PriceParser` voor beide motoren |
+| Bug 3 | stoppen tijdens een brugsite telde als een fout van die site | **klaar** - een annulering is geen time-out meer |
+| Bug 4 | twee Chrome's konden tegelijk op hetzelfde profiel starten | **klaar** - het startslot was een veld per instantie en is nu statisch; de site-analyse leent nu uit `BrowserPool` |
+| Bug 5 | een Playwright-proces bleef achter bij een mislukte start | **klaar** - `try`/`finally` bij het starten én bij het afsluiten |
+| Bug 6 | de brug zag de Chrome van Playwright voor die van de gebruiker aan | **klaar** - processen met ons eigen profiel tellen niet mee |
+| Bug 7 | de afteltimer zat een uur fout rond de overgang naar de wintertijd | **klaar** - gerekend op de echte tijdlijn, zie hieronder |
+| Bug 8 | de stopknop wachtte een trage pagina tot 45 s af | **klaar** - de token gaat mee met `WaitAsync` |
+| Middel | een ander programma kan poort 8731 eerst bezetten en zich als de app voordoen | **open** - de opdrachten laten ondertekenen met de koppelcode (HMAC) |
+| Middel | de koppelcode staat in de URL; elke `chrome-extension://`-herkomst wordt aanvaard | **open** - code in een kopregel, het extensie-ID vastpinnen, de Host-kopregel nakijken |
+| Middel | een pagina die geanalyseerd wordt kan via verborgen tekst `baseUrl` elders laten wijzen | **open** - dezelfde hostcontrole als op `searchUrlTemplate` |
+| Middel | de Anthropic-sleutel staat leesbaar in de omgevingsvariabelen van Windows | **open** - met DPAPI bewaren, zoals het mailwachtwoord |
+| Laag | e-mail kan zich aanmelden zonder TLS | **open** |
+| Laag | de extensie vraagt toegang tot alle sites | **open** - `optional_host_permissions` per site |
+| Onderhoud | geen CI: de controles draaien enkel als iemand eraan denkt | **open** - een workflow op `windows-latest` |
+| Onderhoud | `MainWindow.xaml.cs` (2804 regels) en `SiteAnalyzer.cs` (2261) opsplitsen | **open** |
+| Onderhoud | dezelfde User-Agent staat vijf keer in de code | **open** - één `Services/Http.cs` |
+| Onderhoud | `public async void StartOpAchtergrond()` is geen event-handler | **open** - `async Task` |
+
+### Twee dingen die bij het nameten bovenkwamen
+
+**Niet elke controle die je schrijft, bewijst de fout.** Bij bug 3 staat er nu ook een
+`ct.ThrowIfCancellationRequested()` voor het wegschrijven, maar met de tegenproef (die regel
+tijdelijk uit) slaagden de controles gewoon: er staat al eerder zo'n regel in de lus, dus dat
+tweede vangnet gaat in de proef nooit af. Het blijft staan als vangnet, maar het is **niet**
+aangetoond. De helft die wél stuk was, is het wel: met de oude `BridgeServer` gaf stoppen een
+`TimeoutException`, en dus "gaf geen antwoord binnen de tijd" op de tab van die site.
+
+**Een regel die van buiten komt, raakt ook je eigen proeven.** De nieuwe URL-controle bij het
+importeren weigerde meteen een bestaande controle die sitebestanden importeerde die naar de
+lokale proefsite (`http://127.0.0.1`) wezen. Terecht - haar proefgegevens wijzen nu naar een
+gewone https-site. Let erop bij het schrijven van nieuwe controles: **importeren** is streng,
+`Add` (een site die je zelf toevoegt) niet.

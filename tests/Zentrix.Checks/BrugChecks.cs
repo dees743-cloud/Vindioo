@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
@@ -157,6 +157,31 @@ public static class BrugChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("Brug: stoppen is geen time-out");
+        {
+            using var stop = new CancellationTokenSource();
+            stop.CancelAfter(TimeSpan.FromMilliseconds(300));
+
+            Exception? gestopt = null;
+
+            try
+            {
+                // Niemand haalt deze opdracht op (geen nepextensie), dus ze blijft wachten -
+                // net als bij een trage pagina. Intussen drukken we op de stopknop.
+                await brug.FetchAsync("https://www.voorbeeld.be/q/cd/", stop.Token);
+            }
+            catch (Exception ex)
+            {
+                gestopt = ex;
+            }
+
+            Check.Dat(gestopt is OperationCanceledException,
+                $"stoppen geeft een annulering en geen TimeoutException ({gestopt?.GetType().Name})");
+
+            Check.Dat(gestopt is not TimeoutException,
+                "dus de site krijgt geen 'gaf geen antwoord binnen de tijd' aan haar tab");
+        }
+
         Check.Groep("Brug: streamen enkel als iemand meeleest, vervolgpagina's in golven van drie");
 
         using var site = new Proefsite();

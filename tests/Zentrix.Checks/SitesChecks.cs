@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.RegularExpressions;
 using Zentrix.Models;
 using Zentrix.Services;
@@ -507,6 +507,64 @@ public static class SitesChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("Timer rond de overgang naar de wintertijd (zondag 25 oktober 2026)");
+        {
+            // Een veiling die sluit NA de overgang, bekeken van ervoor. De klok gaat die nacht
+            // een uur terug, dus er zit een uur meer tussen dan de wandklok zegt.
+            var nu = new DateTime(2026, 10, 20, 12, 0, 0);
+            var einde = new DateTime(2026, 10, 30, 12, 0, 0);
+
+            var wandklok = einde - nu;
+            var echt = Listing.Resterend(einde, nu);
+            var hoort = new DateTimeOffset(einde) - new DateTimeOffset(nu);
+
+            Check.Dat(echt == hoort,
+                $"de resterende tijd wordt op de echte tijdlijn gerekend ({echt})");
+
+            var sprong = TimeZoneInfo.Local.GetUtcOffset(nu) - TimeZoneInfo.Local.GetUtcOffset(einde);
+
+            if (sprong == TimeSpan.Zero)
+            {
+                // Bv. UTC op een bouwserver: daar valt er niets te meten.
+                Check.Overgeslagen($"{TimeZoneInfo.Local.Id} kent geen overgang tussen die twee momenten");
+            }
+            else
+            {
+                Check.Dat(echt - wandklok == sprong,
+                    $"het scheelt precies het zomeruur: wandklok {wandklok}, echt {echt}");
+
+                Check.Dat(Listing.TimerTekst(einde, "", nu) == "10d 01u",
+                    $"en de timer toont dat ook ({Listing.TimerTekst(einde, "", nu)})");
+            }
+
+            // En de tegenhanger: een geschat einde wordt op dezelfde tijdlijn gemaakt, dus wat
+            // je er meteen daarna uit terugleest is weer hetzelfde. Zonder dat zou het oplossen
+            // van de ene kant de andere kapotmaken.
+            foreach (var over in new[] { TimeSpan.FromDays(9) + TimeSpan.FromHours(12),
+                                         TimeSpan.FromHours(3),
+                                         TimeSpan.FromMinutes(45) })
+            {
+                var geschat = Listing.Verschuif(nu, over);
+
+                Check.Dat(Listing.Resterend(geschat, nu) == over,
+                    $"een schatting van {over} komt er ook weer als {over} uit");
+            }
+
+            Check.Dat(Listing.SchatEinde("Nog 9d 12u", nu) is { } s9 &&
+                      Listing.TimerTekst(s9, "", nu) == "9d 12u",
+                "\"Nog 9d 12u\" blijft 9d 12u, ook over de overgang heen");
+
+            // Het laatste uur kleurt amber, en die grens mag er niet naast zitten.
+            Check.Dat(Listing.IsDringend(Listing.Verschuif(nu, TimeSpan.FromMinutes(30)), nu),
+                "een halfuur voor het einde: dringend");
+
+            Check.Dat(!Listing.IsDringend(Listing.Verschuif(nu, TimeSpan.FromHours(2)), nu),
+                "twee uur voor het einde: nog niet");
+
+            Check.Dat(!Listing.IsDringend(Listing.Verschuif(nu, TimeSpan.FromMinutes(-5)), nu),
+                "en een veiling die al voorbij is, is niet dringend maar afgelopen");
+        }
+
         Check.Groep("Exacte sluiting via de API van een site (EndTimeApi)");
         {
             DetailFetcher.Vergeet();

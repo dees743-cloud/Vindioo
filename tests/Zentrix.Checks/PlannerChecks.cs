@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using Zentrix.Models;
@@ -85,6 +85,22 @@ public static class PlannerChecks
             Exception? a = null;
             try { await runner.RunAsync(anders, ct: annuleer.Token); } catch (Exception ex) { a = ex; }
             Check.Dat(a is OperationCanceledException, $"een echte annulering gaat wel door ({a?.GetType().Name})");
+
+            // EEN HALVE BEURT IS GEEN BEURT. Wat er bij het afbreken toevallig al binnen was, is
+            // niet wat de zoekopdracht opleverde: het mag dus niet als "gezien" weggeschreven
+            // worden, en het tijdstip mag niet verzet worden (dat verschuift de volgende
+            // geplande beurt). Vroeger liep de runner na het afbreken gewoon door naar het
+            // wegschrijven.
+            Check.Dat(anders.LastRun is null,
+                $"een afgebroken beurt krijgt geen tijdstip ({anders.LastRun})");
+
+            Check.Dat(anders.NewCount == 0,
+                $"en de teller blijft staan ({anders.NewCount})");
+
+            // En de site die onderbroken werd, is niet mislukt - ze was bezig. Vroeger kreeg ze
+            // "gaf geen antwoord binnen de tijd" aan haar tab en ging haar foutteller omhoog.
+            Check.Dat(anders.LastErrors.Count == 0,
+                $"stoppen telt niet als fout van de site ({string.Join(", ", anders.LastErrors.Keys)})");
         }
 
         // ---------------------------------------------------------------------------
