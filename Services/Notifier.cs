@@ -516,7 +516,27 @@ public static class Notifier
         // Zonder gebruikersnaam nemen we aan dat de server open staat (een eigen
         // relay in huis); anders melden we ons aan.
         if (settings.SmtpUser.Length > 0)
+        {
+            // NOOIT een wachtwoord over een onversleutelde verbinding. Stond "SSL/TLS
+            // gebruiken" uit, dan ging het leesbaar over de lijn - en op een netwerk dat je
+            // niet zelf beheert is dat genoeg om je mailaccount kwijt te spelen. Gevonden in
+            // een codeanalyse van 30 september 2026.
+            //
+            // De controle kijkt naar de VERBINDING (client.IsSecure) en niet naar het vinkje:
+            // zo vangt ze ook het geval waarin STARTTLS niet doorging en de verbinding gewoon
+            // open bleef. Beter geen melding dan een wachtwoord dat meeleest.
+            if (!client.IsSecure)
+            {
+                await client.DisconnectAsync(true);
+
+                throw new InvalidOperationException(
+                    "De verbinding met de mailserver is niet versleuteld, en dan zou je wachtwoord " +
+                    "leesbaar over de lijn gaan. Zet 'SSL/TLS gebruiken' aan bij Meldingen (poort 465 " +
+                    "of 587), of laat de gebruikersnaam leeg als het een eigen relay zonder aanmelding is.");
+            }
+
             await client.AuthenticateAsync(settings.SmtpUser, settings.SmtpPassword);
+        }
 
         await client.SendAsync(bericht);
         await client.DisconnectAsync(true);

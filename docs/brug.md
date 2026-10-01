@@ -273,3 +273,32 @@ Nagemeten, allebei de kanten:
 node tools/meet-brug-handtekening.mjs
 ```
 
+## Wie mag er met de brug praten
+
+Twee dingen erbij op 1 oktober 2026, naast het tekenen hierboven.
+
+**De Host-kopregel wordt nagekeken** (`GastheerOk`). De brug luistert enkel op 127.0.0.1, maar
+dat zegt niet dat elk verzoek daarvandaan komt zoals je denkt: een webpagina kan haar eigen naam
+naar 127.0.0.1 laten wijzen - *DNS-rebinding* - en dan praat jouw browser met ons. Daar is het
+aan te zien, want de browser stuurt die naam mee als `Host` in plaats van het adres. Enkel
+`127.0.0.1`, `localhost` en `[::1]` komen er nog door; de rest krijgt een **400**, ook met een
+geldige handtekening.
+
+**De CORS-kopregels komen er enkel bij een verzoek dat zich bewezen heeft.** Tot dan kreeg élke
+`chrome-extension://`-herkomst ze. Een andere extensie in jouw Chrome kan wel tegen de poort
+praten - dat kan elk programma op deze pc - maar zonder `Access-Control-Allow-Origin` houdt de
+browser het antwoord bij haar weg. De voorvraag (`OPTIONS`) blijft wel beantwoord worden: die kan
+geen eigen kopregels dragen en kan zich dus niet bewijzen, en ze verklapt ook niets.
+
+**Waarom er géén vast extensie-ID in de code staat.** De codeanalyse stelde dat voor, en het is
+hier niet de juiste oplossing: een **uitgepakte** extensie krijgt haar ID van Chrome, per
+installatie verschillend. Eén ID vastleggen zou bij iedereen behalve op deze pc breken, en
+"onthouden welke zich het eerst meldde" geeft een brug die stilvalt zodra je de extensie uit een
+andere map laadt - met een foutmelding die niemand kan plaatsen. De eigenschap die je ervan wil,
+is dat enkel ónze extensie het antwoord kan lezen, en dat is precies wat de twee regels hierboven
+doen: wie de koppelcode niet kent, krijgt geen CORS-kopregels en kan niets lezen.
+
+Nagemeten in `BrugChecks`: een vreemde `Host` wordt geweigerd (ook met een geldige
+handtekening), `localhost` mag, een extensie zonder de code krijgt geen
+`Access-Control-Allow-Origin`, en met de code wel.
+

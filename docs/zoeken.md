@@ -378,6 +378,26 @@ er nooit een wachtwoord verstuurd is. Het verschil tussen de twee is meetbaar:
 Met MailKit komt er wél een AUTH, en krijg je dus een eerlijke foutmelding.
 Microsoft raadt `SmtpClient` overigens zelf al jaren af.
 
+**En er gaat nooit een wachtwoord over een onversleutelde verbinding** (1 oktober 2026). Stond
+"SSL/TLS gebruiken" uit en was er een gebruikersnaam ingevuld, dan ging het wachtwoord gewoon mee
+over de lijn - als `AUTH PLAIN`, en base64 is geen versleuteling maar een andere schrijfwijze. Op
+een netwerk dat je niet zelf beheert is dat genoeg om je mailaccount kwijt te spelen. Gevonden in
+een codeanalyse van 30 september 2026.
+
+De controle kijkt naar de **verbinding** (`client.IsSecure`) en niet naar het vinkje: zo vangt ze
+ook het geval waarin STARTTLS niet doorging en de verbinding gewoon open bleef. Is er een
+gebruikersnaam en is de lijn niet versleuteld, dan wordt er niet verstuurd, en zegt de melding wat
+je eraan doet. Een eigen relay in huis zónder aanmelding blijft gewoon werken - daar valt ook
+niets te lekken.
+
+Nagemeten in `StilFalenChecks` met een nagebootste mailserver die net genoeg SMTP spreekt om tot
+het aanmelden te komen en elke binnengekomen regel onthoudt: de server zag enkel `EHLO` en `QUIT`.
+Met de tegenproef (die ene regel uit) stond er `AUTH PLAIN AGphbi5wZWV0ZXJz...` tussen - het
+wachtwoord, leesbaar na één base64-stap. **Let op bij het lezen van die controle:** zoeken naar de
+letterlijke tekst zei bij die tegenproef doodleuk OK, want base64 ziet er anders uit. Ze ontcijfert
+nu eerst. Een controle die te makkelijk slaagt is erger dan geen controle: ze geeft rust die er
+niet is.
+
 Let ook op de **poort**: 465 is versleuteld vanaf de eerste byte
 (`SslOnConnect`), 587 begint gewoon en schakelt over met STARTTLS. Door elkaar
 halen geeft een verbinding die blijft hangen, dus `SendEmailAsync` leidt het af

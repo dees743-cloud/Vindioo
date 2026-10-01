@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Text;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
@@ -392,6 +393,67 @@ public static class StilFalenChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("E-mail: nooit een wachtwoord over een onversleutelde verbinding");
+        {
+            using var mailserver = new NepMailserver();
+
+            var instellingen = new NotifySettings
+            {
+                Email = true,
+                SmtpHost = "127.0.0.1",
+                SmtpPort = mailserver.Poort,
+                SmtpSsl = false,                 // precies het geval dat misging
+                SmtpUser = "jan.peeters@voorbeeld.be",
+                SmtpPassword = "geheim-wachtwoord",
+                MailTo = "jan.peeters@voorbeeld.be"
+            };
+
+            Exception? fout = null;
+            try { await Notifier.SendEmailAsync(instellingen, "proef", "<p>proef</p>"); }
+            catch (Exception ex) { fout = ex; }
+
+            Check.Dat(fout is not null, $"zonder versleuteling wordt er niet verstuurd ({fout?.GetType().Name})");
+
+            Check.Dat(fout?.Message.Contains("niet versleuteld") == true &&
+                      fout.Message.Contains("SSL/TLS gebruiken"),
+                "en de melding zegt wat je eraan doet");
+
+            // Dit is de kern: de server heeft het wachtwoord nooit gezien.
+            var gezien = mailserver.Gezien;
+
+            Check.Dat(!gezien.Any(r => r.StartsWith("AUTH", StringComparison.OrdinalIgnoreCase)),
+                $"de server kreeg geen AUTH te zien ({gezien.Count} regels: {string.Join(" | ", gezien)})");
+
+            // LET OP bij het lezen hiervan: AUTH stuurt het wachtwoord als base64, en dat is
+            // geen versleuteling maar wel een andere tekst. Zoeken naar de letterlijke tekst
+            // zei bij de tegenproef doodleuk OK terwijl het wachtwoord gewoon meeging - dus
+            // wordt er hier eerst ontcijferd. Een controle die te makkelijk slaagt, is erger
+            // dan geen controle: ze geeft rust die er niet is.
+            var ontcijferd = new List<string>();
+
+            foreach (var stuk in gezien.SelectMany(r => r.Split(' ')))
+            {
+                try { ontcijferd.Add(Encoding.UTF8.GetString(Convert.FromBase64String(stuk))); }
+                catch (FormatException) { /* gewoon tekst, geen base64 */ }
+            }
+
+            Check.Dat(!gezien.Concat(ontcijferd).Any(r => r.Contains("geheim-wachtwoord")),
+                "en het wachtwoord staat in niets van wat er verstuurd is, ook niet als base64");
+
+            // Zonder gebruikersnaam blijft een eigen relay zonder aanmelding gewoon werken:
+            // dan valt er ook niets te lekken.
+            instellingen.SmtpUser = "";
+            instellingen.SmtpPassword = "";
+
+            Exception? zonder = null;
+            try { await Notifier.SendEmailAsync(instellingen, "proef", "<p>proef</p>"); }
+            catch (Exception ex) { zonder = ex; }
+
+            Check.Dat(zonder is null || !zonder.Message.Contains("niet versleuteld"),
+                $"een relay zonder aanmelding wordt niet tegengehouden ({zonder?.Message[..Math.Min(40, zonder.Message.Length)]})");
+        }
+
+        // ---------------------------------------------------------------------------
         Check.Groep("De API-sleutel staat beschermd in het bestand, niet in de omgeving");
         {
             var vorige = AppSettings.Current.ApiKey;
@@ -492,5 +554,95 @@ public static class StilFalenChecks
                       && vervangen.SequenceEqual(new[] { "Proefsite" }),
                 $"2 geïmporteerd, Proefsite vervangen, kapot.json mislukt ({aantal}; {string.Join(",", vervangen)}; {string.Join(",", mislukt)})");
         }
+    }
+}
+
+/// <summary>
+/// Een mailserver die net genoeg SMTP spreekt om tot het aanmelden te komen, en die elke regel
+/// onthoudt die binnenkomt. Hij biedt met opzet GEEN STARTTLS aan: dat is het geval waarin een
+/// wachtwoord vroeger leesbaar over de lijn ging.
+/// </summary>
+public sealed class NepMailserver : IDisposable
+{
+    private readonly TcpListener _luisteraar;
+    private readonly CancellationTokenSource _stop = new();
+    private readonly List<string> _gezien = new();
+
+    public int Poort { get; }
+
+    public List<string> Gezien
+    {
+        get { lock (_gezien) return _gezien.ToList(); }
+    }
+
+    public NepMailserver()
+    {
+        _luisteraar = new TcpListener(IPAddress.Loopback, 0);
+        _luisteraar.Start();
+        Poort = ((IPEndPoint)_luisteraar.LocalEndpoint).Port;
+
+        _ = Task.Run(LusAsync);
+    }
+
+    private async Task LusAsync()
+    {
+        while (!_stop.IsCancellationRequested)
+        {
+            TcpClient client;
+            try { client = await _luisteraar.AcceptTcpClientAsync(_stop.Token); }
+            catch { return; }
+
+            _ = Task.Run(() => BehandelAsync(client));
+        }
+    }
+
+    private async Task BehandelAsync(TcpClient client)
+    {
+        using (client)
+        {
+            try
+            {
+                var stream = client.GetStream();
+                using var lezer = new StreamReader(stream, Encoding.ASCII);
+                var schrijver = new StreamWriter(stream, Encoding.ASCII) { AutoFlush = true, NewLine = "\r\n" };
+
+                await schrijver.WriteLineAsync("220 nepserver ESMTP");
+
+                while (!_stop.IsCancellationRequested)
+                {
+                    var regel = await lezer.ReadLineAsync(_stop.Token);
+                    if (regel is null) return;
+
+                    lock (_gezien) _gezien.Add(regel);
+
+                    if (regel.StartsWith("EHLO", StringComparison.OrdinalIgnoreCase) ||
+                        regel.StartsWith("HELO", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Wel AUTH aanbieden, géén STARTTLS: zo is de verleiding er maximaal.
+                        await schrijver.WriteLineAsync("250-nepserver");
+                        await schrijver.WriteLineAsync("250 AUTH LOGIN PLAIN");
+                    }
+                    else if (regel.StartsWith("QUIT", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await schrijver.WriteLineAsync("221 tot ziens");
+                        return;
+                    }
+                    else
+                    {
+                        await schrijver.WriteLineAsync("250 ok");
+                    }
+                }
+            }
+            catch
+            {
+                // Verbinding weg: niets aan te doen.
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        _stop.Cancel();
+        _luisteraar.Stop();
     }
 }

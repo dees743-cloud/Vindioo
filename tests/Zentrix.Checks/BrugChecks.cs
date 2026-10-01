@@ -135,33 +135,36 @@ public static class BrugChecks
 
             var nG = Guid.NewGuid().ToString("N");
             var groot = await RauwAsync($"POST /result?{BridgeServer.NonceParam}={nG} HTTP/1.1\r\n" +
-                                        Voor(nG) + "Content-Length: 1500000000\r\n\r\n");
+                                        Gastheer + Voor(nG) + "Content-Length: 1500000000\r\n\r\n");
             Check.Dat(groot.Antwoord.StartsWith("HTTP/1.1 413"),
                 $"juiste code, 1,5 GB aangekondigd: meteen geweigerd ({Eerste(groot.Antwoord)})");
 
             var nR = Guid.NewGuid().ToString("N");
             var ruim = await RauwAsync($"POST /result?{BridgeServer.NonceParam}={nR} HTTP/1.1\r\n" +
-                                       Voor(nR) + "Content-Length: 99999999999\r\n\r\n");
+                                       Gastheer + Voor(nR) + "Content-Length: 99999999999\r\n\r\n");
             Check.Dat(ruim.Antwoord.StartsWith("HTTP/1.1 413"), "een maat voorbij de 2 GB: ook geweigerd, niet als 0 gelezen");
 
             // En zonder de code: dan wordt die body sowieso niet gelezen, dus geen 413 maar een
             // gewone weigering. Het punt is dat er niets gereserveerd wordt.
             var nZ = Guid.NewGuid().ToString("N");
             var zonder = await RauwAsync($"POST /result?{BridgeServer.NonceParam}={nZ} HTTP/1.1\r\n" +
-                                         $"{BridgeServer.ExtensionHeader}: 1\r\nContent-Length: 1500000000\r\n\r\n");
+                                         Gastheer + $"{BridgeServer.ExtensionHeader}: 1\r\nContent-Length: 1500000000\r\n\r\n");
             Check.Dat(zonder.Antwoord.Contains("verkeerde koppelcode"),
                 $"zonder de code wordt die body niet eens gelezen ({Eerste(zonder.Antwoord)})");
 
-            var vreemd = await RauwAsync("POST /result?token=verzonnen HTTP/1.1\r\nContent-Length: 50000000\r\n\r\n");
+            var vreemd = await RauwAsync("POST /result?token=verzonnen HTTP/1.1\r\n" + Gastheer +
+                                         "Content-Length: 50000000\r\n\r\n");
             Check.Dat(vreemd.Antwoord.Contains("verkeerde koppelcode"),
                 "verzonnen code, 50 MB aangekondigd: meteen geweigerd, de body wordt niet gelezen");
 
             // Een kop zonder einde. Het antwoord kan verloren gaan als de brug sluit terwijl er nog
             // iets onderweg is (dan komt er een reset); wat telt, is dat ze sluit.
-            var lang = await RauwAsync("GET /job?token=" + new string('x', 100_000) + " HTTP/1.1\r\n");
+            var lang = await RauwAsync("GET /job?token=" + new string('x', 100_000) + " HTTP/1.1\r\n" + Gastheer);
             Check.Dat(lang.Gesloten, $"een kop van 100 kB zonder einde: afgebroken ({Eerste(lang.Antwoord)})");
 
-            var gewoon = await RauwAsync($"POST /result?token={brug.Token} HTTP/1.1\r\nContent-Length: 2\r\n\r\n{{}}");
+            var nGewoon = Guid.NewGuid().ToString("N");
+            var gewoon = await RauwAsync($"POST /result?{BridgeServer.NonceParam}={nGewoon} HTTP/1.1\r\n" +
+                                         Gastheer + Voor(nGewoon) + "Content-Length: 2\r\n\r\n{{}}");
             Check.Dat(gewoon.Antwoord.StartsWith("HTTP/1.1 200"), "een gewone levering gaat nog door");
 
             var vroeger = BridgeServer.ReadTimeout;
@@ -189,14 +192,14 @@ public static class BrugChecks
 
                     await Task.Delay(300);
                     var nV = Guid.NewGuid().ToString("N");
-                    var teVeel = await RauwAsync($"GET /ping?{BridgeServer.NonceParam}={nV} HTTP/1.1\r\n" +
+                    var teVeel = await RauwAsync($"GET /ping?{BridgeServer.NonceParam}={nV} HTTP/1.1\r\n" + Gastheer +
                                                  string.Join("\r\n", Getekend(brug.Token, nV)) + "\r\n\r\n");
                     Check.Dat(teVeel.Gesloten && teVeel.Antwoord.Length == 0,
                         $"de plaatsen vol ({BridgeServer.MaxConnections}): een volgende wordt meteen gesloten");
 
                     await Task.Delay(2500);
                     var nW = Guid.NewGuid().ToString("N");
-                    var weer = await RauwAsync($"GET /ping?{BridgeServer.NonceParam}={nW} HTTP/1.1\r\n" +
+                    var weer = await RauwAsync($"GET /ping?{BridgeServer.NonceParam}={nW} HTTP/1.1\r\n" + Gastheer +
                                                string.Join("\r\n", Getekend(brug.Token, nW)) + "\r\n\r\n");
                     Check.Dat(weer.Antwoord.Contains("\"ok\":true"), "na hun wachttijd is er weer plaats");
                 }
@@ -209,6 +212,33 @@ public static class BrugChecks
             {
                 BridgeServer.ReadTimeout = vroeger;
             }
+        }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Brug: enkel verzoeken die echt voor 127.0.0.1 bedoeld zijn");
+        {
+            var n = Guid.NewGuid().ToString("N");
+
+            // DNS-rebinding: een webpagina laat haar eigen naam naar 127.0.0.1 wijzen en praat
+            // dan met ons. De browser stuurt die naam mee als Host, en daaraan is het te zien.
+            var vreemdeNaam = await RauwAsync($"GET /ping?{BridgeServer.NonceParam}={n} HTTP/1.1\r\n" +
+                                              "Host: kwaadaardig.be\r\n" +
+                                              string.Join("\r\n", Getekend(brug.Token, n)) + "\r\n\r\n");
+
+            Check.Dat(vreemdeNaam.Antwoord.StartsWith("HTTP/1.1 400"),
+                $"een vreemde Host-kopregel wordt geweigerd, ook mét een geldige handtekening ({Eerste(vreemdeNaam.Antwoord)})");
+
+            var zonderHost = await RauwAsync($"GET /ping?{BridgeServer.NonceParam}={n} HTTP/1.1\r\n" +
+                                             string.Join("\r\n", Getekend(brug.Token, n)) + "\r\n\r\n");
+
+            Check.Dat(zonderHost.Antwoord.StartsWith("HTTP/1.1 400"),
+                $"zonder Host-kopregel ook ({Eerste(zonderHost.Antwoord)})");
+
+            var localhost = await RauwAsync($"GET /ping?{BridgeServer.NonceParam}={n} HTTP/1.1\r\n" +
+                                            $"Host: localhost:{BridgeServer.Port}\r\n" +
+                                            string.Join("\r\n", Getekend(brug.Token, n)) + "\r\n\r\n");
+
+            Check.Dat(localhost.Antwoord.Contains("\"ok\":true"), "\"localhost\" mag wel");
         }
 
         // ---------------------------------------------------------------------------
@@ -291,6 +321,33 @@ public static class BrugChecks
 
             Check.Dat(webpagina.Contains("verkeerde koppelcode") && !webpagina.Contains("\"url\""),
                 "een webpagina met een verzonnen handtekening krijgt geen opdracht");
+
+            // En een ANDERE extensie in jouw Chrome? Die kan wel tegen de poort praten - dat
+            // kan elk programma op deze pc - maar ze krijgt het antwoord niet te LEZEN. De
+            // kopregel Access-Control-Allow-Origin komt er enkel bij een verzoek dat de
+            // koppelcode kende, en zonder die kopregel houdt de browser het antwoord bij haar
+            // weg. Vroeger kreeg elke chrome-extension://-herkomst die kopregels.
+            var nV = Guid.NewGuid().ToString("N");
+
+            var andereExtensie = await StuurAsync("GET", $"/ping?{BridgeServer.NonceParam}={nV}",
+                "Origin: chrome-extension://eenanderid",
+                BridgeServer.ExtensionHeader + ": 1",
+                $"{BridgeServer.SignatureHeader}: {BridgeServer.Teken("geraden", nV + "\n")}",
+                $"{BridgeServer.PreHeader}: {BridgeServer.Teken("geraden", nV)}");
+
+            Check.Dat(!andereExtensie.Contains("Access-Control-Allow-Origin"),
+                "een andere extensie zonder de code mag het antwoord niet lezen");
+
+            var nE = Guid.NewGuid().ToString("N");
+
+            var onze = await StuurAsync("GET", $"/ping?{BridgeServer.NonceParam}={nE}",
+                "Origin: chrome-extension://onzeeigenid",
+                BridgeServer.ExtensionHeader + ": 1",
+                $"{BridgeServer.SignatureHeader}: {BridgeServer.Teken(brug.Token, nE + "\n")}",
+                $"{BridgeServer.PreHeader}: {BridgeServer.Teken(brug.Token, nE)}");
+
+            Check.Dat(onze.Contains("Access-Control-Allow-Origin: chrome-extension://onzeeigenid"),
+                "met de code wel");
         }
 
         Check.Groep("Brug: stoppen is geen time-out");
@@ -420,6 +477,13 @@ public static class BrugChecks
 
         string Tekst() => Encoding.UTF8.GetString(ontvangen.ToArray());
     }
+
+    /// <summary>
+    /// De Host-kopregel die een echte client altijd meestuurt. HTTP/1.1 vereist hem, en de brug
+    /// kijkt hem na: een webpagina die een naam naar 127.0.0.1 laat wijzen ("DNS-rebinding")
+    /// draagt daar de naam van die pagina in plaats van het adres.
+    /// </summary>
+    private static string Gastheer => $"Host: 127.0.0.1:{BridgeServer.Port}\r\n";
 
     /// <summary>
     /// De kopregels die een verzoek sinds 1 oktober 2026 nodig heeft: de kopregel van de

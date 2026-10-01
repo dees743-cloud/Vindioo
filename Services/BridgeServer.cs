@@ -374,6 +374,7 @@ public class BridgeServer
                 var vanExtensie = false;
                 var handtekening = "";
                 var voorcontrole = "";
+                var gastheer = "";
 
                 foreach (var line in lines.Skip(1))
                 {
@@ -387,9 +388,24 @@ public class BridgeServer
                         handtekening = line[(SignatureHeader.Length + 1)..].Trim();
                     else if (line.StartsWith(PreHeader + ":", StringComparison.OrdinalIgnoreCase))
                         voorcontrole = line[(PreHeader.Length + 1)..].Trim();
+                    else if (line.StartsWith("Host:", StringComparison.OrdinalIgnoreCase))
+                        gastheer = line[5..].Trim();
                 }
 
                 var nonce = GetParam(QueryVan(path), NonceParam);
+
+                // De brug luistert enkel op 127.0.0.1, maar dat zegt niet dat elk verzoek
+                // daarvandaan komt zoals je denkt. Een webpagina kan een naam laten wijzen naar
+                // 127.0.0.1 ("DNS-rebinding") en de browser praat dan gewoon met ons - met een
+                // Host-kopregel die de naam van die pagina draagt in plaats van het adres.
+                // Een echte buurman stuurt altijd 127.0.0.1 of localhost.
+                if (!GastheerOk(gastheer))
+                {
+                    LogBeperkt($"brug: verzoek met een vreemde Host-kopregel geweigerd ('{gastheer}')");
+                    await WriteAsync(stream, JsonSerializer.Serialize(new { error = "verkeerde host" }),
+                        null, "400 Bad Request");
+                    return;
+                }
 
                 // Wie de koppelcode niet kent, krijgt nooit een body gelezen - hoe groot die ook
                 // zegt te zijn. Dat kon vroeger omdat de code in het adres stond; nu kan het met
@@ -430,12 +446,23 @@ public class BridgeServer
                     body = bodyBytes.GetBuffer().AsMemory(0, (int)bodyBytes.Length);
                 }
 
-                var response = Handle(method, path, body, vanExtensie, nonce, handtekening);
+                // Of dit verzoek zich bewezen heeft. Dat bepaalt twee dingen: wat Handle
+                // teruggeeft, en of het antwoord CORS-kopregels krijgt.
+                var gemachtigd = method != "OPTIONS" &&
+                                 Klopt(nonce, handtekening, Encoding.UTF8.GetString(body.Span));
+
+                var response = Handle(method, path, body, vanExtensie, gemachtigd);
 
                 // Het antwoord wordt óók getekend. Zo weet de extensie dat zij met de échte app
                 // praat en niet met een programma dat de poort eerst bezette - dat is de helft
                 // die haar beschermt, want zij voert uit wat hieruit komt.
-                await WriteAsync(stream, response, origin,
+                // De CORS-kopregels enkel bij een verzoek dat de koppelcode kende, en bij de
+                // voorvraag (die kan er geen kopregels bij dragen, dus die kan zich niet bewijzen -
+                // en ze verklapt ook niets). Zo kan een ándere extensie in jouw Chrome wel tegen
+                // de poort praten, maar het antwoord niet lézen: zonder Access-Control-Allow-Origin
+                // houdt de browser het bij haar weg. Vroeger kreeg elke chrome-extension://-herkomst
+                // die kopregels.
+                await WriteAsync(stream, response, gemachtigd || method == "OPTIONS" ? origin : null,
                     handtekening: nonce.Length > 0 ? Teken(Token, nonce + "\n" + response) : null);
             }
             catch (OperationCanceledException) when (tijd.IsCancellationRequested)
@@ -465,8 +492,9 @@ public class BridgeServer
     }
 
     /// <param name="vanExtensie">Droeg het verzoek de kopregel <see cref="ExtensionHeader"/>?</param>
+    /// <param name="gemachtigd">Klopte de handtekening? Die is in de lus al nagekeken.</param>
     private string Handle(string method, string path, ReadOnlyMemory<byte> body, bool vanExtensie,
-                          string nonce, string handtekening)
+                          bool gemachtigd)
     {
         // De extensie stuurt eerst een controlevraag; die moet zonder inhoud slagen.
         if (method == "OPTIONS") return "";
@@ -476,7 +504,7 @@ public class BridgeServer
         // Een extensie van voor 1 oktober 2026 stuurt de code nog in het adres. Die werkt niet
         // meer, en dat hoort de app te zeggen - "verkeerde koppelcode" zou je naar het verkeerde
         // scherm sturen, want aan de code zelf is niets mis.
-        if (vanExtensie && handtekening.Length == 0 && GetParam(QueryVan(path), "token").Length > 0)
+        if (vanExtensie && !gemachtigd && GetParam(QueryVan(path), "token").Length > 0)
         {
             _laatsteOude = DateTime.Now;
 
@@ -489,7 +517,7 @@ public class BridgeServer
             return JsonSerializer.Serialize(new { error = "verouderde extensie" });
         }
 
-        if (!Klopt(nonce, handtekening, Encoding.UTF8.GetString(body.Span)))
+        if (!gemachtigd)
         {
             // Onthouden, zodat de app "verkeerde code" kan zeggen in plaats van "geen
             // contact". De extensie zelf leest dit antwoord ook: zie background.js.
@@ -625,6 +653,23 @@ public class BridgeServer
     }
 
     /// <summary>Het stuk van het adres na het vraagteken, of niets.</summary>
+    /// <summary>
+    /// Komt dit verzoek echt bij ons terecht, of praat een webpagina met ons via een naam die
+    /// naar 127.0.0.1 wijst? Een buurman op deze pc stuurt altijd het adres of "localhost".
+    /// </summary>
+    private static bool GastheerOk(string gastheer)
+    {
+        if (gastheer.Length == 0) return false;
+
+        // De poort mag erbij staan of niet; om de naam gaat het.
+        var naam = gastheer.Split(':')[0].Trim();
+
+        // "[::1]" valt met het splitsen uit elkaar; die vangen we apart op.
+        if (gastheer.StartsWith("[::1]", StringComparison.Ordinal)) return true;
+
+        return naam is "127.0.0.1" or "localhost";
+    }
+
     private static string QueryVan(string path) =>
         path.Contains('?') ? path[(path.IndexOf('?') + 1)..] : "";
 
