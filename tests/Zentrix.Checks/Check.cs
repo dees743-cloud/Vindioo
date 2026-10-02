@@ -20,6 +20,29 @@ public static class Check
 
     public static void Overgeslagen(string wat) => Console.WriteLine("--    " + wat);
 
+    /// <summary>
+    /// De projectmap, gezocht vanaf de map van de exe naar boven. Niet de huidige map:
+    /// <c>dotnet run --project</c> laat die staan waar de shell stond.
+    ///
+    /// Nodig voor de controles die naar een bestand in de broncode kijken in plaats van naar
+    /// code die draait - de grootte van CLAUDE.md, of wat het manifest van de extensie vraagt.
+    /// </summary>
+    public static string? Projectmap()
+    {
+        var map = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
+
+        while (map is not null)
+        {
+            if (System.IO.File.Exists(System.IO.Path.Combine(map.FullName, "CLAUDE.md")) &&
+                System.IO.File.Exists(System.IO.Path.Combine(map.FullName, "Zentrix.csproj")))
+                return map.FullName;
+
+            map = map.Parent;
+        }
+
+        return null;
+    }
+
     public static int Einde()
     {
         Console.WriteLine();

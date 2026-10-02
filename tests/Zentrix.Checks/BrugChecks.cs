@@ -50,6 +50,13 @@ public static class BrugChecks
         }
 
         // ---------------------------------------------------------------------------
+        // Deze staat bewust vóór de poortcontrole hieronder: ze kijkt naar een bestand in de
+        // broncode en niet naar iets dat draait, dus ze hoort ook te werken terwijl Zentrix open
+        // staat - en dan zijn alle andere brugcontroles overgeslagen.
+        Check.Groep("Brug: het manifest van de extensie vraagt niet om alle sites");
+        ManifestControles();
+
+        // ---------------------------------------------------------------------------
         Check.Groep("Brug: enkel de extensie kan een verkeerde koppelcode melden");
 
         if (!PoortVrij())
@@ -242,6 +249,53 @@ public static class BrugChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("Brug: de extensie vraagt toegang per site");
+        {
+            // Sinds 1 oktober 2026 vraagt de extensie bij het installeren geen toegang tot álle
+            // sites meer. Dat was het zwakke punt: het adres van een opdracht komt uit een
+            // sitebestand dat je van iemand anders krijgt, en met <all_urls> had een verzonnen
+            // bestand jouw aangemelde browser naar eender welke site kunnen sturen.
+            //
+            // Toestemming vragen kan enkel voor een site die de extensie kent, dus geeft de app
+            // haar de hosts van de brugsites. Zonder dat zou elke nieuwe site één mislukte
+            // zoekopdracht kosten voor je hem kan aanvinken.
+            var eerder = brug.BridgeHosts;
+            brug.BridgeHosts = () => new List<string> { "api.voorbeeld.be", "www.voorbeeld.be" };
+
+            var nH = Guid.NewGuid().ToString("N");
+            var lijst = await StuurAsync("GET", $"/hosts?{BridgeServer.NonceParam}={nH}",
+                                         Getekend(brug.Token, nH));
+
+            Check.Dat(lijst.Contains("www.voorbeeld.be") && lijst.Contains("api.voorbeeld.be"),
+                "de brug geeft door welke sites de extensie zal moeten openen");
+
+            // En dat hoort niemand anders te weten: welke sites er op deze pc gezocht worden,
+            // is op zichzelf al iets over de gebruiker.
+            var vreemd = await StuurAsync("GET", $"/hosts?{BridgeServer.NonceParam}={nH}",
+                                          Getekend("verzonnen", nH));
+
+            // Niet enkel "de hosts staan er niet in": dat slaagt ook bij een leeg antwoord, en
+            // dan meet je niets. Er hoort te staan waaróm er niets komt.
+            Check.Dat(!vreemd.Contains("voorbeeld.be") && vreemd.Contains("verkeerde koppelcode"),
+                $"wie de koppelcode niet kent, krijgt die lijst niet maar een weigering ({Eerste(vreemd)})");
+
+            // De lijst komt uit de sites, en die kunnen veranderen terwijl de brug ze opvraagt
+            // (het instellingenvenster voegt er een toe). Dan hoort het antwoord leeg te zijn en
+            // niet de verbinding stuk.
+            brug.BridgeHosts = () => throw new InvalidOperationException("de sites veranderen net");
+
+            var nS = Guid.NewGuid().ToString("N");
+            var stuk = await StuurAsync("GET", $"/hosts?{BridgeServer.NonceParam}={nS}",
+                                        Getekend(brug.Token, nS));
+
+            Check.Dat(stuk.Contains("\"hosts\":[]"),
+                $"een lijst die onderweg omvalt geeft een leeg antwoord ({Eerste(stuk)})");
+
+            brug.BridgeHosts = eerder;
+        }
+
+
+        // ---------------------------------------------------------------------------
         Check.Groep("Brug: de koppelcode gaat niet meer over de lijn");
         {
             var nonce = Guid.NewGuid().ToString("N");
@@ -423,6 +477,70 @@ public static class BrugChecks
         Check.Dat(string.Join(",", weinig.Paginas) == "1",
             $"2 op pagina 1: geen vervolgpagina's (vroeger 9 samen) ({string.Join(",", weinig.Paginas)})");
     }
+
+    /// <summary>
+    /// Wat het manifest van de extensie vraagt, en of de extensie het ook nakijkt.
+    ///
+    /// Hier wordt het vastgelegd, want <c>"&lt;all_urls&gt;"</c> terugzetten is één woord typen -
+    /// en dan heeft de extensie weer toegang tot elke site in je browser zonder dat iemand het
+    /// merkt. Het gedrag zelf staat in <c>tools/meet-extensie-toegang.mjs</c>: die draait de
+    /// échte handleJob() tegen een nagebootste Chrome.
+    /// </summary>
+    private static void ManifestControles()
+    {
+        var wortel = Check.Projectmap();
+
+        if (wortel is null)
+        {
+            Check.Overgeslagen("de projectmap is niet gevonden: het manifest is niet nagekeken");
+            return;
+        }
+
+        var manifest = Path.Combine(wortel, "extension", "manifest.json");
+
+        if (!File.Exists(manifest))
+        {
+            Check.Dat(false, "extension/manifest.json bestaat");
+            return;
+        }
+
+        using var doc = JsonDocument.Parse(File.ReadAllText(manifest));
+
+        var vast = Lijst(doc.RootElement, "host_permissions");
+        var optioneel = Lijst(doc.RootElement, "optional_host_permissions");
+
+        Check.Dat(!vast.Contains("<all_urls>") && !vast.Any(p => p.StartsWith("https://*")),
+            $"host_permissions vraagt niet om alle sites ({string.Join(" ", vast)})");
+
+        Check.Dat(vast.Count == 1 && vast[0] == "http://127.0.0.1/*",
+            "enkel de app op deze pc staat er vast in");
+
+        Check.Dat(optioneel.Contains("https://*/*"),
+            $"de sites staan bij optional_host_permissions, dus ze worden per stuk gevraagd ({string.Join(" ", optioneel)})");
+
+        // Een manifest houdt op zichzelf niets tegen: de extensie moet het nakijken, en wel
+        // VOOR ze een tabblad opent. Een tabblad openen stuurt al een verzoek met jouw cookies;
+        // of we de pagina daarna mogen uitlezen, is dan te laat.
+        var script = File.ReadAllText(Path.Combine(wortel, "extension", "background.js"));
+
+        Check.Dat(script.Contains("chrome.permissions.contains"),
+            "background.js kijkt de toestemming zelf na");
+
+        // Op de ronde haakjes zoeken, want de commentaren hierboven noemen chrome.tabs.create
+        // ook - en daar struikelde deze controle de eerste keer over. Dit legt enkel de orde in
+        // de brontekst vast; dát er niets opengaat, staat in meet-extensie-toegang.mjs.
+        var magPlek = script.IndexOf("await mag(job.url)", StringComparison.Ordinal);
+        var tabPlek = script.IndexOf("chrome.tabs.create(", StringComparison.Ordinal);
+
+        Check.Dat(magPlek > 0 && tabPlek > magPlek,
+            $"en dat staat vóór de eerste chrome.tabs.create() (teken {magPlek} tegen {tabPlek})");
+    }
+
+    /// <summary>Een lijst met tekst uit het manifest, of een lege lijst als de sleutel ontbreekt.</summary>
+    private static List<string> Lijst(JsonElement wortel, string naam) =>
+        wortel.TryGetProperty(naam, out var waarde) && waarde.ValueKind == JsonValueKind.Array
+            ? waarde.EnumerateArray().Select(e => e.GetString() ?? "").ToList()
+            : new List<string>();
 
     private static bool PoortVrij()
     {

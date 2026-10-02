@@ -179,7 +179,7 @@ Wat er verder uit kwam, en wat ermee gebeurd is:
 | Middel | een pagina die geanalyseerd wordt kan via verborgen tekst `baseUrl` elders laten wijzen | **klaar** - dezelfde host én hetzelfde schema, zie `docs/sites-toevoegen.md` punt 10. Blijft open: een `::replace` in een fotoselector kan nog een andere host inschuiven (kleinere schade: geen cookies) |
 | Middel | de Anthropic-sleutel staat leesbaar in de omgevingsvariabelen van Windows | **klaar** - met DPAPI in `instellingen.json`, zie `docs/sites-toevoegen.md` |
 | Laag | e-mail kan zich aanmelden zonder TLS | **klaar** - er gaat nooit een wachtwoord over een open lijn, zie `docs/zoeken.md` |
-| Laag | de extensie vraagt toegang tot alle sites | **open** - `optional_host_permissions` per site |
+| Laag | de extensie vraagt toegang tot alle sites | **klaar** - toestemming per site, en de app geeft door welke sites ze nodig heeft; zie `docs/brug.md` |
 | Onderhoud | geen CI: de controles draaien enkel als iemand eraan denkt | **klaar** - `.github/workflows/controles.yml`, zie `docs/fouten-opsporen.md` |
 | Onderhoud | `MainWindow.xaml.cs` (2804 regels) en `SiteAnalyzer.cs` (2261) opsplitsen | **klaar** - zie hieronder |
 | Onderhoud | dezelfde User-Agent staat vijf keer in de code | **klaar** - `Services/HttpFactory.cs` |

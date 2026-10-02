@@ -80,6 +80,18 @@ zeggen wat het is. Bleef het op 0.10.0, dan stond er in het logboek "Zentrix 0.1
 iets anders dan de release met dat nummer, en dat is precies de les van 0.9.2 hierboven. Er hoort
 dus nog een release `v0.10.1` bij, of het nummer gaat later opnieuw omhoog.
 
+**0.11.0** sinds 1 oktober 2026, het laatste punt van die codeanalyse. Weer het tweede cijfer, en
+deze keer niet omdat er in Zentrix iets bijkomt: de **extensie** vraagt geen toegang tot alle
+sites meer, maar per site - en daarvoor zit er onderaan haar popup een lijst met de sites en een
+knop om ze aan te vinken. Dat is een nieuw stuk dat je ziet én iets wat je één keer zelf moet
+doen, dus geen 0.10.6.
+
+**Let op bij deze versie:** `extension/manifest.json` gaat van 1.9 naar **2.0**, en de extensie
+moet dus herladen worden (`chrome://extensions`, Herladen). Daarna staat er niets aangevinkt en
+zoekt geen enkele brugsite nog, tot je in de popup op de knop klikt. Dat is niet te vermijden:
+Chrome geeft toestemming per extensie, en wie van `<all_urls>` naar toestemming-per-site gaat,
+begint per definitie bij nul. Zie `docs/brug.md` bij "Toegang per site".
+
 Het is op twee plaatsen zichtbaar, en allebei om dezelfde reden - **er draaien twee exe's op
 deze pc**, een uit Visual Studio en een gepubliceerde (bij mij `C:\Zentrix`), met
 dezelfde gegevensmap:

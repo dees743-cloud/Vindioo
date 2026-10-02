@@ -90,6 +90,14 @@ public class BridgeServer
     /// <summary>True zodra de extensie zich gemeld heeft.</summary>
     public bool ExtensionConnected { get; private set; }
 
+    /// <summary>
+    /// Welke hosts de extensie van ons te zien krijgt op <c>/hosts</c>: de sites die via de brug
+    /// zoeken. Sinds 1 oktober 2026 vraagt de extensie geen toegang meer tot álle sites, maar per
+    /// site - en dan moet ze weten welke. Het venster vult dit in; zonder dat blijft de lijst leeg
+    /// en zegt de extensie het pas bij de eerste opdracht.
+    /// </summary>
+    public Func<List<string>>? BridgeHosts { get; set; }
+
     /// <summary>Wanneer de extensie zich het laatst meldde.</summary>
     public DateTime LastContact { get; private set; } = DateTime.MinValue;
 
@@ -549,6 +557,23 @@ public class BridgeServer
             case "/ping":
                 return JsonSerializer.Serialize(new { ok = true });
 
+            // Welke sites de extensie zal moeten openen. Zij heeft daar toestemming per site
+            // voor nodig, en zonder deze lijst zou ze die pas kunnen vragen nadat een
+            // zoekopdracht één keer mislukt is.
+            case "/hosts":
+                try
+                {
+                    return JsonSerializer.Serialize(new { hosts = BridgeHosts?.Invoke() ?? new List<string>() });
+                }
+                catch
+                {
+                    // De lijst komt uit de sites, en die kunnen op dit moment in het
+                    // instellingenvenster veranderen. Een lege lijst is dan het juiste antwoord:
+                    // de extensie valt terug op wat ze zelf onthield, en de popup vraagt het
+                    // vijf seconden later opnieuw.
+                    return JsonSerializer.Serialize(new { hosts = new List<string>() });
+                }
+
             // De extensie vraagt of er werk is.
             case "/job":
                 while (_waiting.TryDequeue(out var job))
@@ -652,7 +677,6 @@ public class BridgeServer
         }
     }
 
-    /// <summary>Het stuk van het adres na het vraagteken, of niets.</summary>
     /// <summary>
     /// Komt dit verzoek echt bij ons terecht, of praat een webpagina met ons via een naam die
     /// naar 127.0.0.1 wijst? Een buurman op deze pc stuurt altijd het adres of "localhost".
@@ -670,6 +694,7 @@ public class BridgeServer
         return naam is "127.0.0.1" or "localhost";
     }
 
+    /// <summary>Het stuk van het adres na het vraagteken, of niets.</summary>
     private static string QueryVan(string path) =>
         path.Contains('?') ? path[(path.IndexOf('?') + 1)..] : "";
 

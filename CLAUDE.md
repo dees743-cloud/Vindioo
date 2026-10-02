@@ -129,8 +129,8 @@ dotnet publish Zentrix.csproj -c Release -r win-x64 --self-contained true -o C:\
 ```
 
 De controles drukken per stuk OK of FOUT af en eindigen met "ALLES OK" en het aantal. Draait
-Zentrix of Chrome-met-de-brug, dan vallen er controles weg en zeggen ze dat zelf (419 met Zentrix
-dicht en Chrome open, 398 met Zentrix erbij — gemeten 30 september 2026). Publiceren kan enkel met
+Zentrix of Chrome-met-de-brug, dan vallen er controles weg en zeggen ze dat zelf (516 met Zentrix
+dicht en Chrome open, 474 met Zentrix erbij — gemeten 2 oktober 2026). Publiceren kan enkel met
 Zentrix dicht.
 
 ## Regels die schade voorkomen

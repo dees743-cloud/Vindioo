@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.RegularExpressions;
 
 namespace Zentrix.Checks;
@@ -24,7 +24,7 @@ public static class DocsChecks
     {
         Check.Groep($"Documentatie: CLAUDE.md blijft onder de {MaxKiloBytes} kB");
 
-        var wortel = Wortel();
+        var wortel = Check.Projectmap();
         if (wortel is null)
         {
             // Draait de controle los van de projectmap (bv. een gepubliceerde kopie), dan
@@ -72,23 +72,4 @@ public static class DocsChecks
             "geen @docs/...-imports in CLAUDE.md (die worden vanzelf mee ingeladen)");
     }
 
-    /// <summary>
-    /// De projectmap, gezocht vanaf de map van de exe naar boven. Niet de huidige map:
-    /// <c>dotnet run --project</c> laat die staan waar de shell stond.
-    /// </summary>
-    private static string? Wortel()
-    {
-        var map = new DirectoryInfo(AppContext.BaseDirectory);
-
-        while (map is not null)
-        {
-            if (File.Exists(Path.Combine(map.FullName, "CLAUDE.md")) &&
-                File.Exists(Path.Combine(map.FullName, "Zentrix.csproj")))
-                return map.FullName;
-
-            map = map.Parent;
-        }
-
-        return null;
-    }
 }

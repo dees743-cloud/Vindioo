@@ -67,6 +67,12 @@ bouwen in Release (de XAML-compiler vangt wat de controles niet zien) en dan
 `dotnet run --project tests/Zentrix.Checks -- --snel`. `Check.Einde` geeft exitcode 1 zodra er
 iets FOUT is, dus GitHub ziet het vanzelf.
 
+**En de twee node-metingen van de extensie** (`tools/meet-brug-handtekening.mjs` en
+`tools/meet-extensie-toegang.mjs`, erbij op 1 oktober 2026). Die stonden in `tools/` omdat je ze
+met de hand kan draaien, en dat was precies het bezwaar: de extensie is JavaScript en komt in de
+C#-controles niet voor, terwijl ze met jouw cookies werkt. `windows-latest` heeft Node al staan,
+dus er is geen `setup-node` voor nodig. Ze zetten zelf exitcode 1 bij een fout.
+
 Op `windows-latest`, want het is een WPF-project en een deel van de controles leest de
 opdrachtregel van een proces uit via een Windows-API. Twee dingen zijn daar anders dan thuis, en
 allebei zijn ze goed:

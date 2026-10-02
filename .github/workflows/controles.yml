@@ -50,3 +50,14 @@ jobs:
       #     wintertijd merkt dat zelf en slaat het stuk over dat een uur verschil verwacht.
       - name: De controles draaien
         run: dotnet run --project tests/Zentrix.Checks -c Release -- --snel
+
+      # De extensie is JavaScript en komt dus niet in de C#-controles voor. Deze twee draaien
+      # de échte functies uit background.js tegen een nagebootste app en een nagebootste Chrome.
+      # Ze staan in tools/ omdat je ze met de hand kan draaien, maar wat ze meten is te
+      # belangrijk om daarvan afhankelijk te zijn: de extensie werkt met jouw cookies.
+      #
+      # windows-latest heeft Node al; daar is geen setup-node voor nodig.
+      - name: De extensie nameten
+        run: |
+          node tools/meet-brug-handtekening.mjs
+          node tools/meet-extensie-toegang.mjs

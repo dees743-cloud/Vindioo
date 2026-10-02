@@ -149,7 +149,89 @@ function waaromNiet(adres) {
   return null;
 }
 
-console.log("[brug] versie 8 geladen — de koppelcode gaat niet meer over de lijn; app en extensie tekenen met HMAC");
+// ---------- en mogen we er wel bij? ----------
+//
+// Tot 1 oktober 2026 vroeg de extensie bij het installeren toegang tot <all_urls>: álle sites,
+// met jouw cookies. Dat is veel meer dan ze nodig heeft, en het was ook niet waar te maken dat
+// het niet anders kon - dus staat er nu "https://*/*" bij optional_host_permissions. Dat is géén
+// toestemming, enkel het recht om ze te vragen. Bij de start heeft de extensie dus toegang tot
+// niets, en jij geeft ze per site, uit het pictogram in Chrome.
+//
+// Waarom dat de moeite is: het adres van een opdracht komt uit een sitebestand, en zo'n bestand
+// krijg je van iemand anders. waaromNiet() hierboven houdt al het halve internet buiten (geen
+// http, geen adressen op je eigen netwerk), maar een verzonnen bestand dat naar een gewone
+// https-site wijst, kwam daar netjes door - naar je webmail bijvoorbeeld, en die pagina lezen we
+// uit en sturen we naar de app. Met toestemming per host kan dat niet meer: wat jij niet hebt
+// aangevinkt, kan de extensie niet openen en zeker niet uitlezen.
+//
+// LET OP bij het lezen: chrome.permissions.request() mag enkel uit een gebruikersklik komen. Dit
+// achtergrondscript heeft die niet en kan dus nooit zelf toestemming vragen - het kan enkel
+// weigeren en onthouden waarvoor. De knop staat daarom in de popup.
+
+/// Het patroon waarmee Chrome over één site praat. Een pad doet er niet toe: Chrome negeert dat
+/// bij een hostrecht, dus "https://www.site.be/*" is precies "de hele site".
+function patroonVoor(adres) {
+  return new URL(adres).origin + "/*";
+}
+
+/// Mogen we aan dit adres? Bij twijfel nee.
+async function mag(adres) {
+  try {
+    return await chrome.permissions.contains({ origins: [patroonVoor(adres)] });
+  } catch (e) {
+    return false;
+  }
+}
+
+/// Onthoudt een host waarvoor we toestemming misten, zodat de popup hem kan aanbieden.
+///
+/// Dit vult aan wat de app zelf doorgeeft (/hosts kent de sites die via de brug zoeken). Het
+/// vangt de twee gevallen die daar niet in staan: een nieuwe site die je in Zentrix laat
+/// analyseren, en een site die doorverwijst naar een andere naam (2dehands.be naar
+/// www.2dehands.be).
+async function onthoudNodig(host) {
+  try {
+    const bewaard = await chrome.storage.local.get("nodig");
+    const lijst = Array.isArray(bewaard.nodig) ? bewaard.nodig : [];
+
+    if (lijst.includes(host)) return;
+
+    // Een rem, zodat een site die blijft doorverwijzen de lijst niet laat volgroeien.
+    await chrome.storage.local.set({ nodig: [...lijst, host].slice(-25) });
+  } catch (e) {
+    // Zonder deze lijst werkt de rest gewoon; ze is enkel een gemak voor de popup.
+  }
+}
+
+/// De zin die de app te zien krijgt wanneer een opdracht geweigerd wordt. Die komt in Zentrix
+/// bij de site te staan, dus hij moet zeggen wat je eraan doet.
+function geenToegangTekst(host) {
+  return `de brug mag nog niet aan ${host} - klik op het Zentrix-pictogram in Chrome en geef toegang`;
+}
+
+/// Staat het tabblad op een pagina waar we niet in mogen kijken? Geeft de reden terug, of null.
+///
+/// Dit is er voor de doorverwijzing: we kregen toestemming voor het adres uit de opdracht, maar
+/// de site stuurt ons naar een andere naam. Zonder deze controle mislukt elk executeScript en
+/// liepen de 45 seconden van waitForDom gewoon vol - met een foutmelding die niets zegt.
+async function waaromGeenToegang(tabId) {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+
+    // about:blank of een pagina die nog aan het laden is: niets aan de hand.
+    if (!tab || !tab.url || !tab.url.startsWith("http")) return null;
+    if (await mag(tab.url)) return null;
+
+    const host = new URL(tab.url).hostname;
+    await onthoudNodig(host);
+
+    return geenToegangTekst(host);
+  } catch (e) {
+    return null;
+  }
+}
+
+console.log("[brug] versie 9 geladen — toestemming per site: de extensie vraagt niet meer om alle sites tegelijk");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -254,6 +336,19 @@ async function handleRawJob(job, token) {
     return;
   }
 
+  // En heb jij deze site aangevinkt? Zo niet, dan gaat er geen tabblad open. Deze controle
+  // staat bewust VOOR chrome.tabs.create: een tabblad openen stuurt al een verzoek mét jouw
+  // cookies, ook als we de pagina daarna niet mogen uitlezen.
+  if (!(await mag(job.url))) {
+    const host = new URL(job.url).hostname;
+
+    await onthoudNodig(host);
+    console.warn("[brug] nog geen toegang tot", host);
+    await sendResult(token, { id: job.id, error: geenToegangTekst(host) });
+
+    return;
+  }
+
   console.log("[brug] API-opdracht opgepikt:", job.url);
 
   try {
@@ -319,6 +414,19 @@ async function handleJob(job, token) {
   if (bezwaar) {
     console.warn("[brug] geweigerd:", job.url, "-", bezwaar);
     await sendResult(token, { id: job.id, error: `de brug weigerde dit adres: ${bezwaar}` });
+    return;
+  }
+
+  // En heb jij deze site aangevinkt? Zo niet, dan gaat er geen tabblad open. Deze controle
+  // staat bewust VOOR chrome.tabs.create: een tabblad openen stuurt al een verzoek mét jouw
+  // cookies, ook als we de pagina daarna niet mogen uitlezen.
+  if (!(await mag(job.url))) {
+    const host = new URL(job.url).hostname;
+
+    await onthoudNodig(host);
+    console.warn("[brug] nog geen toegang tot", host);
+    await sendResult(token, { id: job.id, error: geenToegangTekst(host) });
+
     return;
   }
 
@@ -424,7 +532,12 @@ async function waitForDom(tabId) {
       const state = result && result.result;
       if (state === "interactive" || state === "complete") return;
     } catch (e) {
-      // Tabblad nog aan het navigeren: zo meteen opnieuw proberen.
+      // Twee heel verschillende redenen waarom dit mislukt: het tabblad navigeert nog, of we
+      // mogen in deze pagina niet kijken. Dat laatste gebeurt bij een doorverwijzing naar een
+      // andere naam, en dan heeft blijven proberen geen zin: zonder dit onderscheid liepen de
+      // 45 seconden vol en kreeg je een melding waar niets in stond.
+      const bezwaar = await waaromGeenToegang(tabId);
+      if (bezwaar) throw new Error(bezwaar);
     }
 
     await sleep(DOM_POLL_MS);
@@ -515,6 +628,41 @@ async function sendResult(token, payload) {
   }
 }
 
+/// De sites die de brug nodig heeft, met per site of ze er al aan mag.
+///
+/// Twee bronnen, en samen dekken ze alles: de app weet welke sites via de brug zoeken (/hosts),
+/// en wij onthouden wat er onderweg geweigerd werd. Dat tweede is er voor een site die nog niet
+/// in Zentrix staat (een nieuwe, die je laat analyseren) en voor een doorverwijzing.
+async function hostLijst() {
+  const hosts = new Set();
+
+  try {
+    const token = await getToken();
+
+    if (token) {
+      const uit = await vraagApp(token, "/hosts");
+      if (uit && Array.isArray(uit.hosts)) uit.hosts.forEach((h) => hosts.add(h));
+    }
+  } catch (e) {
+    // Zentrix draait niet: dan blijft staan wat we zelf onthouden hebben.
+  }
+
+  try {
+    const bewaard = await chrome.storage.local.get("nodig");
+    if (Array.isArray(bewaard.nodig)) bewaard.nodig.forEach((h) => hosts.add(h));
+  } catch (e) {
+    // Niets onthouden: geen bezwaar.
+  }
+
+  const uit = [];
+
+  for (const host of [...hosts].sort()) {
+    uit.push({ host, ok: await mag(`https://${host}/`) });
+  }
+
+  return uit;
+}
+
 // ---------- opstarten en wakker houden ----------
 
 // Chrome mag dit achtergrondscript afsluiten wanneer het stil ligt.
@@ -543,6 +691,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     vraagApp(message.token, "/ping")
       .then((uit) => sendResponse({ result: uit && uit.ok && !uit.nietDeApp ? "ok" : "wrong" }))
       .catch(() => sendResponse({ result: "noapp" }));
+    return true;
+  }
+
+  // Welke sites heeft de brug nodig, en welke mag ze al? De popup kan dat niet zelf aan de app
+  // vragen - daarvoor zou ze de koppelcode moeten tekenen - dus halen wij het op. Toestemming
+  // VRAGEN doet zij wel zelf: dat mag enkel uit een klik, en die hebben wij hier niet.
+  if (message === "hosts") {
+    hostLijst().then(sendResponse).catch(() => sendResponse([]));
     return true;
   }
 

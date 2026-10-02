@@ -215,6 +215,18 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         UpdateSchedulerHint();
 
         // Luisteren naar de browserextensie. Is de poort bezet, dan werkt de rest gewoon.
+        //
+        // De extensie heeft sinds 1 oktober 2026 toestemming per site nodig, en ze kan die enkel
+        // vragen voor sites die ze kent. Daarom geven we haar de hosts van de brugsites; dan
+        // staan ze meteen in haar popup, in plaats van pas nadat een zoekopdracht één keer
+        // misliep. Als functie en niet als lijst, want er komen sites bij terwijl de app draait.
+        BridgeServer.Instance.BridgeHosts = () => _store.Sites
+            .Where(s => s.UseBridge)
+            .SelectMany(SiteUrlCheck.Hosts)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
         BridgeServer.Instance.Start();
         if (BridgeServer.Instance.PortBusy)
             StatusText.Text = "Let op: " + ChromeLauncher.Describe(BridgeStatus.PortInUse);

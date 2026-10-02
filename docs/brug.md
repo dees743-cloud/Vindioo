@@ -22,6 +22,10 @@ in een tabblad op de achtergrond en stuurt de HTML terug naar `/result`. De
 koppeling gebeurt met een code uit `brug-code.txt`, zichtbaar via tandwiel >
 *Koppelcode* in de app.
 
+De eerste keer zijn er dus **twee** stappen in de popup van de extensie: de koppelcode plakken,
+en de sites aanvinken die ze mag openen. Dat tweede sinds 1 oktober 2026 - zie "Toegang per site"
+onderaan.
+
 Twee dingen die de wachttijd bepalen, en waar we lelijk op vastliepen:
 
 - De extensie wacht op **`document.readyState`**, niet op het load-event. Dat
@@ -301,4 +305,93 @@ doen: wie de koppelcode niet kent, krijgt geen CORS-kopregels en kan niets lezen
 Nagemeten in `BrugChecks`: een vreemde `Host` wordt geweigerd (ook met een geldige
 handtekening), `localhost` mag, een extensie zonder de code krijgt geen
 `Access-Control-Allow-Origin`, en met de code wel.
+
+## Toegang per site
+
+Tot 1 oktober 2026 stond er in `manifest.json` dit:
+
+```json
+"host_permissions": ["<all_urls>", "http://127.0.0.1/*"]
+```
+
+Dat is: toegang tot **elke** site in je browser, met jouw cookies, vanaf het moment dat je de
+extensie installeert. Het was het laatste van de twintig punten uit de codeanalyse van 30
+september 2026, met ernst "laag" - en dat is te laag ingeschat, want het ligt in de verlenging
+van wat de analyse zelf elders wél "middel" noemde.
+
+**Waarom het meer is dan een lelijke regel in een bestand.** Het adres van een opdracht komt uit
+een sitebestand, en zo'n bestand krijg je van iemand anders. `waaromNiet()` in `background.js`
+houdt al het halve internet buiten - geen `http`, geen adressen op je eigen netwerk - maar een
+verzonnen bestand dat naar een gewone https-site wijst, kwam daar netjes door. Naar je webmail
+bijvoorbeeld. En wat de extensie opent, leest ze uit en stuurt ze naar de app.
+
+Nu staat er:
+
+```json
+"host_permissions": ["http://127.0.0.1/*"],
+"optional_host_permissions": ["https://*/*"]
+```
+
+Die tweede regel is **geen** toestemming, enkel het recht om ze te vragen. Chrome noemt dat
+zelf de manier voor hosts die je pas tijdens het draaien kent. Bij de start heeft de extensie dus
+toegang tot niets behalve de app op deze pc, en jij geeft ze per site.
+
+**Waar de knop moet staan, en waarom er geen keuze is.** `chrome.permissions.request()` aanvaardt
+Chrome enkel uit een **gebruikersklik**. Een achtergrondscript heeft die nooit, dus daar is
+toestemming vragen onmogelijk - het kan enkel weigeren en onthouden waarvoor. De knop staat
+daarom in de popup, en het achtergrondscript geeft haar de lijst.
+
+Die lijst komt uit twee bronnen, en samen dekken ze alles:
+
+| bron | wat ze weet | waarvoor ze er is |
+|---|---|---|
+| `/hosts` bij de app | de hosts van de sites met `UseBridge` (`SiteUrlCheck.Hosts`) | je vinkt ze aan **voor** er iets misloopt, in één Chrome-venster |
+| `chrome.storage.local`, sleutel `nodig` | elke host die onderweg geweigerd werd | een site die nog niet in Zentrix staat (een nieuwe, die je laat analyseren), en een site die doorverwijst naar een andere naam |
+
+`/hosts` zit achter dezelfde handtekening als de rest: welke sites er op deze pc gezocht worden,
+is op zichzelf al iets over de gebruiker.
+
+**Twee plaatsen waar de extensie nee zegt**, en het verschil ertussen is het hele punt:
+
+1. **Vóór `chrome.tabs.create`** (`mag(job.url)`). Een tabblad openen stuurt al een verzoek **mét
+   jouw cookies**; of we de pagina daarna mogen uitlezen, is dan te laat. Daarom staat deze
+   controle voor het openen en niet erna.
+2. **In `waitForDom`**, voor de doorverwijzing (`waaromGeenToegang`). Je gaf toestemming voor
+   `voorbeeld.be` en de site stuurt je naar `www.voorbeeld.be`: dan geeft Chrome ons wel een
+   tabblad, maar weigert het uitlezen. Zonder dit onderscheid liep elke `executeScript` op een
+   uitzondering en liepen de 45 seconden van `waitForDom` gewoon vol - met "Cannot access
+   contents of the page" als melding, wat niemand verder helpt.
+
+In beide gevallen krijgt de app dezelfde zin te horen: *"de brug mag nog niet aan www.site.be -
+klik op het Zentrix-pictogram in Chrome en geef toegang"*. Die staat dan in Zentrix bij die site.
+
+**Wat je er zelf van merkt.** Na het herladen van de extensie staat er niets aangevinkt: open de
+popup, en onderaan staan de sites met een vinkje of een streepje. Eén knop vraagt ze in één
+Chrome-venster tegelijk. Die popup gaat bij dat venster dicht - de toestemming wordt wél gegeven;
+open haar opnieuw en de vinkjes staan er.
+
+Nagemeten:
+
+- **`tools/meet-extensie-toegang.mjs`** draait de échte `handleJob()` uit `background.js` tegen
+  een nagebootste Chrome: zonder toestemming gaat er **geen tabblad** open, komt er geen pagina
+  mee, en zegt de melding welke site het is en wat je eraan doet; met toestemming werkt het
+  gewoon; toestemming voor één site is er geen voor de volgende; en een doorverwijzing wordt
+  binnen de milliseconden gemeld.
+- **De tegenproef** (de controle vóór het tabblad tijdelijk uit): 3 van de 19 vallen om, en de
+  eerste is "er gaat geen tabblad open" - dat is de enige die telt. De melding kwam er in die
+  proef nog steeds, want het tweede slot vangt het, maar het tabblad was al open.
+- **De tweede tegenproef** (de controle op de doorverwijzing uit) gaf precies waarvoor ze er is:
+  **45 169 ms** en "Cannot access contents of the page.".
+- **`BrugChecks`** op wat de app doet: `/hosts` geeft de brugsites door, wie de koppelcode niet
+  kent krijgt die lijst niet, en een lijst die onderweg omvalt (het instellingenvenster voegt net
+  een site toe) geeft een leeg antwoord in plaats van een stukke verbinding. Plus een groep die
+  het manifest zelf naleest, want `"<all_urls>"` terugzetten is één woord typen.
+
+```bash
+node tools/meet-extensie-toegang.mjs
+```
+
+Allebei de node-metingen draaien sinds vandaag mee in de CI. Ze stonden in `tools/` omdat je ze
+met de hand kan draaien, en dat is precies waarom ze erbij moesten: wat ze meten werkt met jouw
+cookies, en de C#-controles raken geen JavaScript.
 
