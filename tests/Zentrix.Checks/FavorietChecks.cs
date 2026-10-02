@@ -269,6 +269,13 @@ public static class FavorietChecks
             Check.Dat(FavoriteWatch.Tekst(new FavoriteStatus(FavoriteState.TeKoop), 5m) == "Staat er nog",
                 "zonder prijs blijft het bij 'staat er nog'");
 
+            // Een kavel dat je vóór 2 oktober 2026 via een veilinghuis bewaarde, heeft geen
+            // prijs op de kaart staan. Nakijken geeft nu wél een bod, en dan hoort daar niet
+            // "was € 0" bij maar gewoon het bedrag.
+            Check.Dat(FavoriteWatch.Tekst(new FavoriteStatus(FavoriteState.TeKoop, 270m), null)
+                      == "Staat er nog, € 270",
+                "een favoriet zonder bewaarde prijs krijgt het bod er gewoon bij");
+
             Check.Dat(FavoriteWatch.Tekst(new FavoriteStatus(FavoriteState.Onbekend, Uitleg: "Chrome staat dicht."), 5m)
                       == "Chrome staat dicht.",
                 "niet na te gaan: de reden komt op de kaart");
