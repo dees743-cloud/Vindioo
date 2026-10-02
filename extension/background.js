@@ -691,6 +691,12 @@ function maakMenu() {
 chrome.runtime.onInstalled.addListener(maakMenu);
 chrome.runtime.onStartup.addListener(maakMenu);
 
+// En ook gewoon bij het laden van dit script. Die twee gebeurtenissen hierboven dekken niet
+// alles: of een herlaad in chrome://extensions er een geeft, hangt af van Chrome, en het
+// achtergrondscript wordt tussendoor afgesloten en weer gewekt. Dit kan geen kwaad, want
+// removeAll gaat eraan vooraf - zonder dat zou create klagen dat het item al bestaat.
+maakMenu();
+
 /// Een melding van Chrome zelf. De popup staat niet open wanneer je rechtsklikt, dus zonder dit
 /// zou je nooit weten of het gelukt is - en stil mislukken is bij zoiets het ergste.
 function meld(tekst) {
