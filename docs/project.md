@@ -169,6 +169,16 @@ Wie AlleVeilingen al had staan, **importeert dat sitebestand opnieuw** of plakt 
 vakje - anders verandert er niets. Bestaande favorieten houden hun lege prijs; *Nakijken* vult ze
 voortaan wel in.
 
+**Na 0.17.0, nog niet uitgebracht.** `FavoriteWatch` las een advertentiepagina met drie reguliere
+expressies - voor het `ld+json`-blok, voor `og:title` en voor `<title>`. Die gaan nu alle drie
+langs de **ontlede** pagina. Aanleiding was de vorige stap: een regex vindt `ld+json` niet meer
+zodra een site haar scripttype als `application/ld&#x2B;json` schrijft, en dat deed AlleVeilingen.
+Op de dertien sites van vandaag verandert er **niets** - nagemeten op 24 echte advertentiepagina's
+van de acht sites die rechtstreeks antwoorden, met dezelfde blokken teken voor teken en dezelfde
+prijs en titel. Wat weg is, is een klasse fouten die pas opvalt wanneer er een site bijkomt. Zie
+`docs/favorieten.md` bij "Geen regexen meer op de pagina", met de tegenproef waarin vier controles
+omvallen zodra de oude uitdrukkingen terugkomen.
+
 **0.16.0** sinds 2 oktober 2026. Twee dingen aan de vensters. Een **vergrote foto** heeft nu
 bladerpijlen bovenaan met een teller ertussen ("2 van 4"), en de pijltjestoetsen doen hetzelfde;
 de volgende foto kostte er drie klikken. Bij de eerste foto staat er geen pijl naar links en bij

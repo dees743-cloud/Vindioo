@@ -2,7 +2,8 @@ using System.Globalization;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
-using System.Text.RegularExpressions;
+using AngleSharp.Dom;
+using AngleSharp.Html.Parser;
 using Zentrix.Models;
 using Zentrix.Sources;
 
@@ -224,11 +225,65 @@ public static class FavoriteWatch
         return PrijsUitPagina(html);
     }
 
-    // ---------- de prijs uit het ld+json-blok ----------
+    // ---------- wat er zonder sitebestand van een advertentiepagina te lezen valt ----------
 
-    private static readonly Regex LdJson = new(
-        """<script[^>]+type=["']application/ld\+json["'][^>]*>(.*?)</script>""",
-        RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    /// <summary>
+    /// De <c>ld+json</c>-blokken van de pagina (schema.org), in de volgorde waarin ze erin
+    /// staan.
+    ///
+    /// <para><b>Waarom dit de pagina ontleedt en er geen regex overheen haalt.</b> Tot 2 oktober
+    /// 2026 stond hier
+    /// <c>&lt;script[^&gt;]+type=["']application/ld\+json["']</c>, en dat vindt enkel wat er
+    /// letterlijk staat. AlleVeilingen schrijft haar scripttype als
+    /// <c>application/ld&amp;#x2B;json</c> - geldige HTML, dezelfde betekenis - en daar liep die
+    /// regex straal voorbij, op alle vijf de kavelpagina's die nagemeten zijn. De ontlede pagina
+    /// heeft dat probleem niet: een parser lost een karakterverwijzing in een attribuut gewoon
+    /// op. Dat geldt net zo goed voor een type zonder aanhalingstekens, voor attributen in een
+    /// andere volgorde, en voor spaties eromheen.</para>
+    ///
+    /// <para><b>En de inhoud blijft onaangeroerd.</b> Dat is de zorg bij zoiets: JSON zit vol
+    /// tekens die in HTML iets betekenen. Maar de inhoud van een <c>&lt;script&gt;</c> is
+    /// <i>raw text</i> volgens de HTML-norm - daar worden geen karakterverwijzingen in opgelost -
+    /// dus <c>TextContent</c> geeft precies wat er in het bestand stond. Nagemeten over echte
+    /// advertentiepagina's: teken voor teken gelijk aan wat de oude regex eruit sneed.</para>
+    /// </summary>
+    private static List<string> LdJsonBlokken(string html)
+    {
+        var blokken = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(html)) return blokken;
+
+        var document = Ontleed(html);
+        if (document is null) return blokken;
+
+        foreach (var script in document.QuerySelectorAll("script"))
+        {
+            var soort = script.GetAttribute("type")?.Trim();
+
+            if (string.Equals(soort, "application/ld+json", StringComparison.OrdinalIgnoreCase))
+                blokken.Add(script.TextContent);
+        }
+
+        return blokken;
+    }
+
+    /// <summary>
+    /// De pagina ontleed, of null wanneer dat niet lukt. Een stukgelopen ontleding mag het
+    /// nakijken van een favoriet niet laten omvallen: dan is het antwoord "niet na te gaan",
+    /// net als bij een pagina die niet binnenkomt.
+    /// </summary>
+    private static IDocument? Ontleed(string html)
+    {
+        try
+        {
+            return new HtmlParser().ParseDocument(html);
+        }
+        catch (Exception fout)
+        {
+            Log.Write($"een advertentiepagina viel niet te ontleden - {fout.Message}");
+            return null;
+        }
+    }
 
     /// <summary>
     /// De prijs uit het <c>ld+json</c>-blok van de pagina (schema.org). Null wanneer er geen
@@ -237,20 +292,17 @@ public static class FavoriteWatch
     /// Een <b>nul telt niet als prijs</b>, net als elders in de app: bij een "gezocht"-
     /// advertentie van 2dehands staat er letterlijk <c>offers.price = 0</c>.
     ///
-    /// <para><b>Wat deze weg niet ziet.</b> <see cref="LdJson"/> is een regex over de ruwe
-    /// tekst, en die vindt enkel <c>type="application/ld+json"</c> zoals het er letterlijk
-    /// staat. AlleVeilingen schrijft <c>type="application/ld&amp;#x2B;json"</c>, en dan vindt
-    /// deze lezer het blok niet - terwijl het er wel degelijk staat (nagemeten op vijf
-    /// kavelpagina's, 2 oktober 2026). Een selector loopt langs de <b>ontlede</b> pagina en
-    /// heeft dat probleem niet; zie <see cref="SiteDefinition.DetailPriceSelector"/>.</para>
+    /// Wat deze weg <b>niet</b> vindt, is een prijs die de site onder een eigen naam wegzet -
+    /// zoals het huidige bod bij AlleVeilingen, dat in <c>additionalProperty</c> staat met de
+    /// naam "Huidig bod". Daarvoor is er <see cref="SiteDefinition.DetailPriceSelector"/>.
     /// </summary>
     internal static decimal? PrijsUitPagina(string html)
     {
-        foreach (Match blok in LdJson.Matches(html))
+        foreach (var blok in LdJsonBlokken(html))
         {
             try
             {
-                using var boom = JsonDocument.Parse(blok.Groups[1].Value.Trim());
+                using var boom = JsonDocument.Parse(blok.Trim());
                 if (ZoekPrijs(boom.RootElement) is { } prijs && prijs > 0) return prijs;
             }
             catch (JsonException)
@@ -281,11 +333,11 @@ public static class FavoriteWatch
     /// </summary>
     internal static string TitelUitPagina(string html)
     {
-        foreach (Match blok in LdJson.Matches(html))
+        foreach (var blok in LdJsonBlokken(html))
         {
             try
             {
-                using var boom = JsonDocument.Parse(blok.Groups[1].Value.Trim());
+                using var boom = JsonDocument.Parse(blok.Trim());
                 if (ZoekNaam(boom.RootElement) is { } naam && naam.Length > 0) return naam;
             }
             catch (JsonException)
@@ -294,25 +346,19 @@ public static class FavoriteWatch
             }
         }
 
-        foreach (var patroon in new[] { OgTitel, PaginaTitel })
-        {
-            var raak = patroon.Match(html);
-            if (!raak.Success) continue;
+        // Ook deze twee langs de ontlede pagina, en om dezelfde reden als het blok hierboven:
+        // een regex kent de volgorde van attributen niet. "content" vóór "property" kwam de
+        // oude uitdrukking al niet door, en ze las de tekst bovendien ruw - met &amp; en &#039;
+        // er nog in, die er daarna met de hand uit moesten.
+        var document = Ontleed(html);
+        if (document is null) return "";
 
-            var tekst = WebUtility.HtmlDecode(raak.Groups[1].Value).Trim();
-            if (tekst.Length > 0) return tekst;
-        }
+        var og = document.QuerySelector("meta[property='og:title' i]")?.GetAttribute("content");
+        if (!string.IsNullOrWhiteSpace(og)) return og.Trim();
 
-        return "";
+        var titel = document.QuerySelector("title")?.TextContent;
+        return string.IsNullOrWhiteSpace(titel) ? "" : titel.Trim();
     }
-
-    private static readonly Regex OgTitel = new(
-        """<meta[^>]+property=["']og:title["'][^>]+content=["'](.*?)["']""",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex PaginaTitel = new(
-        "<title[^>]*>(.*?)</title>",
-        RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     /// <summary>
     /// De <c>name</c> van een object dat ook een prijs draagt. Die voorwaarde is nodig: een

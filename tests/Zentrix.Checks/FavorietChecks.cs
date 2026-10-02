@@ -103,14 +103,68 @@ public static class FavorietChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("Favoriet opvolgen: de pagina wordt ontleed, niet met een regex gelezen");
+        {
+            // Tot 2 oktober 2026 zocht FavoriteWatch zijn ld+json-blok met
+            //     <script[^>]+type=["']application/ld\+json["']
+            // en dat vindt enkel wat er LETTERLIJK staat. Een pagina mag haar scripttype op
+            // meer manieren opschrijven, en dan is het nog altijd hetzelfde type. Deze vier
+            // vormen gaven met de oude lezer alle vier NIETS.
+            Check.Dat(FavoriteWatch.PrijsUitPagina(
+                    """<script type="application/ld&#x2B;json">{"@type":"Product","offers":{"price":42}}</script>""")
+                == 42m, "een scripttype met een karakterverwijzing (ld&#x2B;json) telt gewoon mee");
+
+            Check.Dat(FavoriteWatch.PrijsUitPagina(
+                    """<script type=application/ld+json>{"@type":"Product","offers":{"price":42}}</script>""")
+                == 42m, "zonder aanhalingstekens ook");
+
+            Check.Dat(FavoriteWatch.PrijsUitPagina(
+                    """<script type=" application/ld+json ">{"@type":"Product","offers":{"price":42}}</script>""")
+                == 42m, "en met spaties eromheen");
+
+            Check.Dat(FavoriteWatch.PrijsUitPagina(
+                    """<script>{"@type":"Product","offers":{"price":42}}</script>""")
+                is null, "maar een script ZONDER type telt niet mee - dat is geen datablok");
+
+            // Hetzelfde geldt voor og:title: een regex kent de volgorde van attributen niet.
+            Check.Dat(FavoriteWatch.TitelUitPagina(
+                    """<html><head><title>Van alles</title><meta content="Denon DCD-520" property="og:title"></head></html>""")
+                == "Denon DCD-520",
+                "og:title telt ook wanneer content vóór property staat");
+
+            // En de tekst komt er ontleed uit, zonder dat er met de hand gedecodeerd wordt.
+            Check.Dat(FavoriteWatch.TitelUitPagina(
+                    """<html><head><meta property="og:title" content="Sony &amp; Philips"></head></html>""")
+                == "Sony & Philips", "en &amp; is gewoon een ampersand");
+
+            Check.Dat(FavoriteWatch.TitelUitPagina("<html><head><title>Radio &#039;s</title></head></html>")
+                == "Radio 's", "net als in de titel van de pagina");
+
+            // DE ANDERE KANT, en die is even belangrijk: de INHOUD van een script mag niet
+            // ontleed worden. JSON zit vol tekens die in HTML iets betekenen, en als een parser
+            // &amp; daar tot & zou maken, verandert de titel van een zoekertje stilletjes.
+            // De HTML-norm noemt de inhoud van <script> "raw text" - geen karakterverwijzingen.
+            Check.Dat(FavoriteWatch.TitelUitPagina(
+                    """<script type="application/ld+json">{"@type":"Product","name":"Bang &amp; Olufsen","offers":{"price":5}}</script>""")
+                == "Bang &amp; Olufsen",
+                "wat IN het blok staat blijft onaangeroerd: de JSON bepaalt zelf wat het betekent");
+
+            // Een pagina die niet te ontleden valt, mag niets laten omvallen.
+            Check.Dat(FavoriteWatch.PrijsUitPagina("<<<>>> geen html") is null, "onzin geeft niets");
+            Check.Dat(FavoriteWatch.TitelUitPagina("") == "", "en een lege pagina ook niet");
+        }
+
+        // ---------------------------------------------------------------------------
         Check.Groep("Favoriet opvolgen: het bod op een kavelpagina (DetailPriceSelector)");
         {
-            // Waarom dit veld er moest komen. Hier staat vast dat de gewone lezer deze pagina
-            // NIET aankan - zonder deze controle lijkt het veld overbodig en haalt de volgende
-            // lezer het weg.
+            // Waarom dit veld er moest komen. Het blok wordt sinds 2 oktober 2026 wél gevonden
+            // (de lezer gaat nu langs de ontlede pagina), maar er staat geen prijs in waar de
+            // standaard hem verwacht: het bod zit in additionalProperty onder een naam die de
+            // site zelf verzint. Zonder deze controle lijkt het veld overbodig en haalt de
+            // volgende lezer het weg.
             Check.Dat(FavoriteWatch.PrijsUitPagina(Kavelpagina) is null,
-                "de ld+json-lezer vindt dit blok niet: het type staat er als ld&#x2B;json, en een " +
-                "regex over de ruwe tekst ziet dat niet");
+                "de ld+json-lezer vindt hier geen prijs: het bod staat in additionalProperty " +
+                "en niet in offers.price");
 
             var veiling = new SiteDefinition { Name = "Proefveiling", DetailPriceSelector = KavelprijsSelector };
 

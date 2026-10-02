@@ -516,9 +516,16 @@ Vier dingen die de opzet bepalen, en elk ervan is gemeten:
 
   Wat er wél aan de hand was, en allebei telt het apart: het bod zit daar in `additionalProperty`
   en niet in `offers.price`, en het scripttype staat er als `application/ld&#x2B;json` - waardoor
-  de algemene lezer van de app, een regex over de ruwe tekst, het blok niet eens zag. Nu wijst
-  `DetailPriceSelector` in het sitebestand het aan; zie `docs/favorieten.md` voor de meting en
-  de tegenproeven.
+  de algemene lezer van de app, toen nog een regex over de ruwe tekst, het blok niet eens zag.
+  Dat tweede is intussen rechtgezet (hij gaat nu langs de ontlede pagina), het eerste blijft, en
+  daarvoor wijst `DetailPriceSelector` in het sitebestand het bod aan. Zie `docs/favorieten.md`
+  voor de meting en de tegenproeven.
+
+  Let op het verschil tussen de twee wegen, want daar liep ik zelf op vast: **deze weg haalt de
+  pagina ruw op**, met een gewone `HttpClient`. *Nakijken* gaat via `DetailFetcher`, en die zet
+  voor AlleVeilingen Playwright in - dan krijg je de geserialiseerde DOM, waarin zo'n
+  karakterverwijzing al opgelost is. Dezelfde pagina ziet er langs de twee wegen dus anders uit:
+  32 kB tegen 582 kB.
 
   Nagegaan dat het getal van de tussenpersoon ook klopt met dat van het veilinghuis zelf: voor
   lot 1 van BOPA zegt bopa.be in zijn eigen script `highest_bid: 270` en

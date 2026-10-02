@@ -188,11 +188,12 @@ public class SiteDefinition
     /// <list type="bullet">
     ///   <item>het bod zit niet in <c>offers</c> maar in <c>additionalProperty</c>, als
     ///         <c>{"name":"Huidig bod","value":270.00}</c> - en die naam is vrije tekst, dus
-    ///         daar kan geen algemene lezer op af;</item>
-    ///   <item>het blok is bovendien onzichtbaar voor die lezer, want die is een regex over de
-    ///         ruwe tekst en de pagina schrijft <c>type="application/ld&amp;#x2B;json"</c>. In
-    ///         de <b>ontlede</b> pagina is dat gewoon <c>application/ld+json</c>, dus een
-    ///         selector vindt het wel.</item>
+    ///         daar kan geen algemene lezer op af. <b>Dit is de reden die blijft staan</b>;</item>
+    ///   <item>het blok was voor die lezer bovendien onzichtbaar, want hij was een regex over de
+    ///         ruwe tekst en de pagina schrijft <c>type="application/ld&amp;#x2B;json"</c>. Dat
+    ///         is intussen rechtgezet - <see cref="FavoriteWatch.PrijsUitPagina"/> gaat sinds
+    ///         2 oktober 2026 langs de ontlede pagina - maar het veranderde hier niets aan: ook
+    ///         mét het blok in handen staat er geen prijs waar de standaard hem verwacht.</item>
     /// </list>
     ///
     /// Vandaar een selector per site in plaats van meer slimmigheid in de code: welk vakje op

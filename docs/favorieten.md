@@ -55,14 +55,15 @@ in de opmaak      <div class="row"><div>Huidig bod</div><div>€ 270,00</div></d
 in het datablok   {"@type":"PropertyValue","name":"Huidig bod","value":270.00,"unitText":"EUR"}
 ```
 
-Twee dingen staan die algemene lezer in de weg, en ze tellen allebei apart:
+Twee dingen stonden die algemene lezer in de weg, en ze tellen allebei apart:
 
 - **het bod zit niet in `offers.price` maar in `additionalProperty`**, onder een naam die de site
-  zelf verzint ("Huidig bod"). Daar kan geen standaardlezer op af: dat is vrije tekst;
-- **het blok is voor hem onzichtbaar.** `FavoriteWatch.PrijsUitPagina` is een regex over de ruwe
-  tekst, en de pagina schrijft haar type als `application/ld&#x2B;json`. In de **ontlede** pagina
-  is dat gewoon `application/ld+json`, dus een selector vindt het wel. Een regex op HTML loslaten
-  wreekt zich hier letterlijk.
+  zelf verzint ("Huidig bod"). Daar kan geen standaardlezer op af: dat is vrije tekst. **Deze
+  reden blijft staan**, en daarom bestaat het veld;
+- **het blok was voor hem onzichtbaar.** `FavoriteWatch` zocht het met een regex over de ruwe
+  tekst, en de pagina schrijft haar type als `application/ld&#x2B;json`. Dat is sinds 2 oktober
+  2026 rechtgezet - zie "Geen regexen meer op de pagina" hieronder - maar het veranderde hier
+  niets aan: ook mét het blok in handen staat er geen prijs waar de standaard hem verwacht.
 
 Daarom wijst het sitebestand het aan, net als de einddatum en de verkoper:
 
@@ -89,6 +90,49 @@ En de hele weg in één keer, met de echte code en het echte sitebestand: een re
 villette" van AlleVeilingen op, met **€ 270** en einde 08/10/2026 19:30. Dat getal is apart
 nagekeken bij het veilinghuis zelf: bopa.be zet in zijn eigen script `highest_bid: 270` en
 `closing_date: 2026-10-08 19:30:00`. De tussenpersoon vertelt dus niet iets anders dan de bron.
+
+### Geen regexen meer op de pagina
+
+`FavoriteWatch` las de pagina met drie reguliere expressies: één voor het `ld+json`-blok, één
+voor `og:title` en één voor `<title>`. Sinds 2 oktober 2026 gaat alle drie langs de **ontlede**
+pagina (AngleSharp), want een regex kent de regels van HTML niet:
+
+| de pagina schrijft | de oude regex | de ontlede pagina |
+|---|---|---|
+| `type="application/ld&#x2B;json"` | niets | gewoon een `ld+json`-blok |
+| `type=application/ld+json` (geen aanhalingstekens) | niets | idem |
+| `type=" application/ld+json "` | niets | idem |
+| `<meta content="..." property="og:title">` | niets - verkeerde volgorde | de titel |
+
+**Waar dat echt beet**, en dat is een onderscheid dat ik eerst miste: niet overal. Het hangt af
+van hóe de pagina binnenkomt.
+
+- **Nakijken** gaat via `DetailFetcher`, en die zet voor een `NeedsBrowser`-site Playwright in.
+  Wat daaruit komt is de **geserialiseerde DOM**: daar staat `application/ld+json` gewoon, en zag
+  zelfs de oude regex het blok. Gemeten op een kavelpagina: ruw 32 kB met `ld&#x2B;json` 3x, via
+  Playwright 582 kB met `application/ld+json` 3x.
+- **Rechtsklikken** haalt de pagina met een gewone `HttpClient`, zonder browser. Daar stond de
+  karakterverwijzing er nog, en vond de oude lezer **nul** blokken waar er drie staan.
+
+**Nagemeten dat er niets kapotgaat**: 24 echte advertentiepagina's van de acht sites die
+rechtstreeks antwoorden (2dehands, AlleVeilingen, AutoScout24, Delcampe, kleinanzeigen.de,
+Marktplaats, Tweakers V&A, Vinted), oud naast nieuw. De gevonden blokken zijn **teken voor teken
+gelijk**, en de prijs en de titel die eruit komen ook - 24 van de 24, nul verschillen. Ontleden
+kost 1 tot 10 ms op pagina's van 100 tot 500 kB; de zwaarste (Vinted, 1,9 MB) 10 tot 23 ms.
+
+Dat "teken voor teken" is geen bijzaak maar de spannende vraag. JSON zit vol tekens die in HTML
+iets betekenen, en als de ontleding `&amp;` binnen een blok tot `&` zou maken, veranderden
+titels stilletjes. Dat gebeurt niet: de inhoud van een `<script>` is *raw text* volgens de
+HTML-norm, dus daar worden geen karakterverwijzingen in opgelost. Er staat een controle op.
+
+**Met de tegenproef**: zet je de oude uitdrukkingen terug, dan vallen precies vier van de nieuwe
+controles om - de drie over het scripttype en die over de volgorde van `og:title`. Zonder dat zou
+niet vaststaan dat die controles iets meten.
+
+Eerlijk over wat het vandaag oplevert: **op de dertien sites van nu verandert er niets**. Het bod
+bij AlleVeilingen komt van `DetailPriceSelector`, niet hiervan. Wat weg is, is een klasse
+fouten - het soort dat pas opvalt wanneer er een site bijkomt die haar HTML net iets anders
+opschrijft, en dat dan stil misgaat in plaats van met een foutmelding.
 
 **Elk antwoord "staat er nog" heeft bewijs nodig**: een prijs, of foto's van de
 advertentiepagina. Komt de pagina binnen zonder een van beide, dan is het "niet na te gaan" en
