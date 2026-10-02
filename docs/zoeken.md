@@ -181,6 +181,12 @@ sites zo van 53,7 naar ongeveer 27 seconden; dat is nog live na te meten.
 hooguit één zoekopdracht op die aan de beurt is. Eén per tik, met opzet: zo
 blijft er tussen twee zoekopdrachten ruimte voor iets anders.
 
+Op diezelfde tik hangt sinds 2 oktober 2026 ook `AuctionWatch`: de waarschuwing dat een bewaarde
+veiling bijna afloopt (zie `docs/favorieten.md`). Die staat **vóór** de rem `if (_busy) return`, en
+dat is met opzet: ze kost geen enkel verzoek, dus ze hoeft niet te wachten tot een trage
+zoekopdracht klaar is - anders zou een kavel dat intussen sluit pas achteraf gemeld worden, of
+niet meer.
+
 Een schema is `Off`, `Interval` (om de zoveel minuten) of `Daily` (elke dag op
 een uur). Daar bovenop kan een tijdvenster ("alleen tussen 8 en 22 uur", ook over
 middernacht heen) en "ook uitvoeren bij het opstarten". Het venster is met opzet

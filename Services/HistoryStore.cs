@@ -106,6 +106,15 @@ public class HistoryStore
         AddColumn(connection, "searches", "config", "TEXT NOT NULL DEFAULT ''");
         AddColumn(connection, "searches", "newCount", "INTEGER NOT NULL DEFAULT 0");
 
+        // Wanneer een bewaarde veiling sluit, en welke waarschuwing daarvoor al vertrok.
+        //
+        // Een favoriet bewaarde zijn einddatum tot 2 oktober 2026 niet: hij stond enkel in het
+        // geheugen, dus na een herstart wist de app van geen enkele favoriet nog wanneer hij
+        // afliep. Dat is net wat AuctionWatch nodig heeft, en een waarschuwing die een herstart
+        // niet overleeft is geen waarschuwing.
+        AddColumn(connection, "favorites", "endsAt", "TEXT");
+        AddColumn(connection, "favorites", "alertedLead", "INTEGER");
+
         // Wanneer je de zoekopdracht laatst opende; zie SavedSearch.LastViewed.
         return AddColumn(connection, "searches", "lastViewed", "TEXT");
     }
@@ -766,7 +775,8 @@ public class HistoryStore
         using var connection = Open();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT source, externalId, title, price, priceLabel, location, url, image, largeImage
+            SELECT source, externalId, title, price, priceLabel, location, url, image, largeImage,
+                   endsAt, alertedLead
             FROM favorites ORDER BY addedAt DESC
             """;
 
@@ -783,6 +793,8 @@ public class HistoryStore
                 Location = reader.GetString(5),
                 Url = reader.GetString(6),
                 LargeImageUrl = reader.GetString(8),
+                EndsAt = reader.IsDBNull(9) ? null : DateTime.Parse(reader.GetString(9)),
+                AlertedLead = reader.IsDBNull(10) ? null : reader.GetInt32(10),
                 IsFavorite = true
             };
 
@@ -800,10 +812,14 @@ public class HistoryStore
         using var connection = Open();
         using var command = connection.CreateCommand();
 
+        // De einddatum gaat meteen mee: bij een kavel staat die al in het zoekresultaat, en dan
+        // weet AuctionWatch er al van zonder dat je ooit Nakijken aanklikte.
         command.CommandText = """
             INSERT OR REPLACE INTO favorites
-                (key, source, externalId, title, price, priceLabel, location, url, image, largeImage, addedAt)
-            VALUES ($key, $source, $id, $title, $price, $label, $location, $url, $image, $large, $now)
+                (key, source, externalId, title, price, priceLabel, location, url, image, largeImage,
+                 addedAt, endsAt)
+            VALUES ($key, $source, $id, $title, $price, $label, $location, $url, $image, $large,
+                    $now, $einde)
             """;
 
         command.Parameters.AddWithValue("$key", listing.Key);
@@ -818,6 +834,48 @@ public class HistoryStore
         command.Parameters.AddWithValue("$large", listing.LargeImageUrl);
         command.Parameters.AddWithValue("$now", DateTime.Now.ToString("o"));
 
+        // EndsAtOrEstimate en niet EndsAt: bij een site die enkel "nog 2u 14m" schrijft is de
+        // schatting het enige wat we hebben, en daar valt best mee te waarschuwen.
+        command.Parameters.AddWithValue("$einde",
+            (object?)listing.EndsAtOrEstimate?.ToString("o") ?? DBNull.Value);
+
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Werkt bij wanneer een bewaarde veiling sluit. Komt uit een ronde <i>Nakijken</i>: die leest
+    /// de advertentiepagina toch al, en daar staat het einde zoals de site het vandaag zegt.
+    ///
+    /// Zet meteen <c>alertedLead</c> terug op leeg wanneer het einde opschuift. Veilingsites
+    /// verlengen namelijk bij een bod vlak voor sluitingstijd, en zonder dit zou je voor de
+    /// nieuwe sluitingstijd geen waarschuwing meer krijgen.
+    /// </summary>
+    public void SetFavoriteEnd(string key, DateTime? endsAt)
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+
+        command.CommandText = """
+            UPDATE favorites
+               SET alertedLead = CASE WHEN endsAt IS NOT $einde THEN NULL ELSE alertedLead END,
+                   endsAt = $einde
+             WHERE key = $key
+            """;
+
+        command.Parameters.AddWithValue("$key", key);
+        command.Parameters.AddWithValue("$einde", (object?)endsAt?.ToString("o") ?? DBNull.Value);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Onthoudt welke waarschuwing er voor deze favoriet al vertrok; zie <see cref="AuctionWatch"/>.</summary>
+    public void SetFavoriteAlerted(string key, int? lead)
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+
+        command.CommandText = "UPDATE favorites SET alertedLead = $lead WHERE key = $key";
+        command.Parameters.AddWithValue("$key", key);
+        command.Parameters.AddWithValue("$lead", (object?)lead ?? DBNull.Value);
         command.ExecuteNonQuery();
     }
 

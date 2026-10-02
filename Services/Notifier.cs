@@ -144,6 +144,35 @@ public static class Notifier
                 "<ul>" + string.Concat(regels.Select(r => $"<li>{Escape(r)}</li>")) + $"</ul><p>{slot}</p>"));
     }
 
+    /// <summary>
+    /// Meldt dat een bewaarde veiling bijna afloopt. Welke drempels dat zijn en waarom er maar
+    /// één melding per drempel vertrekt, staat in <see cref="AuctionWatch"/>.
+    ///
+    /// De tekst zegt de <b>echt</b> resterende tijd en niet de drempel die afging. Stond de app
+    /// een nacht uit, dan gaat de drempel "1 uur" misschien pas af met nog twintig minuten te
+    /// gaan, en dan is "nog 1 uur" gewoon onwaar.
+    /// </summary>
+    public static async Task<bool> NotifyAuctionAsync(Listing veiling, TimeSpan over)
+    {
+        var settings = AppSettings.Current.Notify;
+
+        var hoelang = AuctionWatch.Hoelang(over);
+        var titel = $"Zentrix: veiling loopt af over {hoelang}";
+
+        var prijs = veiling.Price is { } p ? $" — nu €{p:0.##}" : "";
+        var regel = veiling.Title + prijs;
+
+        return await Verstuur($"'{Kort(veiling.Title)}' loopt af over {hoelang}", settings,
+            () => ShowTray(titel, regel),
+            () => SendTelegramAsync(settings, titel,
+                $"<a href=\"{Escape(veiling.Url)}\">{Escape(veiling.Title)}</a>{Escape(prijs)}"),
+            () => SendEmailAsync(settings, titel,
+                $"<p><a href=\"{Escape(veiling.Url)}\">{Escape(veiling.Title)}</a>{Escape(prijs)}</p>" +
+                $"<p>Loopt af over {Escape(hoelang)}.</p>"));
+    }
+
+    private static string Kort(string tekst) => tekst.Length <= 60 ? tekst : tekst[..57] + "...";
+
     // ---------- opmaak van het bericht ----------
 
     /// <summary>De eerste titels, voor de ballon in het systeemvak.</summary>

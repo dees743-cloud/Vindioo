@@ -120,3 +120,63 @@ wat er niet meer was.
 de app. Rechts in de hoek viel hij niet op. Let op als je aan `ZetNakijkknop` raakt: die zet de
 stijl na afloop terug, en dat stond nog op `Secondary` - waardoor de knop na één keer gebruiken
 weer onopvallend werd.
+
+## Een bewaarde veiling loopt bijna af
+
+Erbij op 2 oktober 2026, in `Services/AuctionWatch.cs`. Tot dan keek de app enkel naar je
+favorieten wanneer jij op *Nakijken* duwde. Een kavel waarop je wou bieden liep dus af terwijl je
+iets anders deed, en achteraf stond er enkel "Veiling afgelopen op 28 september" op de kaart -
+precies het moment dat je had willen weten, maar dan te laat.
+
+Aanzetten in **Meldingen en achtergrond**, met de momenten erbij (1 dag, 4 uur, 1 uur, 15 minuten).
+Het gaat via dezelfde kanalen als de rest: systeemvak, Telegram, e-mail.
+
+**Er gaat hier geen enkel verzoek de deur uit**, en dat is de belangrijkste keuze. De waarschuwing
+hangt aan de sluitingstijd die de app al kent. Zou dit zelf gaan ophalen, dan deed het dat elke
+halve minuut voor elke favoriet, op een moment dat jij niet kijkt - en dat is precies wat een site
+als robotverkeer ziet.
+
+Die sluitingstijd komt van twee plaatsen, en allebei waren ze er al:
+
+- **uit het zoekresultaat**, op het moment dat je het sterretje aanklikt. Bij een kavel staat de
+  einddatum daar meestal al in (dat is wat de afteltimer op de kaart gebruikt);
+- **uit een ronde *Nakijken***. `FavoriteWatch` las het einde van de advertentiepagina al, maar
+  gooide het weg zodra bleek dat het in de **toekomst** lag - terwijl dat juist het nuttige geval
+  is. Nu gaat het mee in `FavoriteStatus.Einde`, ook bij `TeKoop`, en het kost niets extra: de
+  pagina is toch al gelezen.
+
+**Een favoriet bewaarde zijn einddatum niet.** Die stond enkel in het geheugen, dus na een
+herstart wist de app van geen enkele favoriet nog wanneer hij afliep. Er staan nu twee kolommen
+bij in `favorites`: `endsAt` en `alertedLead`. Een waarschuwing die een herstart niet overleeft,
+is geen waarschuwing.
+
+**De regel die telt: de kleinste drempel waar we binnen zitten en die nog niet gemeld is.** Dat
+"kleinste" is het hele punt. De planner tikt elke halve minuut, dus een regel die één keer te
+breed staat, stuurt je tweehonderd berichten op een avond. Stond de app een nacht uit en kom je
+terug met nog twintig minuten te gaan, dan zit je tegelijk binnen "1 dag", "4 uur" én "1 uur". De
+grootste nemen zou drie meldingen na elkaar geven - één per tik - want elke fijnere blijft dan
+openstaan. De kleinste nemen en die onthouden dekt alles wat grover is in één keer.
+
+Dat is nagemeten, met een tegenproef die precies die cascade laat zien: met `max` in plaats van
+`min` valt "en de grovere gaan niet alsnog achteraf af" om, en meldt de proefronde 1440 in plaats
+van 60.
+
+Drie dingen die daar nog aan hangen:
+
+- **Eerst opschrijven, dan sturen.** Andersom zou een melding die halverwege vastloopt bij de
+  volgende tik opnieuw vertrekken, en dan elke halve minuut.
+- **Gerekend op de echte tijdlijn** (`Listing.Resterend`), niet met een kale aftrekking. Over de
+  overgang naar de wintertijd scheelt dat een uur - dezelfde fout die de afteltimer had, zie
+  `docs/resultaten.md`.
+- **Anti-sniping.** Veilingsites verlengen bij een bod vlak voor sluitingstijd. Schuift het einde
+  op, dan wist `SetFavoriteEnd` wat er al gemeld was, zodat je voor de nieuwe sluitingstijd
+  opnieuw gewaarschuwd wordt. Hetzelfde einde nog eens wegschrijven doet dat **niet**, anders
+  stuurde elke ronde *Nakijken* je de waarschuwingen opnieuw.
+
+**Wat dit niet doet.** Het controleert niet zelf of de veiling nog loopt, dus een kavel dat
+ingetrokken werd of waarvan de sluitingstijd veranderde zonder dat je *Nakijken* draaide, kan een
+waarschuwing geven die niet meer klopt. En een favoriet waarvan de app nooit een einddatum zag
+(een site die haar niet in het zoekresultaat zet, en je drukte nooit op *Nakijken*) krijgt geen
+waarschuwing. De weg daarnaartoe ligt open: één ronde `FavoriteWatch.CheckAsync` per favoriet
+waarvan het einde nadert, maar dan gaat er wél verkeer de deur uit en hoort daar een eigen keuze
+bij.

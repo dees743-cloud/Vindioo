@@ -176,6 +176,15 @@ public partial class MainWindow
                 favoriet.WatchIsGone = status.Staat == FavoriteState.Weg;
                 favoriet.WatchIsEnded = status.Staat == FavoriteState.Afgelopen;
 
+                // De sluitingstijd zoals de site hem vandaag zegt, de databank in. Daar werkt de
+                // waarschuwing mee (AuctionWatch), ook wanneer de app in het systeemvak zit. Een
+                // veiling die verlengd werd, krijgt zo opnieuw een waarschuwing.
+                if (status.Einde is not null && status.Einde != favoriet.EndsAt)
+                {
+                    favoriet.EndsAt = status.Einde;
+                    _history.SetFavoriteEnd(favoriet.Key, status.Einde);
+                }
+
                 if (status.Staat == FavoriteState.Weg) weg++;
                 else if (status.Staat == FavoriteState.Afgelopen) afgelopen++;
                 else if (status.PrijsNu is > 0 && favoriet.Price is > 0 &&

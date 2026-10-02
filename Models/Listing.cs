@@ -341,6 +341,13 @@ public class Listing : ObservableObject
     /// </summary>
     public bool WatchIsWarning => WatchIsGone || WatchIsEnded;
 
+    /// <summary>
+    /// De kleinste drempel (in minuten voor het einde) waarvoor er voor deze favoriet al
+    /// gewaarschuwd is, of null. Staat in de databank, want een waarschuwing die een herstart
+    /// niet overleeft zou bij elke start opnieuw vertrekken. Zie <see cref="Services.AuctionWatch"/>.
+    /// </summary>
+    public int? AlertedLead { get; set; }
+
     /// <summary>Sleutel voor de "al gezien"-tabel in SQLite.</summary>
     public string Key => $"{Source}:{ExternalId}";
 

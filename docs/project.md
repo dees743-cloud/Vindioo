@@ -99,6 +99,19 @@ stempel **AFGELOPEN** (veiling voorbij). Dat laatste was het echte gemis: de tel
 2 afgelopen", maar niet wélke. Zie `docs/favorieten.md`. De extensie verandert niet mee en blijft
 op 2.0 - herladen hoeft dus niet.
 
+**0.13.0** sinds 2 oktober 2026, dezelfde dag. Opnieuw het tweede cijfer: er komt een melding bij
+die er niet was. Zentrix waarschuwt nu dat een **bewaarde veiling bijna afloopt**, via systeemvak,
+Telegram of e-mail, op momenten die je zelf kiest (1 dag, 4 uur, 1 uur, 15 minuten). Aanzetten in
+*Meldingen en achtergrond*; standaard staat het uit. Zie `docs/favorieten.md`.
+
+Het nummer gaat omhoog en blijft niet op 0.12.0 staan, hoewel daar nog geen release bij hoort:
+`C:\Zentrix` draaide al een exe die zich 0.12.0 noemde, met andere inhoud. Twee builds met
+hetzelfde nummer in hetzelfde logboek is precies de les van 0.9.2 hierboven.
+
+De databank krijgt er twee kolommen bij (`favorites.endsAt` en `alertedLead`); dat gaat vanzelf
+bij de eerste start. Van je bestaande favorieten kent de app de sluitingstijd nog niet - die komt
+er bij de eerstvolgende ronde *Nakijken* in, of zodra je ze opnieuw bewaart.
+
 Het is op twee plaatsen zichtbaar, en allebei om dezelfde reden - **er draaien twee exe's op
 deze pc**, een uit Visual Studio en een gepubliceerde (bij mij `C:\Zentrix`), met
 dezelfde gegevensmap:

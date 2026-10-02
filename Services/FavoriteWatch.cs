@@ -123,16 +123,20 @@ public static class FavoriteWatch
         if (einde is not null && einde < DateTime.Now)
             return new FavoriteStatus(FavoriteState.Afgelopen, Einde: einde);
 
+        // Het einde gaat ook mee wanneer de veiling nog LOOPT. Tot 2 oktober 2026 werd het hier
+        // weggegooid zodra bleek dat het in de toekomst lag, terwijl dat juist het nuttige geval
+        // is: daarmee kan AuctionWatch waarschuwen voor ze sluit. Het kost niets extra - de
+        // pagina is toch al gelezen.
         var prijs = PrijsUitPagina(html);
         if (prijs is > 0)
-            return new FavoriteStatus(FavoriteState.TeKoop, prijs);
+            return new FavoriteStatus(FavoriteState.TeKoop, prijs, einde);
 
         // Geen prijs uit de pagina te halen. Dan telt of de advertentie er nog ís: geeft
         // het sitebestand foto's op en komen die eruit, dan staat ze er nog.
         if (!string.IsNullOrWhiteSpace(def.DetailImagesSelector))
         {
             var fotos = await GenericSource.ReadFieldsAsync(html, def.DetailImagesSelector, ct);
-            if (fotos.Count > 0) return new FavoriteStatus(FavoriteState.TeKoop);
+            if (fotos.Count > 0) return new FavoriteStatus(FavoriteState.TeKoop, Einde: einde);
         }
 
         return new FavoriteStatus(FavoriteState.Onbekend,

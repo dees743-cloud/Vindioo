@@ -35,6 +35,21 @@ public partial class NotifySettingsWindow : Wpf.Ui.Controls.FluentWindow
 
         TrayNotifyBox.IsChecked = melden.Tray;
 
+        AuctionAlertBox.IsChecked = melden.AuctionAlert;
+
+        // De momenten komen uit AuctionWatch zelf, zodat ze op één plaats staan: wie er een
+        // drempel bij zet, krijgt het vinkje vanzelf.
+        foreach (var minuten in AuctionWatch.Keuzes)
+        {
+            AuctionAlertMoments.Children.Add(new System.Windows.Controls.CheckBox
+            {
+                Content = AuctionWatch.Noem(minuten),
+                Tag = minuten,
+                IsChecked = melden.AuctionAlertMinutes.Contains(minuten),
+                Margin = new Thickness(0, 0, 16, 0)
+            });
+        }
+
         TelegramBox.IsChecked = melden.Telegram;
         TelegramTokenBox.Text = melden.TelegramToken;
         TelegramChatBox.Text = melden.TelegramChatId;
@@ -53,6 +68,13 @@ public partial class NotifySettingsWindow : Wpf.Ui.Controls.FluentWindow
     private NotifySettings Lees() => new()
     {
         Tray = TrayNotifyBox.IsChecked == true,
+
+        AuctionAlert = AuctionAlertBox.IsChecked == true,
+        AuctionAlertMinutes = AuctionAlertMoments.Children
+            .OfType<System.Windows.Controls.CheckBox>()
+            .Where(v => v.IsChecked == true)
+            .Select(v => (int)v.Tag!)
+            .ToList(),
 
         Telegram = TelegramBox.IsChecked == true,
         TelegramToken = TelegramTokenBox.Text.Trim(),

@@ -169,9 +169,23 @@ public class SearchScheduler
     /// </summary>
     internal async Task TickAsync()
     {
-        if (_busy) return;
-
         var nu = DateTime.Now;
+
+        // Vóór de rem hieronder, en met opzet: dit kost geen enkel verzoek (het werkt met het
+        // einde dat al in de databank staat), dus het hoeft niet te wachten tot een zoekopdracht
+        // klaar is. Een veiling die sluit terwijl de planner een trage site afwerkt, zou anders
+        // pas achteraf gemeld worden - of niet meer.
+        try
+        {
+            await AuctionWatch.TickAsync(_history, nu);
+        }
+        catch (Exception ex)
+        {
+            // Een melding die mislukt, mag de planner niet stilleggen.
+            Log.Write($"planner: de veilingwaarschuwing liep vast - {ex.Message}");
+        }
+
+        if (_busy) return;
 
         var aanDeBeurt = _searches.FirstOrDefault(s =>
             !s.IsRunning &&

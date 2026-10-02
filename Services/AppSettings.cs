@@ -54,6 +54,20 @@ public class NotifySettings
 
     public string MailTo { get; set; } = "";
 
+    // ---------- een veiling die bijna afloopt ----------
+
+    /// <summary>
+    /// Waarschuwen wanneer een bewaarde veiling bijna sluit. Staat standaard uit: het gaat over
+    /// je favorieten en niet over een zoekopdracht, dus het hoort een eigen keuze te zijn.
+    /// </summary>
+    public bool AuctionAlert { get; set; }
+
+    /// <summary>
+    /// Hoeveel minuten voor het einde er gewaarschuwd wordt. Zie <see cref="AuctionWatch"/> voor
+    /// waarom er maar één melding per drempel vertrekt.
+    /// </summary>
+    public List<int> AuctionAlertMinutes { get; set; } = new() { 1440, 60, 15 };
+
     /// <summary>Is er minstens één kanaal dat echt kan versturen?</summary>
     [JsonIgnore]
     public bool AnyConfigured =>
