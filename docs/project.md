@@ -145,6 +145,18 @@ kopregels mee die bij zijn User-Agent horen (`Accept` en `Sec-Fetch-*`). bopa.be
 het eerste verzoek. Met een tegenproef nagegaan dat de zeven rechtstreekse sites er niets van
 merken. De extensie verandert niet mee en blijft op 2.1.
 
+**0.16.x** van 2 oktober 2026, in stappen. **0.16.0**: bladerpijlen op de vergrote foto en een
+pop-upvenster dat Zentrix niet meer achter een ander programma laat verdwijnen. **0.16.1**: die
+pijlen reageerden niet op een klik - ze stonden in de strook die bij de titelbalk hoort, en die
+ligt voor de muis boven de donkere laag. **0.16.2**: de grote foto houdt een maat die met de
+breedte van het venster meegroeit in plaats van met de lengte van de beschrijving, en het
+pictogram van de app is weer zichtbaar. **0.16.3**: dat pictogram in de gebruikelijke indeling,
+met de maten die Windows bij schaling gebruikt.
+
+Bij dat pictogram hoort een waarschuwing voor de volgende keer: na het vervangen bleef de taakbalk
+een wit blad tonen, en dat lag niet aan de app maar aan de **iconcache** van Windows. Wissen met
+`ie4uinit.exe -show`. Zie `docs/weergave.md` voor de drie metingen die dat uitwijzen.
+
 **0.16.0** sinds 2 oktober 2026. Twee dingen aan de vensters. Een **vergrote foto** heeft nu
 bladerpijlen bovenaan met een teller ertussen ("2 van 4"), en de pijltjestoetsen doen hetzelfde;
 de volgende foto kostte er drie klikken. Bij de eerste foto staat er geen pijl naar links en bij
