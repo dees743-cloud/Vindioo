@@ -280,6 +280,16 @@ Drie keuzes die het gedrag bepalen:
   springt de teller heen en weer.
 - **Bladeren verzet ook de foto eronder** (`ToonZoom` roept `ZetGroot` aan). Sluit je de
   vergroting, dan sta je op de foto die je als laatste bekeek - niet terug op die van daarvoor.
+- **De pijlen staan 56 punten van boven, en dat is geen smaak.** Hoger kregen ze geen enkel
+  muisbericht - zelfs geen `MouseDown`, en zelfs sluiten lukte daar niet. De bovenste strook van
+  dit venster hoort bij de `ui:TitleBar`, en die ligt voor de **muis** boven de donkere laag, ook
+  al wordt ze er zichtbaar door overschilderd en al staat de laag later in de XAML. Nagemeten met
+  `InputHitTest`; een hogere `Panel.ZIndex` hielp niet en
+  `WindowChrome.IsHitTestVisibleInChrome` ook niet. Zet je er ooit iets anders bovenaan in een
+  venster met `ExtendsContentIntoTitleBar`, hou daar rekening mee.
+- **Een klik op een pijl mag de vergroting niet sluiten.** Het muisbericht van een knop borrelt
+  door naar de donkere laag, en die sluit bij een klik. `Zoom_Klik` kijkt daarom of de klik uit
+  een knop kwam. Dat viel aanvankelijk niet op doordat de pijlen helemaal geen klikken kregen.
 - **De tekst met het aantal beeldpunten wordt twee keer gezet.** Een `BitmapImage` van een
   webadres haalt zichzelf op de achtergrond op, dus bij het bladeren is het formaat nog nul; zodra
   de foto binnen is (`DownloadCompleted`) komt de juiste tekst er alsnog. Zonder dat stond er bij

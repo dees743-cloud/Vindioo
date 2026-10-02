@@ -365,7 +365,31 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
 
     private void ZoomVolgende_Click(object sender, RoutedEventArgs e) => ToonZoom(_zoomPlaats + 1);
 
-    private void Zoom_Klik(object sender, MouseButtonEventArgs e) => SluitZoom();
+    /// <summary>
+    /// Een klik op de donkere laag sluit de vergroting - behalve wanneer hij op een pijl was.
+    ///
+    /// Het muisbericht van een knop borrelt door naar deze laag, dus zonder deze uitzondering
+    /// sloot de vergroting zodra je bladerde. Dat viel aanvankelijk niet op doordat de pijlen
+    /// helemaal geen klikken kregen (zie IsHitTestVisibleInChrome in de XAML); zodra dát opgelost
+    /// was, zou dit het volgende zijn.
+    /// </summary>
+    private void Zoom_Klik(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is DependencyObject bron && InEenKnop(bron)) return;
+
+        SluitZoom();
+    }
+
+    private static bool InEenKnop(DependencyObject bron)
+    {
+        // Via de logische boom naar boven, want die werkt voor élk soort knoop. De visuele boom
+        // zou een uitzondering geven op iets wat geen Visual is - en wat een klik als bron
+        // meekrijgt, is niet altijd een Visual.
+        for (var deel = bron; deel is not null; deel = System.Windows.LogicalTreeHelper.GetParent(deel))
+            if (deel is System.Windows.Controls.Primitives.ButtonBase) return true;
+
+        return false;
+    }
 
     private void SluitZoom()
     {
