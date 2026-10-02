@@ -231,7 +231,7 @@ async function waaromGeenToegang(tabId) {
   }
 }
 
-console.log("[brug] versie 9 geladen — toestemming per site: de extensie vraagt niet meer om alle sites tegelijk");
+console.log("[brug] versie 10 geladen — rechtsklikken op een zoekertje zet het bij je favorieten in Zentrix");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -662,6 +662,82 @@ async function hostLijst() {
 
   return uit;
 }
+
+// ---------- van Chrome naar Zentrix: rechtsklikken op een zoekertje ----------
+//
+// De enige weg die deze kant op gaat. Overal elders geeft de app werk aan ons; hier sturen wij
+// iets dat zij niet gevraagd heeft - vandaar dat FavoriteFromUrl aan de andere kant nakijkt wat
+// er binnenkomt voor er een pagina opgehaald wordt.
+//
+// Het contextmenu zelf heeft GEEN toestemming per site nodig: Chrome geeft ons het adres van de
+// link waarop je klikte, zonder dat we in de pagina moeten kijken. De app haalt die pagina op,
+// en of dat via de brug gaat (en dus via jouw toestemming voor die site) hangt af van het
+// sitebestand.
+
+const MENU_ID = "zentrix-favoriet";
+
+function maakMenu() {
+  // removeAll eerst: bij elke herstart van het achtergrondscript zou create anders klagen dat
+  // het menu-item al bestaat, en dan staat er niets meer.
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: MENU_ID,
+      title: "Zet in favorieten van Zentrix",
+      contexts: ["link", "page"]
+    });
+  });
+}
+
+chrome.runtime.onInstalled.addListener(maakMenu);
+chrome.runtime.onStartup.addListener(maakMenu);
+
+/// Een melding van Chrome zelf. De popup staat niet open wanneer je rechtsklikt, dus zonder dit
+/// zou je nooit weten of het gelukt is - en stil mislukken is bij zoiets het ergste.
+function meld(tekst) {
+  try {
+    chrome.notifications.create({
+      type: "basic",
+      iconUrl: "icon128.png",
+      title: "Zentrix",
+      message: tekst
+    });
+  } catch (e) {
+    // Geen melding kunnen tonen mag niets stukmaken.
+    console.log("[brug]", tekst);
+  }
+}
+
+chrome.contextMenus.onClicked.addListener(async (info) => {
+  if (info.menuItemId !== MENU_ID) return;
+
+  // De link waarop je klikte, en anders de pagina waar je op staat - zo werkt het ook op de
+  // advertentiepagina zelf en niet enkel in een lijst.
+  const adres = info.linkUrl || info.pageUrl || "";
+
+  const bezwaar = waaromNiet(adres);
+
+  if (bezwaar) {
+    meld(`Dit adres gaat niet: ${bezwaar}.`);
+    return;
+  }
+
+  const token = await getToken();
+
+  if (!token) {
+    meld("Vul eerst de koppelcode in: klik op het Zentrix-pictogram in Chrome.");
+    return;
+  }
+
+  try {
+    const uit = await vraagApp(token, "/favorite", { url: adres });
+
+    if (!uit || uit.nietDeApp) meld("Er zit iets anders op poort 8731; dit is Zentrix niet.");
+    else if (uit.error) meld("Zentrix weigerde de koppelcode. Kopieer ze opnieuw uit de app.");
+    else meld(uit.melding || "Klaar.");
+  } catch (e) {
+    meld("Zentrix draait niet op deze computer.");
+  }
+});
 
 // ---------- opstarten en wakker houden ----------
 

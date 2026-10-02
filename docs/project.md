@@ -112,6 +112,17 @@ De databank krijgt er twee kolommen bij (`favorites.endsAt` en `alertedLead`); d
 bij de eerste start. Van je bestaande favorieten kent de app de sluitingstijd nog niet - die komt
 er bij de eerstvolgende ronde *Nakijken* in, of zodra je ze opnieuw bewaart.
 
+**0.14.0** sinds 2 oktober 2026. Rechtsklik in Chrome op een zoekertje - op de link in een lijst,
+of op de advertentiepagina zelf - en kies **Zet in favorieten van Zentrix**. Dat is de eerste weg
+die van de browser naar de app loopt in plaats van omgekeerd; zie `docs/brug.md` bij "De andere
+kant op: rechtsklikken op een zoekertje".
+
+**De extensie moet herladen worden** (`chrome://extensions`, Herladen): ze gaat van 2.0 naar
+**2.1** en vraagt twee rechten bij, `contextMenus` en `notifications`. Dat tweede is voor de
+terugmelding - de popup staat niet open wanneer je rechtsklikt, dus zonder melding zou je nooit
+weten of het gelukt is. Je toestemmingen per site blijven staan; daar verandert niets aan. De
+extensie heeft meteen ook een eigen pictogram gekregen in plaats van het puzzelstukje.
+
 Het is op twee plaatsen zichtbaar, en allebei om dezelfde reden - **er draaien twee exe's op
 deze pc**, een uit Visual Studio en een gepubliceerde (bij mij `C:\Zentrix`), met
 dezelfde gegevensmap:

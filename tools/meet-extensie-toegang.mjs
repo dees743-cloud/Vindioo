@@ -23,10 +23,13 @@ const knip = (naam, patroon) => {
 const stukken = [
   knip("de constanten", /const POLL_MS[\s\S]*?const DOM_POLL_MS = \d+;/),
   knip("sleep", /function sleep\(ms\) \{[\s\S]*?\n\}/),
+  knip("getToken", /async function getToken\(\) \{[\s\S]*?\n\}/),
   knip("waaromNiet en de toestemmingen",
        /function waaromNiet\(adres\)[\s\S]*?(?=\nconsole\.log\("\[brug\] versie)/),
   knip("de opdrachtlus",
-       /async function readHtml\(tabId\)[\s\S]*?\nasync function sendResult\(token, payload\) \{[\s\S]*?\n\}/)
+       /async function readHtml\(tabId\)[\s\S]*?\nasync function sendResult\(token, payload\) \{[\s\S]*?\n\}/),
+  knip("het contextmenu",
+       /const MENU_ID = [\s\S]*?chrome\.contextMenus\.onClicked\.addListener\([\s\S]*?\n\}\);/)
 ];
 
 // ---------- de nagebootste Chrome ----------
@@ -39,13 +42,24 @@ let tabUrl = null;            // waar het tabblad nu staat
 let onthouden = [];           // de lijst die de popup te zien krijgt
 let geleverd = [];            // wat er naar de app ging
 
+let bewaardeCode = "koppelcode-van-de-gebruiker";   // wat chrome.storage teruggeeft
+let meldingen = [];                                 // wat Chrome aan de gebruiker toonde
+let klikHandler = null;                             // de luisteraar van het contextmenu
+
 const mijnChrome = {
+  runtime: { onInstalled: { addListener: () => {} }, onStartup: { addListener: () => {} } },
+  contextMenus: {
+    removeAll: (klaar) => klaar(),
+    create: () => {},
+    onClicked: { addListener: (fn) => { klikHandler = fn; } }
+  },
+  notifications: { create: (opties) => meldingen.push(opties.message) },
   permissions: {
     contains: async ({ origins }) => origins.every((o) => toegestaan.has(o))
   },
   storage: {
     local: {
-      get: async (key) => (key === "nodig" ? { nodig: [...onthouden] } : {}),
+      get: async (key) => key === "nodig" ? { nodig: [...onthouden] } : { token: bewaardeCode },
       set: async (obj) => { if (obj.nodig) onthouden = obj.nodig; }
     }
   },
@@ -80,9 +94,13 @@ const mijnChrome = {
 };
 
 // De app nabootsen: we onthouden enkel wat de extensie aflevert.
+let gevraagd = [];              // elk pad dat er naar de app ging
+let antwoord = {};              // wat de nep-app terugzegt
+
 const mijnVraagApp = async (token, pad, body = null) => {
+  gevraagd.push({ pad, body });
   if (pad === "/result") geleverd.push(body);
-  return {};
+  return antwoord;
 };
 
 const stil = { log: () => {}, warn: () => {} };
@@ -91,6 +109,13 @@ const laad = new Function("chrome", "vraagApp", "console",
   stukken.join("\n\n") + "\nreturn { handleJob, mag };");
 
 const { handleJob, mag } = laad(mijnChrome, mijnVraagApp, stil);
+
+// Het contextmenu hangt zijn luisteraar op bij het laden; die hebben we hierboven opgevangen.
+const rechtsklik = async (info) => {
+  gevraagd = [];
+  meldingen = [];
+  await klikHandler(info);
+};
 
 // ---------- de proeven ----------
 
@@ -168,6 +193,63 @@ dat(await mag("https://www.voorbeeld.be/wat/dan/ook?x=1"), "mag(): het pad doet 
 dat(!(await mag("https://ander.voorbeeld.be/")), "mag(): een andere naam niet");
 dat(!(await mag("http://www.voorbeeld.be/")), "mag(): http is niet https");
 dat(!(await mag("niet-eens-een-adres")), "mag(): onleesbaar adres is nee");
+
+// ---------- rechtsklikken op een zoekertje ----------
+//
+// De enige weg die van Chrome naar de app loopt. Wat de extensie doorgeeft, gaat de app ZELF
+// ophalen - dus wat niet deugt, hoort hier al te stranden en niet pas aan de overkant.
+
+antwoord = { ok: true, melding: "Bij je favorieten gezet: Lot 229" };
+
+await rechtsklik({ menuItemId: "zentrix-favoriet", linkUrl: "https://www.voorbeeld.be/kavel/229" });
+
+dat(gevraagd.length === 1 && gevraagd[0].pad === "/favorite" &&
+    gevraagd[0].body.url === "https://www.voorbeeld.be/kavel/229",
+    `een gewone link gaat naar de app (${JSON.stringify(gevraagd)})`);
+
+dat(meldingen.length === 1 && meldingen[0].includes("Lot 229"),
+    `en je krijgt te zien wat er gebeurde (${meldingen[0]})`);
+
+// Geen link maar de pagina zelf: dan werkt het ook op de advertentiepagina.
+await rechtsklik({ menuItemId: "zentrix-favoriet", pageUrl: "https://www.voorbeeld.be/kavel/300" });
+
+dat(gevraagd.length === 1 && gevraagd[0].body.url === "https://www.voorbeeld.be/kavel/300",
+    "zonder link wordt het adres van de pagina genomen");
+
+// En nu wat er NIET mag vertrekken. Elk van deze drie zou de app een verzoek laten doen dat ze
+// uit zichzelf nooit zou doen.
+for (const [adres, waarom] of [
+  ["http://www.voorbeeld.be/kavel/1", "http in plaats van https"],
+  ["https://192.168.1.1/beheer", "een adres op je eigen netwerk"],
+  ["javascript:alert(1)", "geen webadres"]
+]) {
+  await rechtsklik({ menuItemId: "zentrix-favoriet", linkUrl: adres });
+
+  dat(gevraagd.length === 0 && meldingen.length === 1,
+      `${waarom}: er gaat niets naar de app, wel een melding (${meldingen[0] ?? "geen"})`);
+}
+
+// Nog geen koppelcode: dan zegt de extensie wat je moet doen in plaats van stil te vallen.
+bewaardeCode = "";
+await rechtsklik({ menuItemId: "zentrix-favoriet", linkUrl: "https://www.voorbeeld.be/kavel/229" });
+
+dat(gevraagd.length === 0 && (meldingen[0] ?? "").includes("koppelcode"),
+    `zonder koppelcode: geen verzoek, wel uitleg (${meldingen[0] ?? "geen"})`);
+
+bewaardeCode = "koppelcode-van-de-gebruiker";
+
+// Iets anders op poort 8731: dan voeren we er niets van uit en zeggen we dat.
+antwoord = { nietDeApp: true };
+await rechtsklik({ menuItemId: "zentrix-favoriet", linkUrl: "https://www.voorbeeld.be/kavel/229" });
+
+dat((meldingen[0] ?? "").includes("Zentrix niet"),
+    `een vreemd programma op de poort wordt gemeld (${meldingen[0] ?? "geen"})`);
+
+// Een ander menu-item (van een andere extensie) mag ons niet laten lopen.
+antwoord = { ok: true, melding: "zou niet mogen" };
+await rechtsklik({ menuItemId: "iets-anders", linkUrl: "https://www.voorbeeld.be/kavel/229" });
+
+dat(gevraagd.length === 0 && meldingen.length === 0, "een ander menu-item doet niets");
 
 console.log();
 console.log(fouten === 0 ? "alles OK" : fouten + " FOUT");

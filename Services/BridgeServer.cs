@@ -98,6 +98,16 @@ public class BridgeServer
     /// </summary>
     public Func<List<string>>? BridgeHosts { get; set; }
 
+    /// <summary>
+    /// Wat er moet gebeuren wanneer je in Chrome op een zoekertje rechtsklikt en het bij je
+    /// favorieten wil zetten. Het venster hangt dit op bij het starten; zonder venster gebeurt
+    /// er niets, en dat zegt de brug dan ook.
+    ///
+    /// Een <c>Func</c> en geen rechtstreekse aanroep: de brug kent de sites en de databank niet,
+    /// en dat moet zo blijven - ze is een postbode.
+    /// </summary>
+    public Func<string, Task<FavoriteFromUrl.Uitkomst>>? FavorietToevoegen { get; set; }
+
     /// <summary>Wanneer de extensie zich het laatst meldde.</summary>
     public DateTime LastContact { get; private set; } = DateTime.MinValue;
 
@@ -459,7 +469,7 @@ public class BridgeServer
                 var gemachtigd = method != "OPTIONS" &&
                                  Klopt(nonce, handtekening, Encoding.UTF8.GetString(body.Span));
 
-                var response = Handle(method, path, body, vanExtensie, gemachtigd);
+                var response = await Handle(method, path, body, vanExtensie, gemachtigd);
 
                 // Het antwoord wordt óók getekend. Zo weet de extensie dat zij met de échte app
                 // praat en niet met een programma dat de poort eerst bezette - dat is de helft
@@ -501,8 +511,13 @@ public class BridgeServer
 
     /// <param name="vanExtensie">Droeg het verzoek de kopregel <see cref="ExtensionHeader"/>?</param>
     /// <param name="gemachtigd">Klopte de handtekening? Die is in de lus al nagekeken.</param>
-    private string Handle(string method, string path, ReadOnlyMemory<byte> body, bool vanExtensie,
-                          bool gemachtigd)
+    /// <remarks>
+    /// Async sinds 2 oktober 2026, voor <c>/favorite</c>: dat pad haalt een pagina op en dat duurt
+    /// seconden. Dat houdt de rest niet tegen - elke verbinding heeft haar eigen taak (zie
+    /// <c>AcceptLoopAsync</c>), dus de extensie kan intussen gewoon om werk blijven vragen.
+    /// </remarks>
+    private async Task<string> Handle(string method, string path, ReadOnlyMemory<byte> body, bool vanExtensie,
+                                      bool gemachtigd)
     {
         // De extensie stuurt eerst een controlevraag; die moet zonder inhoud slagen.
         if (method == "OPTIONS") return "";
@@ -607,6 +622,30 @@ public class BridgeServer
                     });
                 }
                 return JsonSerializer.Serialize(new { });
+
+            // Van Chrome naar hier, de enige weg die die kant op gaat: je rechtsklikte op een
+            // zoekertje en koos "Zet in favorieten van Zentrix". Zie FavoriteFromUrl voor wat er
+            // allemaal nagekeken wordt voor dat adres opgehaald mag worden.
+            case "/favorite":
+                if (FavorietToevoegen is null)
+                    return JsonSerializer.Serialize(new { ok = false, melding = "Zentrix is nog aan het opstarten." });
+
+                try
+                {
+                    using var vraag = JsonDocument.Parse(body);
+                    var adres = vraag.RootElement.TryGetProperty("url", out var u) ? u.GetString() ?? "" : "";
+
+                    if (adres.Length == 0)
+                        return JsonSerializer.Serialize(new { ok = false, melding = "Er kwam geen webadres mee." });
+
+                    var uitkomst = await FavorietToevoegen(adres);
+                    return JsonSerializer.Serialize(new { ok = uitkomst.Ok, melding = uitkomst.Melding });
+                }
+                catch (Exception fout)
+                {
+                    Log.Write($"brug: favoriet uit Chrome liep vast - {fout.Message}");
+                    return JsonSerializer.Serialize(new { ok = false, melding = "Zentrix kon dit niet verwerken." });
+                }
 
             // De extensie levert de opgehaalde pagina af.
             case "/result":

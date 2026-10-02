@@ -211,6 +211,94 @@ public static class FavoriteWatch
     }
 
     /// <summary>
+    /// De titel van een zoekertje waarvan we enkel het webadres hebben (zie
+    /// <see cref="FavoriteFromUrl"/>). Drie wegen, in deze volgorde:
+    ///
+    /// <list type="number">
+    ///   <item>de <c>name</c> uit het <c>ld+json</c>-blok, maar <b>enkel</b> van een object dat
+    ///         ook een prijs of een <c>offers</c> draagt - anders pak je de naam van de site of
+    ///         van een kruimelpad, want die staan er ook in;</item>
+    ///   <item><c>og:title</c>, waar de meeste sites de titel van de advertentie in zetten;</item>
+    ///   <item>de <c>&lt;title&gt;</c> van de pagina. Daar hangt meestal de naam van de site
+    ///         achter ("... | 2dehands"), maar iets herkenbaars is beter dan niets.</item>
+    /// </list>
+    ///
+    /// Waarom niet uit het sitebestand: dat beschrijft de <b>zoekpagina</b>. Er is wel een
+    /// selector voor de einddatum en de foto's van een advertentiepagina, maar niet voor haar
+    /// titel - die stond nooit ergens anders dan in het zoekresultaat.
+    /// </summary>
+    internal static string TitelUitPagina(string html)
+    {
+        foreach (Match blok in LdJson.Matches(html))
+        {
+            try
+            {
+                using var boom = JsonDocument.Parse(blok.Groups[1].Value.Trim());
+                if (ZoekNaam(boom.RootElement) is { } naam && naam.Length > 0) return naam;
+            }
+            catch (JsonException)
+            {
+                // Eén onleesbaar blok mag de rest niet tegenhouden.
+            }
+        }
+
+        foreach (var patroon in new[] { OgTitel, PaginaTitel })
+        {
+            var raak = patroon.Match(html);
+            if (!raak.Success) continue;
+
+            var tekst = WebUtility.HtmlDecode(raak.Groups[1].Value).Trim();
+            if (tekst.Length > 0) return tekst;
+        }
+
+        return "";
+    }
+
+    private static readonly Regex OgTitel = new(
+        """<meta[^>]+property=["']og:title["'][^>]+content=["'](.*?)["']""",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex PaginaTitel = new(
+        "<title[^>]*>(.*?)</title>",
+        RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// De <c>name</c> van een object dat ook een prijs draagt. Die voorwaarde is nodig: een
+    /// pagina heeft doorgaans meerdere <c>ld+json</c>-objecten, en de eerste <c>name</c> is vaak
+    /// die van de site zelf of van een kruimelpad.
+    /// </summary>
+    private static string? ZoekNaam(JsonElement element)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                var heeftPrijs = element.TryGetProperty("offers", out _) ||
+                                 element.TryGetProperty("price", out _);
+
+                if (heeftPrijs && element.TryGetProperty("name", out var naam) &&
+                    naam.ValueKind == JsonValueKind.String)
+                {
+                    var tekst = naam.GetString()?.Trim();
+                    if (!string.IsNullOrEmpty(tekst)) return tekst;
+                }
+
+                foreach (var veld in element.EnumerateObject())
+                    if (ZoekNaam(veld.Value) is { } dieper) return dieper;
+
+                return null;
+
+            case JsonValueKind.Array:
+                foreach (var kind in element.EnumerateArray())
+                    if (ZoekNaam(kind) is { } gevonden) return gevonden;
+
+                return null;
+
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>
     /// Het eerste veld dat een prijs is, hoe diep het ook zit. Een blok mag een lijst zijn,
     /// een <c>@graph</c> hebben, of de prijs pas onder <c>offers</c> zetten.
     /// </summary>

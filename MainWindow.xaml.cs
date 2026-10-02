@@ -227,6 +227,21 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        // Rechtsklikken in Chrome op een zoekertje, en het staat bij je favorieten. Dit is de
+        // enige weg die van de extensie naar de app loopt in plaats van omgekeerd; FavoriteFromUrl
+        // kijkt na wat er binnenkomt voor er iets opgehaald wordt.
+        BridgeServer.Instance.FavorietToevoegen = async adres =>
+        {
+            var uitkomst = await FavoriteFromUrl.VoegToeAsync(adres, _store.Sites, _history);
+
+            // Staat het tabblad Favorieten open, dan hoort het er meteen bij te staan - anders
+            // kijk je naar een lijst waar het net bijgekomen zoekertje niet in staat.
+            if (uitkomst.Ok)
+                await Dispatcher.InvokeAsync(() => { _favoriteKeys.Add(uitkomst.Favoriet!.Key); LoadFavorites(); });
+
+            return uitkomst;
+        };
+
         BridgeServer.Instance.Start();
         if (BridgeServer.Instance.PortBusy)
             StatusText.Text = "Let op: " + ChromeLauncher.Describe(BridgeStatus.PortInUse);

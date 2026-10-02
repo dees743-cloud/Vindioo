@@ -395,3 +395,56 @@ Allebei de node-metingen draaien sinds vandaag mee in de CI. Ze stonden in `tool
 met de hand kan draaien, en dat is precies waarom ze erbij moesten: wat ze meten werkt met jouw
 cookies, en de C#-controles raken geen JavaScript.
 
+## De andere kant op: rechtsklikken op een zoekertje
+
+Erbij op 2 oktober 2026 (extensie 2.1). Rechtsklik in Chrome op een zoekertje - op de link in een
+lijst, of ergens op de advertentiepagina zelf - en kies **Zet in favorieten van Zentrix**.
+
+**Dit is de enige weg die deze kant op gaat.** Overal elders geeft de app werk aan de extensie en
+haalt die het op; hier stuurt de extensie iets dat de app niet gevraagd heeft, en dan nog een
+webadres dat de app **zelf gaat ophalen**. Vandaar drie sloten, en ze doen alle drie iets anders:
+
+| waar | wat | waarom juist daar |
+|---|---|---|
+| `background.js` | `waaromNiet(adres)` voor er iets vertrekt | een `javascript:`-link of een adres op je eigen netwerk hoort de poort niet eens te bereiken |
+| `BridgeServer` | dezelfde handtekening als elk ander pad | een webpagina die poort 8731 vindt, mag de app geen verzoeken laten doen |
+| `FavoriteFromUrl` | https, geen privé-adres, en een **bekende** site | de app gaat dit adres ophalen, met haar eigen netwerk |
+
+Dat laatste slot is niet enkel beveiliging. Zonder sitebestand is er geen naam voor de bron en
+geen `IdPattern` om een id uit de link te halen - en dan zou dezelfde kavel **twee keer** in je
+favorieten staan: één keer via het zoekresultaat en één keer via Chrome, met twee verschillende
+sleutels. Nu krijgt hij allebei de keren hetzelfde id.
+
+**Waar de titel vandaan komt.** Een sitebestand beschrijft de *zoekpagina*. Er staat wel een
+selector in voor de einddatum en de foto's van een advertentiepagina, maar niet voor haar titel -
+die stond nooit ergens anders dan in het zoekresultaat. `FavoriteWatch.TitelUitPagina` probeert
+daarom drie dingen, in deze volgorde:
+
+1. de `name` uit het `ld+json`-blok, **enkel** van een object dat ook een prijs of `offers`
+   draagt. Die voorwaarde is nodig en geen overdaad: op elke advertentiepagina van 2dehands staat
+   er een `BreadcrumbList` met een `name` ("Audio en Hifi"), en die staat er **vóór** het product;
+2. `og:title`;
+3. de `<title>` van de pagina.
+
+Valt er niets te lezen, dan wordt er **niets** bewaard: een lege kaart in je favorieten is erger
+dan een melding die zegt dat het niet lukte.
+
+**`Handle` is async geworden** in `BridgeServer`, want dit pad haalt een pagina op en dat duurt
+seconden. Dat houdt de rest niet tegen: elke verbinding heeft haar eigen taak, dus de extensie
+blijft intussen gewoon om werk vragen.
+
+**De terugmelding komt van Chrome zelf** (`chrome.notifications`), want de popup staat niet open
+wanneer je rechtsklikt. Daarvoor zijn er twee rechten bijgekomen in het manifest, `contextMenus`
+en `notifications`, en een pictogram - dat laatste omdat een melding er een eist, en meteen ook
+omdat er tot nu een puzzelstukje in de werkbalk stond.
+
+Het contextmenu zelf heeft **geen** toestemming per site nodig: Chrome geeft het adres van de
+link mee zonder dat we in de pagina moeten kijken. Haalt de app die pagina daarna via de brug op
+(een site met `UseBridge`), dan speelt jouw toestemming voor die site wel weer mee.
+
+Nagemeten: `tools/meet-extensie-toegang.mjs` draait de échte luisteraar van het contextmenu tegen
+een nagebootste Chrome (een gewone link, een pagina zonder link, `http://`, een privé-adres,
+`javascript:`, geen koppelcode, en een vreemd programma op de poort). De tegenproef zonder
+`waaromNiet` laat de drie weigeringen omvallen. Aan de kant van de app doen `RechtsklikChecks` en
+een groep in `BrugChecks` de rest.
+

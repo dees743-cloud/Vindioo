@@ -294,6 +294,52 @@ public static class BrugChecks
             brug.BridgeHosts = eerder;
         }
 
+        // ---------------------------------------------------------------------------
+        Check.Groep("Brug: een favoriet uit Chrome komt binnen, maar niet van zomaar iedereen");
+        {
+            // De enige weg die van de extensie naar de app loopt in plaats van omgekeerd. Wat
+            // hier binnenkomt is een webadres dat de app zelf gaat ophalen, dus het hoort achter
+            // dezelfde handtekening te zitten als de rest.
+            var gezien = new List<string>();
+
+            brug.FavorietToevoegen = adres =>
+            {
+                gezien.Add(adres);
+                return Task.FromResult(new FavoriteFromUrl.Uitkomst(true, "Bij je favorieten gezet: proef"));
+            };
+
+            var nF = Guid.NewGuid().ToString("N");
+            const string lading = """{"url":"https://www.voorbeeld.be/v/1"}""";
+
+            var goed = await StuurMetBodyAsync($"/favorite?{BridgeServer.NonceParam}={nF}", lading,
+                                               Getekend(brug.Token, nF, lading));
+
+            Check.Dat(goed.Contains("\"ok\":true") && gezien.Count == 1 &&
+                      gezien[0] == "https://www.voorbeeld.be/v/1",
+                $"met de koppelcode komt het adres aan ({gezien.Count}: {string.Join(", ", gezien)})");
+
+            // En zonder: een webpagina die poort 8731 vindt, mag de app geen favorieten laten
+            // ophalen - dat is een verzoek dat zij met haar eigen netwerk zou uitvoeren.
+            var nV = Guid.NewGuid().ToString("N");
+
+            var geweigerd = await StuurMetBodyAsync($"/favorite?{BridgeServer.NonceParam}={nV}", lading,
+                                                    Getekend("verzonnen", nV, lading));
+
+            // Het adres komt niet aan - en de body wordt niet eens gelezen, dus de verbinding
+            // gaat dicht terwijl we nog aan het schrijven zijn. Precies zoals bedoeld.
+            Check.Dat(!geweigerd.Contains("\"ok\":true") && gezien.Count == 1,
+                $"zonder de juiste code gebeurt er niets ({Eerste(geweigerd)}, {gezien.Count} gezien)");
+
+            brug.FavorietToevoegen = null;
+
+            var nZ = Guid.NewGuid().ToString("N");
+            var zonder = await StuurMetBodyAsync($"/favorite?{BridgeServer.NonceParam}={nZ}", lading,
+                                                 Getekend(brug.Token, nZ, lading));
+
+            Check.Dat(zonder.Contains("opstarten"),
+                "en zonder venster zegt de brug dat de app nog niet klaar is");
+        }
+
 
         // ---------------------------------------------------------------------------
         Check.Groep("Brug: de koppelcode gaat niet meer over de lijn");
@@ -617,6 +663,37 @@ public static class BrugChecks
     /// <summary>De eerste regel van een antwoord, of "geen antwoord".</summary>
     private static string Eerste(string antwoord) =>
         antwoord.Length == 0 ? "geen antwoord" : antwoord.Split("\r\n")[0];
+
+    /// <summary>Een POST met een echte body, getekend zoals de extensie het doet.</summary>
+    private static async Task<string> StuurMetBodyAsync(string pad, string body, params string[] kopregels)
+    {
+        using var client = new TcpClient();
+        await client.ConnectAsync("127.0.0.1", BridgeServer.Port);
+        var stream = client.GetStream();
+
+        var inhoud = Encoding.UTF8.GetBytes(body);
+
+        var verzoek = new StringBuilder($"POST {pad} HTTP/1.1\r\nHost: 127.0.0.1:{BridgeServer.Port}\r\n");
+        foreach (var kop in kopregels) verzoek.Append(kop).Append("\r\n");
+        verzoek.Append($"Content-Type: application/json\r\nContent-Length: {inhoud.Length}\r\n\r\n");
+
+        // Verdragen dat de verbinding onder onze handen dichtgaat, en dat is geen schoonheidsfout
+        // maar het gedrag waar we blij mee zijn: wie de code niet kent, krijgt zijn body niet
+        // eens gelezen (zie de groep "grenzen aan wat ze aanneemt"). Wie dat niet opvangt, krijgt
+        // hier een uitzondering in plaats van een controle die FOUT zegt.
+        try
+        {
+            await stream.WriteAsync(Encoding.ASCII.GetBytes(verzoek.ToString()));
+            await stream.WriteAsync(inhoud);
+
+            using var lezer = new StreamReader(stream);
+            return await lezer.ReadToEndAsync();
+        }
+        catch (IOException)
+        {
+            return "";
+        }
+    }
 
     private static async Task<string> StuurAsync(string methode, string pad, params string[] kopregels)
     {

@@ -105,7 +105,7 @@ dotnet run --project tests\Zentrix.Checks -- --snel
 
 ## Status
 
-**Versie 0.13.0.** De app wordt dagelijks gebruikt en doet wat ze moet doen, maar er staan nog
+**Versie 0.14.0.** De app wordt dagelijks gebruikt en doet wat ze moet doen, maar er staan nog
 stukken open — zie [docs/volgende-stappen.md](docs/volgende-stappen.md). Vandaar de nul vooraan.
 
 ## Licentie
