@@ -157,6 +157,18 @@ Bij dat pictogram hoort een waarschuwing voor de volgende keer: na het vervangen
 een wit blad tonen, en dat lag niet aan de app maar aan de **iconcache** van Windows. Wissen met
 `ie4uinit.exe -show`. Zie `docs/weergave.md` voor de drie metingen die dat uitwijzen.
 
+**0.17.0** sinds 2 oktober 2026. Een favoriet die je via een **veilinghuis** toevoegt, krijgt nu
+het **huidige bod** mee. Tot dan kwam zo'n kavel prijsloos binnen, met als uitleg dat het bod
+"pas met JavaScript een getal wordt" - en die conclusie ging over de verkeerde pagina. Bij bopa.be
+klopt ze, maar de app leest bopa.be niet: ze leest de kavelpagina van AlleVeilingen, en daar staat
+het bod gewoon in de kale HTML. Het nieuwe veld `DetailPriceSelector` in het siteformaat wijst aan
+waar; in *Sites beheren* heet het "Prijs (op de pagina zelf)". Zie `docs/favorieten.md` voor de
+meting en de drie tegenproeven.
+
+Wie AlleVeilingen al had staan, **importeert dat sitebestand opnieuw** of plakt de selector in dat
+vakje - anders verandert er niets. Bestaande favorieten houden hun lege prijs; *Nakijken* vult ze
+voortaan wel in.
+
 **0.16.0** sinds 2 oktober 2026. Twee dingen aan de vensters. Een **vergrote foto** heeft nu
 bladerpijlen bovenaan met een teller ertussen ("2 van 4"), en de pijltjestoetsen doen hetzelfde;
 de volgende foto kostte er drie klikken. Bij de eerste foto staat er geen pijl naar links en bij
