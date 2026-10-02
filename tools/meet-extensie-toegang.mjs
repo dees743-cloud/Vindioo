@@ -45,12 +45,13 @@ let geleverd = [];            // wat er naar de app ging
 let bewaardeCode = "koppelcode-van-de-gebruiker";   // wat chrome.storage teruggeeft
 let meldingen = [];                                 // wat Chrome aan de gebruiker toonde
 let klikHandler = null;                             // de luisteraar van het contextmenu
+let gemaakteMenus = [];                             // wat er aan Chrome gevraagd is om te tonen
 
 const mijnChrome = {
   runtime: { onInstalled: { addListener: () => {} }, onStartup: { addListener: () => {} } },
   contextMenus: {
     removeAll: (klaar) => klaar(),
-    create: () => {},
+    create: (opties) => { gemaakteMenus.push(opties); },
     onClicked: { addListener: (fn) => { klikHandler = fn; } }
   },
   notifications: { create: (opties) => meldingen.push(opties.message) },
@@ -198,6 +199,16 @@ dat(!(await mag("niet-eens-een-adres")), "mag(): onleesbaar adres is nee");
 //
 // De enige weg die van Chrome naar de app loopt. Wat de extensie doorgeeft, gaat de app ZELF
 // ophalen - dus wat niet deugt, hoort hier al te stranden en niet pas aan de overkant.
+
+// Eerst: staat het menu-item er überhaupt? Het wordt bij het laden van dit script aangemaakt,
+// dus het moet er nu al zijn - zonder dat te wachten op onInstalled of onStartup, want of een
+// herlaad in chrome://extensions die geeft, hangt af van Chrome.
+dat(gemaakteMenus.length === 1 && gemaakteMenus[0].id === "zentrix-favoriet",
+    `het menu-item wordt bij het laden aangemaakt (${JSON.stringify(gemaakteMenus)})`);
+
+dat((gemaakteMenus[0]?.contexts ?? []).includes("link") &&
+    (gemaakteMenus[0]?.contexts ?? []).includes("page"),
+    "op een link én op de pagina zelf");
 
 antwoord = { ok: true, melding: "Bij je favorieten gezet: Lot 229" };
 
