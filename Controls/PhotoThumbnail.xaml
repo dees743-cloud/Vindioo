@@ -24,9 +24,47 @@
                         <Binding Path="ActualHeight" RelativeSource="{RelativeSource Self}" />
                     </MultiBinding>
                 </Border.Clip>
-                <!-- UniformToFill vult het vak en snijdt gecentreerd bij. -->
-                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
-                       RenderOptions.BitmapScalingMode="HighQuality" />
+
+                <!-- De merktekens staan BINNEN deze Border, dus binnen de afronding: zo loopt
+                     het kruis netjes mee met de ronde hoeken in plaats van eruit te steken.
+
+                     Bij een gewoon zoekertje staan allebei de vlaggen op false en is hier niets
+                     van te zien. Daarom kon dit in het gedeelde vak: de resultatenlijst en de
+                     favorieten gebruiken dezelfde miniatuur, en dat blijft zo. -->
+                <Grid>
+                    <!-- UniformToFill vult het vak en snijdt gecentreerd bij. -->
+                    <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
+                           RenderOptions.BitmapScalingMode="HighQuality" />
+
+                    <!-- WEG: de foto dooft en er gaat een kruis over. Het dempen hoort erbij -
+                         een kruis alleen op een felle foto leest als een versiering, met de foto
+                         gedoofd leest het als "hier valt niets meer te halen". -->
+                    <Rectangle Fill="#73101014"
+                               Visibility="{Binding WatchIsGone, Converter={StaticResource BoolToVisibility}}" />
+
+                    <!-- Stretch=Fill rekt de twee lijnen op tot het hele vak; de lijndikte
+                         schaalt daar niet in mee, dus het kruis blijft even dik in de lijst
+                         (240x200) als in het raster. -->
+                    <Path Data="M 0,0 L 1,1 M 1,0 L 0,1" Stretch="Fill" Margin="16"
+                          Stroke="#E85C50" StrokeThickness="7" Opacity="0.92"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                          Visibility="{Binding WatchIsGone, Converter={StaticResource BoolToVisibility}}" />
+
+                    <!-- AFGELOPEN: een stempel schuin over de foto. Hoofdletters zoals het
+                         NIEUW-label op de rasterkaart, want dit moet als stempel lezen en niet
+                         als onderschrift. Het bandje eronder is nodig op een lichte foto: wit
+                         op wit leest niet. -->
+                    <Border Background="#D914121A" Padding="16,5" CornerRadius="4"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            RenderTransformOrigin="0.5,0.5"
+                            Visibility="{Binding WatchIsEnded, Converter={StaticResource BoolToVisibility}}">
+                        <Border.RenderTransform>
+                            <RotateTransform Angle="-18" />
+                        </Border.RenderTransform>
+                        <TextBlock Text="AFGELOPEN" FontSize="15" FontWeight="Bold"
+                                   Foreground="#F6F4FB" />
+                    </Border>
+                </Grid>
             </Border>
         </Border>
     </Grid>

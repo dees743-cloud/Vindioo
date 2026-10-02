@@ -1187,19 +1187,34 @@
                 </Grid.RowDefinitions>
 
                 <Grid Grid.Row="0" Margin="0,0,0,12">
-                    <TextBlock Text="Favorieten" FontSize="18" FontWeight="SemiBold"
-                               Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                    <!-- Nakijken staat links bij de titel, en niet rechts in de hoek: het is de
+                         enige knop van dit tabblad, en wat je hier komt doen. Rechts bleef het
+                         zonder reden onopvallend. Primary zoals de hoofdknop elders in de app.
 
-                    <!-- Nakijken kost een verzoek per favoriet, dus het gebeurt niet vanzelf
+                         Nakijken kost een verzoek per favoriet, dus het gebeurt niet vanzelf
                          bij het openen van dit tabblad: jij vraagt het. Dezelfde afweging als
                          bij de grote foto en bij Tweakers. -->
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <TextBlock x:Name="FavoritesCount" VerticalAlignment="Center" Margin="0,0,12,0"
-                                   Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" />
-                        <ui:Button x:Name="WatchButton" Appearance="Secondary" Click="WatchFavorites_Click"
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Favorieten" FontSize="18" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"
+                                   Margin="0,0,16,0" />
+
+                        <ui:Button x:Name="WatchButton" Appearance="Primary" Click="WatchFavorites_Click"
                                    Content="Nakijken" Icon="{ui:SymbolIcon ArrowSync24}"
+                                   FontWeight="SemiBold" Padding="14,6" VerticalAlignment="Center"
                                    ToolTip="Kijkt per favoriet of het zoekertje er nog staat en wat het nu kost. Dat kost één verzoek per favoriet." />
+
+                        <!-- Opruimen staat uit tot Nakijken iets gevonden heeft om op te
+                             ruimen: deze knop gaat af op wat daar uitkwam, dus zonder die ronde
+                             weet hij van niets. -->
+                        <ui:Button x:Name="CleanButton" Appearance="Secondary" Click="CleanFavorites_Click"
+                                   Content="Opruimen" Icon="{ui:SymbolIcon Broom24}"
+                                   Margin="8,0,0,0" Padding="14,6" VerticalAlignment="Center" IsEnabled="False"
+                                   ToolTip="Haalt de favorieten weg die weg van de site zijn of waarvan de veiling afgelopen is. Doet pas iets na Nakijken." />
                     </StackPanel>
+
+                    <TextBlock x:Name="FavoritesCount" HorizontalAlignment="Right" VerticalAlignment="Center"
+                               Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" />
                 </Grid>
 
                 <ui:ListView Grid.Row="1" x:Name="FavoritesList" Background="Transparent" BorderThickness="0"

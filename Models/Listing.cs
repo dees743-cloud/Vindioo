@@ -304,15 +304,42 @@ public class Listing : ObservableObject
     }
 
     /// <summary>
+    /// De pagina bestaat niet meer. De kaart krijgt er een rood kruis over.
+    ///
+    /// Apart van <see cref="WatchIsEnded"/>, want het zijn twee verschillende dingen: weg is
+    /// weg, afgelopen betekent dat het zoekertje er nog staat maar dat er niet meer op te
+    /// bieden valt. Tot 2 oktober 2026 was er één vlag voor allebei, en dan stond er wel "1 weg,
+    /// 2 afgelopen" boven de lijst maar was aan geen enkele kaart te zien wélke dat waren.
+    /// </summary>
+    private bool _watchIsGone;
+    public bool WatchIsGone
+    {
+        get => _watchIsGone;
+        set
+        {
+            if (SetProperty(ref _watchIsGone, value)) OnPropertyChanged(nameof(WatchIsWarning));
+        }
+    }
+
+    /// <summary>Een veiling die voorbij is. De kaart krijgt "AFGELOPEN" schuin over de foto.</summary>
+    private bool _watchIsEnded;
+    public bool WatchIsEnded
+    {
+        get => _watchIsEnded;
+        set
+        {
+            if (SetProperty(ref _watchIsEnded, value)) OnPropertyChanged(nameof(WatchIsWarning));
+        }
+    }
+
+    /// <summary>
     /// Weg of afgelopen: dan krijgt die regel de waarschuwingskleur. Een prijs die veranderde
     /// is nieuws, geen waarschuwing.
+    ///
+    /// Afgeleid en niet apart te zetten: met drie vlaggen naast elkaar kan er één achterblijven,
+    /// en dan zegt de tekst iets anders dan de foto.
     /// </summary>
-    private bool _watchIsWarning;
-    public bool WatchIsWarning
-    {
-        get => _watchIsWarning;
-        set => SetProperty(ref _watchIsWarning, value);
-    }
+    public bool WatchIsWarning => WatchIsGone || WatchIsEnded;
 
     /// <summary>Sleutel voor de "al gezien"-tabel in SQLite.</summary>
     public string Key => $"{Source}:{ExternalId}";

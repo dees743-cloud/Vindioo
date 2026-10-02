@@ -63,6 +63,8 @@ public partial class MainWindow
 
         FavoritesCount.Text = (_favorites.Count == 1 ? "1 bewaard" : $"{_favorites.Count} bewaard")
                               + _watchSamenvatting;
+
+        ZetOpruimknop();
     }
 
     /// <summary>
@@ -168,7 +170,11 @@ public partial class MainWindow
                 var status = await FavoriteWatch.CheckAsync(favoriet, _store.Sites, stop.Token);
 
                 favoriet.WatchText = FavoriteWatch.Tekst(status, favoriet.Price);
-                favoriet.WatchIsWarning = status.Staat is FavoriteState.Weg or FavoriteState.Afgelopen;
+
+                // Apart, want de kaart toont er twee verschillende dingen mee: een kruis over
+                // wat weg is, en een stempel "AFGELOPEN" over een veiling die voorbij is.
+                favoriet.WatchIsGone = status.Staat == FavoriteState.Weg;
+                favoriet.WatchIsEnded = status.Staat == FavoriteState.Afgelopen;
 
                 if (status.Staat == FavoriteState.Weg) weg++;
                 else if (status.Staat == FavoriteState.Afgelopen) afgelopen++;
@@ -211,9 +217,77 @@ public partial class MainWindow
         WatchButton.Icon = new Wpf.Ui.Controls.SymbolIcon(
             bezig ? Wpf.Ui.Controls.SymbolRegular.Stop24 : Wpf.Ui.Controls.SymbolRegular.ArrowSync24);
 
+        // Terug naar Primary, niet naar Secondary: dat laatste stond hier nog van toen de knop
+        // rechts in de hoek hing, en dan was Nakijken na één keer gebruiken stilletjes weer
+        // onopvallend geworden - precies wat we op 2 oktober 2026 wilden verhelpen.
         WatchButton.Appearance = bezig
             ? Wpf.Ui.Controls.ControlAppearance.Caution
-            : Wpf.Ui.Controls.ControlAppearance.Secondary;
+            : Wpf.Ui.Controls.ControlAppearance.Primary;
+
+        ZetOpruimknop();
+    }
+
+    /// <summary>
+    /// Opruimen kan enkel wanneer er iets te ruimen is, en niet terwijl het nakijken loopt - dan
+    /// verandert de lijst onder de lus.
+    ///
+    /// Op één plaats bepaald, en van daaruit ook door <see cref="UpdateEmptyHints"/> aangeroepen.
+    /// Wissel je van tabblad, dan haalt <c>LoadFavorites</c> de lijst opnieuw uit de databank en
+    /// zijn de merktekens van de vorige ronde weg; stond het ergens anders, dan bleef de knop
+    /// aanstaan voor iets wat er niet meer was.
+    /// </summary>
+    private void ZetOpruimknop() =>
+        CleanButton.IsEnabled = _watchStop is null && _favorites.Any(f => f.WatchIsWarning);
+
+    /// <summary>
+    /// Gooit de favorieten weg die weg of afgelopen zijn.
+    ///
+    /// Enkel wat <see cref="FavoriteWatch"/> echt zo gevonden heeft, dus deze knop doet pas iets
+    /// ná Nakijken. Daarom staat hij uit zolang er niets te ruimen valt: een knop die niets doet
+    /// en niet zegt waarom, laat je twijfelen of je hem wel goed aanklikte.
+    ///
+    /// Met een bevestiging, zoals bij het verwijderen van een zoekopdracht of een site: een
+    /// favoriet is iets wat je zelf bewaarde en er is geen weg terug.
+    /// </summary>
+    private void CleanFavorites_Click(object sender, RoutedEventArgs e)
+    {
+        var opruimen = _favorites.Where(f => f.WatchIsWarning).ToList();
+        if (opruimen.Count == 0) return;
+
+        var weg = opruimen.Count(f => f.WatchIsGone);
+        var afgelopen = opruimen.Count(f => f.WatchIsEnded);
+
+        var wat = string.Join(" en ", new[]
+        {
+            weg > 0 ? (weg == 1 ? "1 zoekertje dat weg is" : $"{weg} zoekertjes die weg zijn") : "",
+            afgelopen > 0 ? (afgelopen == 1 ? "1 afgelopen veiling" : $"{afgelopen} afgelopen veilingen") : ""
+        }.Where(d => d.Length > 0));
+
+        var bevestig = MessageBox.Show(this,
+            $"{wat} uit je favorieten halen?\n\nDat kan niet ongedaan gemaakt worden.",
+            "Favorieten opruimen", MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+        if (bevestig != MessageBoxResult.Yes) return;
+
+        foreach (var favoriet in opruimen)
+        {
+            _history.RemoveFavorite(favoriet.Key);
+            _favoriteKeys.Remove(favoriet.Key);
+            favoriet.IsFavorite = false;
+            _favorites.Remove(favoriet);
+        }
+
+        // De samenvatting sloeg op wat er stond; die klopt nu niet meer.
+        _watchSamenvatting = opruimen.Count == 1
+            ? " · 1 opgeruimd"
+            : $" · {opruimen.Count} opgeruimd";
+
+        // UpdateEmptyHints zet de knop zelf weer uit: er staat nu niets meer te ruimen.
+        UpdateEmptyHints();
+
+        StatusText.Text = opruimen.Count == 1
+            ? "1 favoriet opgeruimd."
+            : $"{opruimen.Count} favorieten opgeruimd.";
     }
 
     /// <summary>Zet een zoekertje bij de favorieten, of haalt het er weer af.</summary>

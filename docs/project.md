@@ -92,6 +92,13 @@ zoekt geen enkele brugsite nog, tot je in de popup op de knop klikt. Dat is niet
 Chrome geeft toestemming per extensie, en wie van `<all_urls>` naar toestemming-per-site gaat,
 begint per definitie bij nul. Zie `docs/brug.md` bij "Toegang per site".
 
+**0.12.0** sinds 2 oktober 2026. Het tweede cijfer, want er komt iets bij dat je ziet: op het
+tabblad Favorieten staat *Nakijken* nu links bij de titel in de hoofdknop-stijl, er staat een knop
+**Opruimen** naast, en de kaarten dragen voortaan een **rood kruis** (weg van de site) of een
+stempel **AFGELOPEN** (veiling voorbij). Dat laatste was het echte gemis: de teller zei wel "1 weg,
+2 afgelopen", maar niet wélke. Zie `docs/favorieten.md`. De extensie verandert niet mee en blijft
+op 2.0 - herladen hoeft dus niet.
+
 Het is op twee plaatsen zichtbaar, en allebei om dezelfde reden - **er draaien twee exe's op
 deze pc**, een uit Visual Studio en een gepubliceerde (bij mij `C:\Zentrix`), met
 dezelfde gegevensmap:

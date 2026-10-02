@@ -70,3 +70,53 @@ favorieten gaan de regels weg), het kijkt niet vanzelf na op een schema, en het 
 met tientallen favorieten op een brugsite wordt dat traag. En bij een site met `NeedsBrowser` gaat
 ook de advertentiepagina via Chrome, terwijl een kavelpagina van AlleVeilingen met een gewoon
 verzoek binnenkomt: dat scheelt daar zo'n 4 seconden bij de eerste.
+
+## Te zien op de kaart, en opruimen
+
+Erbij op 2 oktober 2026. Boven de lijst stond wel "4 bewaard · 1 weg, 2 afgelopen", maar aan geen
+enkele kaart was te zien **welke** dat waren. Met vier favorieten valt dat nog uit te zoeken, met
+dertig niet.
+
+Daarom staan er nu twee merktekens over de foto, in `Controls/PhotoThumbnail.xaml`:
+
+| wat | hoe | wanneer |
+|---|---|---|
+| **weg van de site** | de foto dooft en er gaat een rood kruis over | `FavoriteState.Weg` |
+| **veiling afgelopen** | een stempel **AFGELOPEN**, schuin over de foto | `FavoriteState.Afgelopen` |
+
+Drie keuzes die daarachter zitten:
+
+- **In de gedeelde miniatuur, niet in een eigen sjabloon.** `PhotoThumbnail` wordt door de
+  lijstweergave én het raster gebruikt, dus zo zien ze er in allebei hetzelfde uit. Bij een gewoon
+  zoekertje staan de vlaggen op `false` en is er niets van te zien - dezelfde afweging als bij
+  `WatchText`, dat ook in het gedeelde sjabloon staat.
+- **De merktekens staan binnen de `Border` met de `Clip`**, dus binnen de afronding. Erbuiten stak
+  het kruis uit de ronde hoeken.
+- **Het dempen hoort bij het kruis.** Een kruis alleen op een felle foto leest als versiering; met
+  de foto gedoofd leest het als "hier valt niets meer te halen". En het bandje onder *AFGELOPEN*
+  is nodig omdat wit op een lichte foto niet leest - nagemeten op vier proeffoto's, van bijna wit
+  tot bijna zwart.
+
+**Twee vlaggen en geen enum.** `Listing.WatchIsGone` en `WatchIsEnded`, met `WatchIsWarning`
+ervan **afgeleid** in plaats van apart gezet. Met drie vlaggen naast elkaar kan er één
+achterblijven, en dan zegt de tekst iets anders dan de foto. Let op bij het lezen: een afgeleide
+eigenschap moet haar wijziging zelf melden (`OnPropertyChanged(nameof(WatchIsWarning))` in allebei
+de setters), anders blijft de kaart in de oude kleur staan. `FavorietChecks` legt dat vast, met een
+tegenproef die zonder die melding faalt.
+
+**Opruimen** staat naast *Nakijken* en gooit weg wat weg of afgelopen is. Hij gaat af op diezelfde
+vlaggen, dus hij doet pas iets ná een ronde Nakijken - en daarom staat hij uit zolang er niets te
+ruimen valt. Een knop die niets doet en niet zegt waarom, laat je twijfelen of je wel goed klikte.
+Met een bevestiging die zegt hoeveel en wat ("2 zoekertjes die weg zijn en 1 afgelopen veiling"),
+zoals bij het verwijderen van een zoekopdracht of een site: een favoriet is iets wat je zelf
+bewaarde en er is geen weg terug.
+
+`ZetOpruimknop()` bepaalt die knop op **één** plaats en wordt ook door `UpdateEmptyHints()`
+aangeroepen. Dat is nodig: wissel je van tabblad, dan haalt `LoadFavorites` de lijst opnieuw uit de
+databank en zijn de merktekens weg - stond het ergens anders, dan bleef de knop aanstaan voor iets
+wat er niet meer was.
+
+**En *Nakijken* staat nu links bij de titel**, in de `Primary`-stijl van de hoofdknoppen elders in
+de app. Rechts in de hoek viel hij niet op. Let op als je aan `ZetNakijkknop` raakt: die zet de
+stijl na afloop terug, en dat stond nog op `Secondary` - waardoor de knop na één keer gebruiken
+weer onopvallend werd.

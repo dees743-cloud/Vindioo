@@ -170,6 +170,49 @@ public static class FavorietChecks
                       == "Chrome staat dicht.",
                 "niet na te gaan: de reden komt op de kaart");
         }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Favorieten: aan de kaart te zien welke weg is en welke afgelopen");
+        {
+            // Tot 2 oktober 2026 stond er wel "1 weg, 2 afgelopen" boven de lijst, maar was aan
+            // geen enkele kaart te zien wélke dat waren. Nu zijn het twee aparte vlaggen: een
+            // rood kruis over wat weg is, een stempel "AFGELOPEN" over een veiling die voorbij
+            // is. Opruimen gaat op diezelfde vlaggen af.
+            var weg = new Listing();
+            weg.WatchIsGone = true;
+
+            var afgelopen = new Listing();
+            afgelopen.WatchIsEnded = true;
+
+            Check.Dat(weg.WatchIsGone && !weg.WatchIsEnded, "weg is niet afgelopen");
+            Check.Dat(afgelopen.WatchIsEnded && !afgelopen.WatchIsGone, "en afgelopen is niet weg");
+            Check.Dat(weg.WatchIsWarning && afgelopen.WatchIsWarning, "allebei zijn ze een waarschuwing");
+            Check.Dat(!new Listing().WatchIsWarning, "een gewoon zoekertje niet");
+
+            // WatchIsWarning is afgeleid, en een afgeleide eigenschap die haar wijziging niet
+            // meldt, breekt stil: de kaart blijft dan in de oude kleur staan. Het scherm is hier
+            // niet bij, dus dit is de plaats waar dat vastligt.
+            var gemeld = new List<string>();
+            var proef = new Listing();
+            proef.PropertyChanged += (_, e) => gemeld.Add(e.PropertyName ?? "");
+
+            proef.WatchIsGone = true;
+
+            Check.Dat(gemeld.Contains(nameof(Listing.WatchIsGone)) &&
+                      gemeld.Contains(nameof(Listing.WatchIsWarning)),
+                $"een kruis zetten meldt ook dat de waarschuwing veranderde ({string.Join(", ", gemeld)})");
+
+            gemeld.Clear();
+            proef.WatchIsGone = true;
+
+            Check.Dat(gemeld.Count == 0, "dezelfde waarde nog eens zetten meldt niets");
+
+            // En de keuze die Opruimen maakt: enkel wat nagekeken en fout bevonden is.
+            var lijst = new List<Listing> { weg, afgelopen, new(), new Listing { WatchText = "Staat er nog, € 5" } };
+
+            Check.Dat(lijst.Count(f => f.WatchIsWarning) == 2,
+                "opruimen neemt enkel wat weg of afgelopen is, niet wat er nog staat");
+        }
     }
 
     private static Listing Favoriet(int poort, string pad) => new()
