@@ -48,10 +48,16 @@ let klikHandler = null;                             // de luisteraar van het con
 let gemaakteMenus = [];                             // wat er aan Chrome gevraagd is om te tonen
 
 const mijnChrome = {
-  runtime: { onInstalled: { addListener: () => {} }, onStartup: { addListener: () => {} } },
+  runtime: {
+    onInstalled: { addListener: () => {} },
+    onStartup: { addListener: () => {} },
+    lastError: undefined
+  },
   contextMenus: {
     removeAll: (klaar) => klaar(),
-    create: (opties) => { gemaakteMenus.push(opties); },
+    // De terugmelding ook echt aanroepen, zoals Chrome doet: zit er een fout in dat stukje,
+    // dan valt de hele registratie om en zou een harnas dat de callback negeert niets merken.
+    create: (opties, klaar) => { gemaakteMenus.push(opties); if (klaar) klaar(); },
     onClicked: { addListener: (fn) => { klikHandler = fn; } }
   },
   notifications: { create: (opties) => meldingen.push(opties.message) },

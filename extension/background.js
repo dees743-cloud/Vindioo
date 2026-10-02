@@ -684,6 +684,16 @@ function maakMenu() {
       id: MENU_ID,
       title: "Zet in favorieten van Zentrix",
       contexts: ["link", "page"]
+    }, () => {
+      // Met een terugmelding, want zonder was dit niet na te gaan: staat het item er niet, dan
+      // zie je in Chrome enkel dát het er niet staat en nergens waaróm. Op 2 oktober 2026 ging
+      // daar een halve zoektocht in zitten.
+      if (chrome.runtime.lastError) {
+        console.warn("[brug] het contextmenu kon niet aangemaakt worden:",
+                     chrome.runtime.lastError.message);
+      } else {
+        console.log("[brug] contextmenu klaar: rechtsklik op een zoekertje");
+      }
     });
   });
 }

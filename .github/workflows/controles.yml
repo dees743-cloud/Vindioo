@@ -57,7 +57,14 @@ jobs:
       # belangrijk om daarvan afhankelijk te zijn: de extensie werkt met jouw cookies.
       #
       # windows-latest heeft Node al; daar is geen setup-node voor nodig.
-      - name: De extensie nameten
+      # Eerst de syntaxis van het hele bestand. De metingen hieronder knippen er stukken uit en
+      # draaien die; een fout buiten zo'n stuk zou dus elke meting halen terwijl Chrome het
+      # script helemaal niet meer laadt. Dat gat is op 2 oktober 2026 gevonden bij het zoeken
+      # naar een contextmenu dat niet verscheen - het bleek er niet aan te liggen, maar het gat
+      # was er wel.
+      - name: De extensie nakijken en nameten
         run: |
+          node --check extension/background.js
+          node --check extension/popup.js
           node tools/meet-brug-handtekening.mjs
           node tools/meet-extensie-toegang.mjs
