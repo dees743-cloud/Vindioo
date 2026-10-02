@@ -44,8 +44,8 @@ public record FavoriteStatus(FavoriteState Staat, decimal? PrijsNu = null,
 /// detailvenster (rechtstreeks, de brug, of de aangemelde browser). Daarom gebeurt het
 /// enkel wanneer je erom vraagt, en niet bij het openen van het tabblad.
 ///
-/// Er is geen nieuw veld in de sitebestanden voor nodig. Dat is gemeten op 30 september
-/// 2026, op de drie echte favorieten en op verse advertenties:
+/// Weg en afgelopen hebben geen veld in de sitebestanden nodig; de prijs er bij een veiling
+/// wél. Zo is dat gemeten, op 30 september en 2 oktober 2026:
 ///
 /// <list type="table">
 ///   <item><term>weg</term><description>
@@ -59,7 +59,14 @@ public record FavoriteStatus(FavoriteState Staat, decimal? PrijsNu = null,
 ///     2dehands en Marktplaats zetten hem in het <c>ld+json</c>-blok van de advertentie
 ///     (<c>Product.offers.price</c>), en dat klopte op vier verse advertenties met wat de
 ///     zoekpagina zei: 0, 69, 1590 en 600. Dat is een webstandaard (schema.org), dus het
-///     werkt op elke site die hem gebruikt - AlleVeilingen heeft er geen.</description></item>
+///     werkt op elke site die hem gebruikt.</description></item>
+///   <item><term>en bij een veiling</term><description>
+///     AlleVeilingen zet het huidige bod wél op de kavelpagina, maar in
+///     <c>additionalProperty</c> onder een vrij gekozen naam ("Huidig bod") - daar kan geen
+///     algemene lezer op af. Daarom wijst het sitebestand het aan met
+///     <see cref="SiteDefinition.DetailPriceSelector"/>, en leest
+///     <see cref="PrijsAsync"/> eerst dat veld. Nagemeten op vijf kavels van vier
+///     veilinghuizen: 1,00 / 11,00 / 35,00 / 55,00 / 65,00 euro.</description></item>
 /// </list>
 ///
 /// Elk antwoord "nog te koop" heeft bewijs nodig: een prijs, of foto's van de
@@ -127,7 +134,7 @@ public static class FavoriteWatch
         // weggegooid zodra bleek dat het in de toekomst lag, terwijl dat juist het nuttige geval
         // is: daarmee kan AuctionWatch waarschuwen voor ze sluit. Het kost niets extra - de
         // pagina is toch al gelezen.
-        var prijs = PrijsUitPagina(html);
+        var prijs = await PrijsAsync(def, html, ct);
         if (prijs is > 0)
             return new FavoriteStatus(FavoriteState.TeKoop, prijs, einde);
 
@@ -179,6 +186,44 @@ public static class FavoriteWatch
         return DetailFetcher.LeesDatum(tekst);
     }
 
+    // ---------- de prijs van een advertentiepagina ----------
+
+    /// <summary>
+    /// Wat deze pagina vandaag vraagt of geboden krijgt. Twee wegen, in deze volgorde:
+    ///
+    /// <list type="number">
+    ///   <item>de selector uit het sitebestand
+    ///         (<see cref="SiteDefinition.DetailPriceSelector"/>) - die wijst het vakje aan
+    ///         dat op déze site de prijs draagt;</item>
+    ///   <item>anders het <c>ld+json</c>-blok (<see cref="PrijsUitPagina"/>), de webstandaard
+    ///         die geen sitebestand nodig heeft.</item>
+    /// </list>
+    ///
+    /// De selector komt eerst omdat hij de bewuste keuze is: wie hem invult, heeft op die
+    /// pagina gekeken. Levert hij niets op - een opmaakwijziging, een kavel zonder bod - dan
+    /// valt het terug op de standaard in plaats van op te geven.
+    ///
+    /// Eén lezer voor allebei de plaatsen waar het nodig is: het nakijken van een favoriet
+    /// (<see cref="CheckAsync"/>) en een favoriet die via rechtsklikken binnenkomt
+    /// (<see cref="FavoriteFromUrl"/>). Dat is dezelfde les als bij
+    /// <see cref="Zentrix.Sources.PriceParser"/>: twee lezers groeien uit elkaar, en dan heeft
+    /// hetzelfde kavel langs de ene weg een prijs en langs de andere niet.
+    /// </summary>
+    internal static async Task<decimal?> PrijsAsync(SiteDefinition def, string html,
+                                                    CancellationToken ct = default)
+    {
+        if (!string.IsNullOrWhiteSpace(def.DetailPriceSelector))
+        {
+            var tekst = await GenericSource.ReadFieldAsync(html, def.DetailPriceSelector, ct);
+
+            // Een nul telt niet als prijs, net als elders in de app. PriceInCents blijft hier
+            // buiten: die hoort bij de zoek-API van een site, niet bij haar advertentiepagina.
+            if (PriceParser.Parse(tekst) is { } uit && uit > 0) return uit;
+        }
+
+        return PrijsUitPagina(html);
+    }
+
     // ---------- de prijs uit het ld+json-blok ----------
 
     private static readonly Regex LdJson = new(
@@ -191,6 +236,13 @@ public static class FavoriteWatch
     ///
     /// Een <b>nul telt niet als prijs</b>, net als elders in de app: bij een "gezocht"-
     /// advertentie van 2dehands staat er letterlijk <c>offers.price = 0</c>.
+    ///
+    /// <para><b>Wat deze weg niet ziet.</b> <see cref="LdJson"/> is een regex over de ruwe
+    /// tekst, en die vindt enkel <c>type="application/ld+json"</c> zoals het er letterlijk
+    /// staat. AlleVeilingen schrijft <c>type="application/ld&amp;#x2B;json"</c>, en dan vindt
+    /// deze lezer het blok niet - terwijl het er wel degelijk staat (nagemeten op vijf
+    /// kavelpagina's, 2 oktober 2026). Een selector loopt langs de <b>ontlede</b> pagina en
+    /// heeft dat probleem niet; zie <see cref="SiteDefinition.DetailPriceSelector"/>.</para>
     /// </summary>
     internal static decimal? PrijsUitPagina(string html)
     {

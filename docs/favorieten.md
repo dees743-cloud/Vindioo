@@ -32,14 +32,63 @@ een **stopknop**, zoals het vergrootglas en de AI-controle, en om dezelfde reden
 muis al. Ze gaan één voor één, want een brugsite heeft één wachtrij en de browsersites delen één
 Chrome.
 
-**Er is geen nieuw veld in de sitebestanden voor nodig**, en dat is gemeten in plaats van
-aangenomen - op de drie echte favorieten en op verse advertenties:
+**Weg en afgelopen hebben geen veld in de sitebestanden nodig; de prijs bij een veiling wél.** Zo
+is dat gemeten in plaats van aangenomen - op de drie echte favorieten en op verse advertenties:
 
 | vraag | wat de meting gaf |
 |---|---|
 | hoe zie je dat iets weg is? | 2dehands antwoordt met **HTTP 410** en vier tekens. Ondubbelzinnig. **403 telt niet mee**: dat is "de site weigert de app", en dan weet je niets over het zoekertje zelf |
 | en bij een veiling? | AlleVeilingen geeft gewoon een pagina (200), maar de einddatum staat er nog - "Einde op 14/09/2026 19:30" - en die wijst het sitebestand al aan met `DetailEndDateSelector`. Een gesloten kavel toont **geen bedrag** meer, dus daar is "afgelopen" het hele antwoord |
-| en de prijs van vandaag? | 2dehands en Marktplaats zetten hem in het `ld+json`-blok (`Product.offers.price`), en dat klopte op vier verse advertenties met wat de zoekpagina zei: 0, 69, 1590 en 600. Een webstandaard, dus het werkt op elke site die hem gebruikt - AlleVeilingen heeft er geen |
+| en de prijs van vandaag? | 2dehands en Marktplaats zetten hem in het `ld+json`-blok (`Product.offers.price`), en dat klopte op vier verse advertenties met wat de zoekpagina zei: 0, 69, 1590 en 600. Een webstandaard, dus het werkt op elke site die hem gebruikt |
+| en het bod op een kavel? | Daar werkt die webstandaard niet, en op 2 oktober 2026 is nagemeten waarom - zie hieronder. Vandaar `DetailPriceSelector` in het sitebestand |
+
+### Het bod op een kavelpagina: `DetailPriceSelector`
+
+Tot 2 oktober 2026 kwam een kavel zonder prijs binnen, en stond er dat het bod "pas met JavaScript
+een getal wordt". **Die conclusie ging over de verkeerde pagina.** Bij het veilinghuis zelf klopt
+ze - op bopa.be staat het getal in een inline script en zet Alpine het pas in beeld - maar de app
+leest dat veilinghuis niet. Ze leest de kavelpagina van AlleVeilingen, en daar staat het bod
+gewoon in de kale HTML. Twee keer zelfs, maar op geen van beide plaatsen kijkt de algemene lezer:
+
+```
+in de opmaak      <div class="row"><div>Huidig bod</div><div>€ 270,00</div></div>
+in het datablok   {"@type":"PropertyValue","name":"Huidig bod","value":270.00,"unitText":"EUR"}
+```
+
+Twee dingen staan die algemene lezer in de weg, en ze tellen allebei apart:
+
+- **het bod zit niet in `offers.price` maar in `additionalProperty`**, onder een naam die de site
+  zelf verzint ("Huidig bod"). Daar kan geen standaardlezer op af: dat is vrije tekst;
+- **het blok is voor hem onzichtbaar.** `FavoriteWatch.PrijsUitPagina` is een regex over de ruwe
+  tekst, en de pagina schrijft haar type als `application/ld&#x2B;json`. In de **ontlede** pagina
+  is dat gewoon `application/ld+json`, dus een selector vindt het wel. Een regex op HTML loslaten
+  wreekt zich hier letterlijk.
+
+Daarom wijst het sitebestand het aan, net als de einddatum en de verkoper:
+
+```
+"DetailPriceSelector": "script[type='application/ld+json']::match(\"name\":\"Huidig bod\",\"value\":([\\d.]+))"
+```
+
+De selector gaat **voor** op het `ld+json`-blok, maar duwt het niet weg: levert hij niets op, dan
+telt de gewone weg weer. Zo kan een opmaakwijziging bij één site de prijs bij de andere niet mee
+omver halen.
+
+**`PriceInCents` geldt hier niet**, en dat is met opzet: die vlag hoort bij de zoek-API van een
+site (2dehands geeft daar centen), terwijl een advertentiepagina toont wat een bezoeker ziet.
+Zou hij meetellen, dan werd € 270 ineens € 2,70.
+
+Nagemeten op vijf echte kavels van vier veilinghuizen (Bopa, Troostwijk, Vavato, VH-Auctions):
+1,00 / 11,00 / 35,00 / 55,00 / 65,00 euro, elk gelijk aan wat de pagina toont. Met drie
+tegenproeven, want anders bewijst dat niets: **zonder** het veld geven diezelfde vijf pagina's
+alle vijf `NULL`, en met een verkeerd label (`Hoogste bod`) of een verkeerd scripttype komt er
+ook niets uit.
+
+En de hele weg in één keer, met de echte code en het echte sitebestand: een rechtsklik op
+`bopa.be/auction/520/lot/57380` levert in **1,1 seconde** de favoriet "Lot 1 - elektrische fiets
+villette" van AlleVeilingen op, met **€ 270** en einde 08/10/2026 19:30. Dat getal is apart
+nagekeken bij het veilinghuis zelf: bopa.be zet in zijn eigen script `highest_bid: 270` en
+`closing_date: 2026-10-08 19:30:00`. De tussenpersoon vertelt dus niet iets anders dan de bron.
 
 **Elk antwoord "staat er nog" heeft bewijs nodig**: een prijs, of foto's van de
 advertentiepagina. Komt de pagina binnen zonder een van beide, dan is het "niet na te gaan" en

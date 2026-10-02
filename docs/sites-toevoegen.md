@@ -355,8 +355,10 @@ gewoon een geldige foto terugsturen.
 
 Wat de analyse **nog steeds niet doet**, en waar je dus zelf aan moet: `Headers`,
 `AllowsEmptyQuery`, `PriceReference`, `SellerSelector`, `AuctionSellers`,
-`DetailEndDateSelector`, `EndTimeApi` en een eigen `UrlStyle`. `Headers` en `EndTimeApi` zijn
-niet te raden: die zijn er gekomen door te proberen, niet door te kijken.
+`DetailEndDateSelector`, `DetailPriceSelector`, `EndTimeApi` en een eigen `UrlStyle`. `Headers`
+en `EndTimeApi` zijn niet te raden: die zijn er gekomen door te proberen, niet door te kijken.
+`DetailPriceSelector` is er pas sinds 2 oktober 2026 en hoort bij favorieten, niet bij het
+detailvenster; de prompt vraagt nog altijd om vier `Detail`-velden.
 
 Sinds 29 september 2026 vult ze wél in: de vier `Detail`-velden (punt 5), `IsAuction` en
 `TimeLeftSelector` (punt 6), de paginering in het pad of met een offset (punt 7), en de filters

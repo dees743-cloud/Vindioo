@@ -175,6 +175,39 @@ public class SiteDefinition
     public string DetailEndDateSelector { get; set; } = "";
 
     /// <summary>
+    /// De prijs op de pagina van het zoekertje zélf. Anders dan <see cref="PriceSelector"/>,
+    /// die op de zoekpagina leest: een favoriet wordt later teruggekeken zónder zoekopdracht,
+    /// en bij een kavel dat via rechtsklikken binnenkomt is er helemaal geen zoekresultaat.
+    ///
+    /// Waarom dit er los van de gewone weg staat. Voor een advertentiepagina heeft de app al
+    /// een lezer die geen sitebestand nodig heeft: <see cref="FavoriteWatch.PrijsUitPagina"/>
+    /// vist <c>offers.price</c> uit het <c>ld+json</c>-blok (schema.org), en dat werkt bij
+    /// 2dehands en Marktplaats. Bij AlleVeilingen werkt het niet, en op 2 oktober 2026 is
+    /// nagemeten waarom - op vijf kavels van vier verschillende veilinghuizen:
+    ///
+    /// <list type="bullet">
+    ///   <item>het bod zit niet in <c>offers</c> maar in <c>additionalProperty</c>, als
+    ///         <c>{"name":"Huidig bod","value":270.00}</c> - en die naam is vrije tekst, dus
+    ///         daar kan geen algemene lezer op af;</item>
+    ///   <item>het blok is bovendien onzichtbaar voor die lezer, want die is een regex over de
+    ///         ruwe tekst en de pagina schrijft <c>type="application/ld&amp;#x2B;json"</c>. In
+    ///         de <b>ontlede</b> pagina is dat gewoon <c>application/ld+json</c>, dus een
+    ///         selector vindt het wel.</item>
+    /// </list>
+    ///
+    /// Vandaar een selector per site in plaats van meer slimmigheid in de code: welk vakje op
+    /// welke site de prijs draagt, is iets van die site. Bij AlleVeilingen:
+    /// <c>script[type='application/ld+json']::match("name":"Huidig bod","value":([\d.]+))</c>.
+    ///
+    /// <b>Let op met centen.</b> <see cref="PriceInCents"/> geldt hier <b>niet</b>, en dat is
+    /// met opzet: die vlag hoort bij de zoek-API van een site (2dehands geeft daar centen),
+    /// terwijl een advertentiepagina toont wat een bezoeker ziet - euro's. Wie enkel een
+    /// centenwaarde op de pagina vindt, laat dit veld beter leeg dan honderd keer te veel te
+    /// bewaren.
+    /// </summary>
+    public string DetailPriceSelector { get; set; } = "";
+
+    /// <summary>
     /// Waar de foto's van één zoekertje staan, op de pagina van dat zoekertje zelf. De
     /// zoekpagina geeft er meestal één; een advertentie heeft er vijf of tien, en juist op die
     /// andere staat vaak wat je wil zien - het label achteraan, de doos van binnen.

@@ -37,6 +37,37 @@ public static class FavorietChecks
         </head><body><img src="https://voorbeeld.be/1.jpg"><p>beschrijving</p></body></html>
         """.Replace("BEDRAG", prijs.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
+    /// <summary>
+    /// Een kavelpagina zoals AlleVeilingen ze schrijft, overgenomen van vijf echte pagina's
+    /// (2 oktober 2026). Twee dingen staan hier met opzet precies zo in, want juist die twee
+    /// maken dat de gewone lezer het bod niet vindt:
+    ///
+    /// <list type="number">
+    ///   <item>het type van het script staat er als <c>application/ld&amp;#x2B;json</c>, dus
+    ///         een regex over de ruwe tekst zoekt zich suf naar <c>ld+json</c>;</item>
+    ///   <item>het bod zit niet in <c>offers.price</c> maar in <c>additionalProperty</c>, onder
+    ///         een naam die de site zelf verzint ("Huidig bod").</item>
+    /// </list>
+    /// </summary>
+    internal const string Kavelpagina = """
+        <html><head>
+        <script type="application/ld&#x2B;json">
+        {"@context":"https://schema.org","@graph":[
+          {"@type":"WebPage","name":"Lot 1 - elektrische fiets villette"},
+          {"@type":"Product","name":"Lot 1 - elektrische fiets villette","sku":"57380",
+           "additionalProperty":[{"@type":"PropertyValue","name":"Huidig bod","value":270.00,"unitText":"EUR"},
+                                 {"@type":"PropertyValue","name":"Startbod","value":80.00,"unitText":"EUR"}]}]}
+        </script>
+        </head><body>
+        <div class="row"><div class="col-7">Huidig bod</div><div class="col-5">&#8364; 270,00</div></div>
+        <div title='Einddatum'>Einde op 31/12/2099 19:30</div>
+        </body></html>
+        """;
+
+    /// <summary>Wat er in het sitebestand van AlleVeilingen staat.</summary>
+    internal const string KavelprijsSelector =
+        """script[type='application/ld+json']::match("name":"Huidig bod","value":([\d.]+))""";
+
     public static async Task RunAsync()
     {
         // ---------------------------------------------------------------------------
@@ -72,6 +103,67 @@ public static class FavorietChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("Favoriet opvolgen: het bod op een kavelpagina (DetailPriceSelector)");
+        {
+            // Waarom dit veld er moest komen. Hier staat vast dat de gewone lezer deze pagina
+            // NIET aankan - zonder deze controle lijkt het veld overbodig en haalt de volgende
+            // lezer het weg.
+            Check.Dat(FavoriteWatch.PrijsUitPagina(Kavelpagina) is null,
+                "de ld+json-lezer vindt dit blok niet: het type staat er als ld&#x2B;json, en een " +
+                "regex over de ruwe tekst ziet dat niet");
+
+            var veiling = new SiteDefinition { Name = "Proefveiling", DetailPriceSelector = KavelprijsSelector };
+
+            var bod = await FavoriteWatch.PrijsAsync(veiling, Kavelpagina);
+            Check.Dat(bod == 270m, $"met de selector komt het huidige bod er wel uit ({bod})");
+
+            // TEGENPROEF, en wel twee: een verkeerd label en een verkeerd type. Allebei horen
+            // ze niets te geven, anders bewijst de controle hierboven niets.
+            var anderLabel = new SiteDefinition
+            {
+                DetailPriceSelector = """script[type='application/ld+json']::match("name":"Hoogste bod","value":([\d.]+))"""
+            };
+
+            Check.Dat(await FavoriteWatch.PrijsAsync(anderLabel, Kavelpagina) is null,
+                "een label dat niet op de pagina staat, geeft niets");
+
+            var anderType = new SiteDefinition
+            {
+                DetailPriceSelector = """script[type='application/json']::match("name":"Huidig bod","value":([\d.]+))"""
+            };
+
+            Check.Dat(await FavoriteWatch.PrijsAsync(anderType, Kavelpagina) is null,
+                "en een script van een ander type ook niet");
+
+            // De selector gaat voor, maar hij duwt de gewone weg niet weg: levert hij niets op,
+            // dan telt het ld+json-blok gewoon weer. Anders zou een opmaakwijziging bij één site
+            // de prijs bij alle andere mee om zeep helpen.
+            var terugval = new SiteDefinition { DetailPriceSelector = "div.bestaatniet" };
+
+            Check.Dat(await FavoriteWatch.PrijsAsync(terugval, MetLdJson(69)) == 69m,
+                "een selector die niets vindt, valt terug op het ld+json-blok");
+
+            Check.Dat(await FavoriteWatch.PrijsAsync(new SiteDefinition(), MetLdJson(69)) == 69m,
+                "en een site zonder selector gedraagt zich zoals voordien");
+
+            // PriceInCents hoort bij de zoek-API van een site (2dehands geeft daar centen), niet
+            // bij haar advertentiepagina - die toont wat een bezoeker ziet. Zou dat hier wel
+            // meetellen, dan werd 270 euro ineens 2,70.
+            var centen = new SiteDefinition { DetailPriceSelector = KavelprijsSelector, PriceInCents = true };
+
+            Check.Dat(await FavoriteWatch.PrijsAsync(centen, Kavelpagina) == 270m,
+                "PriceInCents geldt niet voor de pagina van het zoekertje zelf");
+
+            // Een nul telt niet als prijs, net als bij het ld+json-blok: een kavel waarop nog
+            // niet geboden is, hoort "geen prijs" te geven en niet "gratis".
+            var zonderBod = new SiteDefinition { DetailPriceSelector = KavelprijsSelector };
+
+            Check.Dat(await FavoriteWatch.PrijsAsync(zonderBod,
+                    Kavelpagina.Replace("\"value\":270.00", "\"value\":0")) is null,
+                "een bod van nul telt niet als prijs");
+        }
+
+        // ---------------------------------------------------------------------------
         Check.Groep("Favoriet opvolgen: wat de pagina vandaag zegt");
         {
             using var site = new Proefsite();
@@ -79,11 +171,13 @@ public static class FavorietChecks
             var def = site.Site("Proefsite");
             def.DetailImagesSelector = "img@src";
             def.DetailEndDateSelector = "div[title='Einddatum']::match(Einde op\\s+([\\d/]+\\s+[\\d:]+))";
+            def.DetailPriceSelector = KavelprijsSelector;
 
             // Per pad een ander antwoord, zodat één proefsite alle gevallen dekt.
             site.Antwoord = adres => adres switch
             {
                 "/nogtekoop" => MetLdJson(69),
+                "/kavelmetbod" => Kavelpagina,
                 "/gesloten" => "<html><body><div title='Einddatum'>Kavel nummer: 55852</div>" +
                                "<div title='Einddatum'>Einde op 14/09/2026 19:30</div></body></html>",
                 "/loopt" => "<html><body><div title='Einddatum'>Einde op 31/12/2099 19:30</div>" +
@@ -102,6 +196,15 @@ public static class FavorietChecks
             var teKoop = await Kijk("/nogtekoop");
             Check.Dat(teKoop.Staat == FavoriteState.TeKoop && teKoop.PrijsNu == 69m,
                 $"een advertentie die er nog staat: {teKoop.Staat}, prijs {teKoop.PrijsNu}");
+
+            // Dezelfde site heeft nu ook een DetailPriceSelector. Dat de regel hierboven blijft
+            // kloppen, is de helft van het bewijs: de selector mag de gewone weg niet verdringen.
+            var metBod = await Kijk("/kavelmetbod");
+            Check.Dat(metBod.Staat == FavoriteState.TeKoop && metBod.PrijsNu == 270m,
+                $"een kavel waarop geboden wordt: {metBod.Staat}, bod {metBod.PrijsNu}");
+
+            Check.Dat(metBod.Einde == new DateTime(2099, 12, 31, 19, 30, 0),
+                $"en de sluitingstijd komt er in dezelfde beurt uit ({metBod.Einde})");
 
             var weg = await Kijk("/weg");
             Check.Dat(weg.Staat == FavoriteState.Weg, $"410 is weg ({weg.Staat})");

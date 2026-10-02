@@ -331,5 +331,63 @@ public static class RechtsklikChecks
             foreach (var favoriet in history.GetFavorites().Where(f => f.Source == "Proefveiling").ToList())
                 history.RemoveFavorite(favoriet.Key);
         }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Rechtsklik: het bod komt mee van een kavel van een veilinghuis");
+        {
+            // Tot 2 oktober 2026 kwam een kavel dat je via een veilinghuis toevoegde zonder
+            // prijs binnen, en stond er in de uitleg dat het bod pas met JavaScript een getal
+            // werd. Dat klopte niet: het staat gewoon in de pagina, alleen niet op de plaats
+            // waar de algemene lezer kijkt. Zie Kavelpagina in FavorietChecks.
+            var history = new HistoryStore();
+
+            var def = new SiteDefinition
+            {
+                Name = "Proefveiling",
+                IsAuction = true,
+                IdPattern = @"/kavel/(\d+)",
+                DetailPriceSelector = FavorietChecks.KavelprijsSelector,
+                DetailEndDateSelector = "div[title='Einddatum']::match(Einde op\\s+([\\d/]+\\s+[\\d:]+))"
+            };
+
+            const string adres = "https://www.proefveiling.be/kavel/57380";
+
+            // De titel komt hier van buiten mee, net als bij de echte weg langs een
+            // veilingsite: daar leest ViaVeilingsiteAsync hem uit de h1.
+            var uit = await FavoriteFromUrl.VanPaginaAsync(adres, def, FavorietChecks.Kavelpagina, history,
+                                                           titel: "Lot 1 - elektrische fiets villette");
+
+            Check.Dat(uit.Ok, $"de favoriet komt erin ({uit.Melding})");
+
+            Check.Dat(uit.Melding.Contains("270"),
+                $"en de melding die in Chrome verschijnt, noemt het bod ({uit.Melding})");
+
+            var bewaard = history.GetFavorites().First(f => f.Source == "Proefveiling");
+
+            Check.Dat(bewaard.Price == 270m, $"het bod staat op de favoriet ({bewaard.Price})");
+            Check.Dat(bewaard.EndsAt == new DateTime(2099, 12, 31, 19, 30, 0),
+                $"en de sluitingstijd ook ({bewaard.EndsAt})");
+
+            // TEGENPROEF: zonder het veld in het sitebestand blijft de favoriet prijsloos -
+            // precies zoals het vóór deze wijziging ging. Vijf echte kavels van vier
+            // veilinghuizen gaven alle vijf NULL.
+            history.RemoveFavorite(bewaard.Key);
+
+            var zonder = new SiteDefinition
+            {
+                Name = "Proefveiling",
+                IsAuction = true,
+                IdPattern = @"/kavel/(\d+)"
+            };
+
+            await FavoriteFromUrl.VanPaginaAsync(adres, zonder, FavorietChecks.Kavelpagina, history,
+                                                 titel: "Lot 1 - elektrische fiets villette");
+
+            Check.Dat(history.GetFavorites().First(f => f.Source == "Proefveiling").Price is null,
+                "zonder DetailPriceSelector blijft dezelfde pagina prijsloos");
+
+            foreach (var favoriet in history.GetFavorites().Where(f => f.Source == "Proefveiling").ToList())
+                history.RemoveFavorite(favoriet.Key);
+        }
     }
 }

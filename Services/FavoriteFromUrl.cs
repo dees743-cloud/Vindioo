@@ -360,7 +360,7 @@ public static class FavoriteFromUrl
             return new Uitkomst(false, $"Er viel geen titel uit deze pagina te lezen ({def.Name}).");
         }
 
-        listing.Price = FavoriteWatch.PrijsUitPagina(html);
+        listing.Price = await FavoriteWatch.PrijsAsync(def, html, ct);
 
         // De einddatum en een foto, voor zover het sitebestand zegt waar ze staan. Allebei
         // mogen mislukken: dan staat de favoriet er gewoon zonder.

@@ -507,10 +507,22 @@ Vier dingen die de opzet bepalen, en elk ervan is gemeten:
 - **De titel van de favoriet komt uit de h1 van de kavelpagina**, niet uit de gewone weg:
   AlleVeilingen hangt de naam van het veilinghuis achter haar `og:title` én haar `<title>`
   ("Lot 1 - elektrische fiets villette **| Bopa**"), de h1 niet.
-- **Er komt geen prijs mee.** Op de kale kavelpagina staat geen `ld+json` en geen
-  `div[title='Huidig bod']` - het huidige bod zit in een JSON-blok dat pas met JavaScript een
-  prijs wordt. Daar een getal uit vissen zou gokwerk zijn, en een verkeerde prijs op een favoriet
-  is erger dan geen. Bij een veiling verandert het bod toch per uur.
+- **Het huidige bod komt mee**, sinds 2 oktober 2026. Hier stond tot dan dat het bod "pas met
+  JavaScript een prijs wordt" en dat er dus niets te halen viel. Dat was een verkeerde conclusie,
+  en wel omdat ze over de **verkeerde pagina** ging. Op bopa.be klopt ze: daar staat het getal in
+  een inline script en zet Alpine het pas in beeld. Maar de app leest bopa.be helemaal niet - ze
+  leest de kavelpagina van **AlleVeilingen**, en daar staat het bod gewoon in de kale HTML, zowel
+  in de opmaak ("Huidig bod / € 270,00") als in het `ld+json`-blok.
+
+  Wat er wél aan de hand was, en allebei telt het apart: het bod zit daar in `additionalProperty`
+  en niet in `offers.price`, en het scripttype staat er als `application/ld&#x2B;json` - waardoor
+  de algemene lezer van de app, een regex over de ruwe tekst, het blok niet eens zag. Nu wijst
+  `DetailPriceSelector` in het sitebestand het aan; zie `docs/favorieten.md` voor de meting en
+  de tegenproeven.
+
+  Nagegaan dat het getal van de tussenpersoon ook klopt met dat van het veilinghuis zelf: voor
+  lot 1 van BOPA zegt bopa.be in zijn eigen script `highest_bid: 270` en
+  `closing_date: 2026-10-08 19:30:00`, en dat is precies wat er via AlleVeilingen bewaard wordt.
 
 **En de kopregels.** bopa.be antwoordde met **429 Too Many Requests** op het eerste verzoek met
 enkel onze User-Agent, en met 200 op een kale `Mozilla/5.0` én op een volledige browser-set. Wie

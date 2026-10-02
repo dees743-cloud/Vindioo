@@ -162,6 +162,10 @@ Waar het staat, zegt het sitebestand - vier velden, alle vier ook in *Sites behe
 | `DetailPostedSelector` | sinds wanneer het online staat |
 | `DetailDescriptionSelector` | de volledige beschrijving |
 
+Er zijn nog twee `Detail`-velden die hier niets doen, want ze horen bij een ander onderwerp:
+`DetailEndDateSelector` (de sluitingstijd van een veiling, zie `docs/resultaten.md`) en
+`DetailPriceSelector` (het bod op een kavel, voor favorieten - zie `docs/favorieten.md`).
+
 **De beschrijving is het ophalen waard**, want de zoek-API van 2dehands en Marktplaats kapt ze af
 op **200 tekens** - en juist wat erna komt, zegt wat er mankeert of wat er precies bij zit. Gemeten:
 1427 tekens op de pagina tegenover 200 op de zoekpagina. De 200 die we al hebben staan er meteen;
