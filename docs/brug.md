@@ -415,6 +415,28 @@ geen `IdPattern` om een id uit de link te halen - en dan zou dezelfde kavel **tw
 favorieten staan: één keer via het zoekresultaat en één keer via Chrome, met twee verschillende
 sleutels. Nu krijgt hij allebei de keren hetzelfde id.
 
+**Volgparameters tellen niet mee voor de identiteit** (`GenericSource.SchoonAdres`, 2 oktober
+2026). Vijf van de dertien sites hier hebben een `IdPattern` en zijn dus veilig; bij de acht
+andere **is de link zelf** de identiteit. Het adres dat uit Chrome komt is het adres zoals jij het
+voor je hebt, en daar hangt vaak een `?fbclid=...` of een `#foto2` aan die in het zoekresultaat
+niet staat - en dan krijg je toch twee kaarten. Die gaan er nu af, samen met het stuk achter `#`.
+
+Drie dingen om te weten als je daaraan raakt:
+
+- **De lijst staat bij naam en is kort.** `ref`, `source` en `id` staan er met opzet **niet** in:
+  op sommige sites dragen die wél betekenis. Liever een dubbel zoekertje dan twee verschillende
+  kavels die als één tellen.
+- **Alleen de identiteit wordt opgeschoond, niet de link zelf.** Die blijft staan zoals hij is,
+  want hij moet het nog doen als je hem aanklikt.
+- **Met tekstbewerking en niet via `Uri`.** Dat laatste schrijft een adres soms anders terug (een
+  standaardpoort erbij, andere hoofdletters in een escape), en dan zou *élke* identiteit
+  veranderen in plaats van alleen die met een volgparameter. Wat dat betekent: alles wat je ooit
+  zag, zou opnieuw als nieuw tellen.
+
+Dat laatste is niet beredeneerd maar nagemeten, met de échte methode over de échte databank:
+van **4510** bewaarde identiteiten die een volledig adres zijn (2763 in `seen`, 1747 in
+`outcome`), zou er **geen enkele** veranderen.
+
 **Waar de titel vandaan komt.** Een sitebestand beschrijft de *zoekpagina*. Er staat wel een
 selector in voor de einddatum en de foto's van een advertentiepagina, maar niet voor haar titel -
 die stond nooit ergens anders dan in het zoekresultaat. `FavoriteWatch.TitelUitPagina` probeert

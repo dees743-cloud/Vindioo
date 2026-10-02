@@ -123,6 +123,16 @@ terugmelding - de popup staat niet open wanneer je rechtsklikt, dus zonder meldi
 weten of het gelukt is. Je toestemmingen per site blijven staan; daar verandert niets aan. De
 extensie heeft meteen ook een eigen pictogram gekregen in plaats van het puzzelstukje.
 
+**0.14.1** sinds 2 oktober 2026. Het **derde** cijfer, want er komt niets bij dat je ziet: een
+bestaand stuk doet zijn werk beter. Volgparameters (`?fbclid=`, `?utm_source=`) en het stuk achter
+`#` tellen niet meer mee voor de identiteit van een zoekertje. Dat merk je enkel bij het
+rechtsklikken in Chrome op een site zonder `IdPattern`: daar kreeg dezelfde kavel anders twee
+kaarten, één van het zoekresultaat en één van Chrome. Zie `docs/brug.md`.
+
+Nagemeten met de echte methode over de echte databank: van 4510 bewaarde identiteiten die een
+volledig adres zijn, verandert er geen enkele. Dat was de vraag die ertoe deed - was het antwoord
+anders geweest, dan had alles wat je ooit zag opnieuw als nieuw geteld.
+
 Het is op twee plaatsen zichtbaar, en allebei om dezelfde reden - **er draaien twee exe's op
 deze pc**, een uit Visual Studio en een gepubliceerde (bij mij `C:\Zentrix`), met
 dezelfde gegevensmap:

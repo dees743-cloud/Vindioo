@@ -49,12 +49,63 @@ public class GenericSource : ISearchSource
     /// <summary>Het id uit een link, of de link zelf als het patroon niet past.</summary>
     internal static string IdUitLink(Regex? patroon, string link)
     {
-        if (patroon is null) return link;
+        if (patroon is not null)
+        {
+            var match = patroon.Match(link);
 
-        var match = patroon.Match(link);
-        return match.Success && match.Groups.Count > 1 && match.Groups[1].Value.Length > 0
-            ? match.Groups[1].Value
-            : link;
+            if (match.Success && match.Groups.Count > 1 && match.Groups[1].Value.Length > 0)
+                return match.Groups[1].Value;
+        }
+
+        return SchoonAdres(link);
+    }
+
+    /// <summary>
+    /// Parameters die niets over het zoekertje zeggen, enkel over hoe je er terechtkwam.
+    ///
+    /// De lijst is met opzet kort en bij naam: <c>ref</c>, <c>source</c> en <c>id</c> staan er
+    /// <b>niet</b> in, want op sommige sites dragen die wél betekenis. Liever een dubbel zoekertje
+    /// dan twee verschillende kavels die als één tellen.
+    /// </summary>
+    private static readonly HashSet<string> Volgparameters = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "utm_id",
+        "fbclid", "gclid", "dclid", "msclkid", "twclid", "igshid", "yclid", "ttclid",
+        "mc_cid", "mc_eid", "srsltid", "_ga", "_gl", "li_fat_id"
+    };
+
+    /// <summary>
+    /// Een link zonder volgparameters en zonder het stuk achter <c>#</c>, voor sites waar de
+    /// link zélf de identiteit is (geen <see cref="SiteDefinition.IdPattern"/>).
+    ///
+    /// Waarom dit er sinds 2 oktober 2026 is: je kan nu ook in Chrome op een zoekertje
+    /// rechtsklikken om het bij je favorieten te zetten. Het adres dat daar meekomt, is het adres
+    /// zoals jij het voor je hebt - en daar hangt vaak een <c>?fbclid=...</c> of een <c>#foto2</c>
+    /// aan die in het zoekresultaat niet staat. Zonder dit zou dezelfde kavel twee kaarten
+    /// krijgen: één van het zoekresultaat en één van Chrome.
+    ///
+    /// <b>Enkel de identiteit wordt opgeschoond, niet de link zelf</b> - die blijft staan zoals
+    /// hij is, want hij moet het nog doen als je hem aanklikt.
+    ///
+    /// Met tekstbewerking en niet via <c>Uri</c>: dat laatste schrijft een adres soms anders terug
+    /// (een standaardpoort, andere hoofdletters in een escape), en dan zou élke identiteit
+    /// veranderen in plaats van alleen die met een volgparameter. Nagemeten op 2 oktober 2026:
+    /// van de 2763 bewaarde "al gezien"-sleutels die een volledig adres zijn, droeg er geen
+    /// enkele een volgparameter of een <c>#</c>. Deze regel raakt dus niets wat er al stond.
+    /// </summary>
+    internal static string SchoonAdres(string link)
+    {
+        var zonderHek = link.Split('#', 2)[0];
+        var delen = zonderHek.Split('?', 2);
+
+        if (delen.Length == 1) return zonderHek;
+
+        var houden = delen[1]
+            .Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Where(paar => !Volgparameters.Contains(paar.Split('=', 2)[0]))
+            .ToList();
+
+        return houden.Count == 0 ? delen[0] : delen[0] + "?" + string.Join("&", houden);
     }
 
     public string Name => _def.Name;

@@ -1,5 +1,6 @@
 using Zentrix.Models;
 using Zentrix.Services;
+using Zentrix.Sources;
 
 namespace Zentrix.Checks;
 
@@ -64,6 +65,50 @@ public static class RechtsklikChecks
 
             Check.Dat(FavoriteWatch.TitelUitPagina("<html><body>niets</body></html>") == "",
                 "een pagina zonder enige titel geeft niets");
+        }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Rechtsklik: volgparameters tellen niet mee voor de identiteit");
+        {
+            // Het adres dat uit Chrome komt, is het adres zoals jij het voor je hebt - en daar
+            // hangt vaak een ?fbclid= of een #foto2 aan die in het zoekresultaat niet staat.
+            // Zonder dit zou dezelfde kavel twee kaarten krijgen.
+            Check.Dat(GenericSource.SchoonAdres("https://www.2dehands.be/v/audio/123?fbclid=abc")
+                      == "https://www.2dehands.be/v/audio/123",
+                "fbclid gaat eraf");
+
+            Check.Dat(GenericSource.SchoonAdres("https://www.2dehands.be/v/audio/123#foto2")
+                      == "https://www.2dehands.be/v/audio/123",
+                "het stuk achter # ook");
+
+            Check.Dat(GenericSource.SchoonAdres(
+                          "https://www.2dehands.be/v/123?utm_source=mail&correlationId=x&gclid=1")
+                      == "https://www.2dehands.be/v/123?correlationId=x",
+                $"wat geen volgparameter is, blijft staan ({GenericSource.SchoonAdres("https://www.2dehands.be/v/123?utm_source=mail&correlationId=x&gclid=1")})");
+
+            // De lijst is bij naam en met opzet kort: op sommige sites dragen deze wél betekenis.
+            // Liever een dubbel zoekertje dan twee kavels die als één tellen.
+            Check.Dat(GenericSource.SchoonAdres("https://www.voorbeeld.be/v?ref=zoek&id=9&source=x")
+                      == "https://www.voorbeeld.be/v?ref=zoek&id=9&source=x",
+                "ref, id en source blijven: die betekenen op sommige sites wél iets");
+
+            Check.Dat(GenericSource.SchoonAdres("https://www.voorbeeld.be/v/1") == "https://www.voorbeeld.be/v/1",
+                "een gewoon adres verandert niet");
+
+            // Dit is de belangrijkste: een adres dat al bewaard is, mag niet ineens iets anders
+            // worden. Anders telt alles wat je al zag opnieuw als nieuw.
+            Check.Dat(GenericSource.SchoonAdres("https://www.marktplaats.nl/v/a/m2050684965-iets")
+                      == "https://www.marktplaats.nl/v/a/m2050684965-iets",
+                "en wordt niet herschreven (geen poort erbij, geen andere escapes)");
+
+            // En hetzelfde langs de weg die de app echt gebruikt.
+            Check.Dat(GenericSource.IdUitLink(null, "https://www.2dehands.be/v/1?gclid=x")
+                      == "https://www.2dehands.be/v/1",
+                "zonder IdPattern is de opgeschoonde link de identiteit");
+
+            Check.Dat(GenericSource.IdUitLink(new System.Text.RegularExpressions.Regex(@"/kavel/(\d+)"),
+                                              "https://www.voorbeeld.be/kavel/229?fbclid=x") == "229",
+                "met een IdPattern verandert er niets: dat wint gewoon");
         }
 
         // ---------------------------------------------------------------------------
