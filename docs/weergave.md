@@ -276,8 +276,22 @@ en dat staat op een eigen tegel met afgeronde hoeken in de kleuren uit `App.xaml
 niets. Op een donkere taakbalk leest dat, op een lichte wast het uit tot precies dat vage kadertje
 - nagemeten op allebei. Met een eigen achtergrond is het overal hetzelfde en overal leesbaar.
 
-Formaten: 16, 24, 32, 48, 64, 128 en 256. Het zit via `<ApplicationIcon>` in de exe en daarnaast
-als `Resource`, want `NotifyIcon` in het systeemvak heeft het bestand zelf nodig.
+Formaten: 16, 20, 24, 32, 40, 48, 64, 128 en 256 - met 20 en 40 erbij omdat Windows die bij 125%
+en 150% schaling gebruikt. BMP tot 128 en PNG voor 256, zoals Windows het zelf schrijft; het .ico
+wordt daarom met de hand opgebouwd in `tools/maak-icoon.py` en niet door Pillow. Het zit via
+`<ApplicationIcon>` in de exe en daarnaast als `Resource`, want `NotifyIcon` in het systeemvak
+heeft het bestand zelf nodig.
+
+**Waarom de taakbalk daarna nog een wit blad toonde, en wat het níet was.** Het lag niet aan dat
+PNG-formaat: met een tegenproef (het volledig-PNG bestand uit git, opnieuw ingebouwd) gaf
+`SHGetFileInfo` - dezelfde weg die de taakbalk neemt - een perfect pictogram terug. Het lag aan de
+**iconcache** van Windows: van het oude, zo goed als doorzichtige icoon maakte de shell een
+algemeen bestandspictogram, en dat bleef staan. Wissen met `ie4uinit.exe -show`.
+
+Drie metingen die samen zeggen waar een pictogramprobleem zit, en het is de moeite ze te kennen:
+`[Icon]::ExtractAssociatedIcon` leest de exe, `SHGetFileInfo` gaat langs de shell, en `WM_GETICON`
+vraagt het draaiende venster. Kwam er bij alle drie een goed pictogram uit terwijl de taakbalk een
+wit blad toonde - dan blijft enkel de cache over.
 
 **Het logo ín het venster is iets anders** en mankeert niets: `<Image Source="/Assets/logo.png">`
 boven de zoekbalk, verborgen onder 1040 punten breed. Let op bij het nameten met een
