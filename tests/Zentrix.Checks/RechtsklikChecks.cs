@@ -173,6 +173,91 @@ public static class RechtsklikChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("Rechtsklik: een kavel van een veilinghuis dat Zentrix niet kent");
+        {
+            // Je staat op bopa.be en wil dat kavel bewaren, maar bopa.be staat niet bij je sites.
+            // Zentrix zoekt het dan terug op je veilingsites, en bewaart ENKEL bij een zekere
+            // treffer: de pagina van de kandidaat moet het adres bevatten waarop jij klikte.
+
+            // 1. De zoekterm. <h1> gaat voor, want de <title> van zo'n pagina is vaak die van de
+            //    site. Bij BOPA staat er letterlijk "BOPA Veilingen | Uw veiling makelaar voor
+            //    online veilingen" in de titel - ook ná het renderen, dat is nagemeten.
+            const string bopa = """
+                <html><head><title>BOPA Veilingen | Uw veiling makelaar voor online veilingen</title></head>
+                <body><h1>Lot 1: Elektrische fiets Villette</h1></body></html>
+                """;
+
+            Check.Dat(FavoriteFromUrl.Zoekterm(bopa) == "Lot 1: Elektrische fiets Villette",
+                $"de h1 wordt de zoekterm, niet de titel van de site ({FavoriteFromUrl.Zoekterm(bopa)})");
+
+            Check.Dat(FavoriteFromUrl.Zoekterm("<html><head><title>Kavel 9</title></head><body></body></html>")
+                      == "Kavel 9",
+                "zonder h1 valt hij terug op de gewone weg");
+
+            Check.Dat(FavoriteFromUrl.Zoekterm("<h1>Caf&eacute; <span>stoel</span></h1>") == "Café stoel",
+                "met de tekens ontcijferd en de tags eruit");
+
+            // 2. Het stuk waarmee we de terugkoppeling nakijken.
+            Check.Dat(FavoriteFromUrl.Kern("https://www.bopa.be/auction/520/lot/57380?fbclid=x")
+                      == "bopa.be/auction/520/lot/57380",
+                $"de kern: zonder schema, zonder www, zonder volgparameter ({FavoriteFromUrl.Kern("https://www.bopa.be/auction/520/lot/57380?fbclid=x")})");
+
+            Check.Dat(FavoriteFromUrl.Kern("https://bopa.be/auction/520/lot/57380/") ==
+                      FavoriteFromUrl.Kern("https://www.bopa.be/auction/520/lot/57380"),
+                "met of zonder www en afsluitende streep is dezelfde kern");
+
+            // 3. De kandidaten uit een zoekpagina, met IdPattern als zeef. De HTML hieronder is
+            //    gebouwd naar wat alleveilingen.be echt teruggeeft: het pad draagt het
+            //    veilinghuis, en elke kavel staat er twee keer in (de foto en de titel).
+            var site = new SiteDefinition
+            {
+                Name = "AlleVeilingen",
+                BaseUrl = "https://alleveilingen.be",
+                IdPattern = @"/kavel/(\d+)",
+                IsAuction = true
+            };
+
+            const string zoekpagina = """
+                <a href="/nl/Bopa/kavel/12528539/lot-1---elektrische-fiets-villette"><img src="/foto/1.webp"></a>
+                <a href="/nl/Bopa/kavel/12528539/lot-1---elektrische-fiets-villette">Lot 1</a>
+                <a href="/nl/VH-Auctions/kavel/12605214/elektrische-fiets-norta">Norta</a>
+                <a href="/nl/veilinghuizen">Alle veilinghuizen</a>
+                <a href="https://alleveilingen.be/nl/Vavato/kavel/999/iets">Vavato</a>
+                """;
+
+            var kandidaten = FavoriteFromUrl.Kandidaten(zoekpagina, site, 8);
+
+            Check.Dat(kandidaten.Count == 3, $"drie kavels, de gewone links tellen niet mee ({kandidaten.Count})");
+
+            Check.Dat(kandidaten[0] == "https://alleveilingen.be/nl/Bopa/kavel/12528539/lot-1---elektrische-fiets-villette",
+                $"relatieve adressen krijgen het basisadres ({kandidaten[0]})");
+
+            Check.Dat(kandidaten.Distinct().Count() == kandidaten.Count,
+                "en dezelfde kavel telt één keer, al staat hij er twee keer in");
+
+            Check.Dat(FavoriteFromUrl.Kandidaten(zoekpagina, site, 2).Count == 2,
+                "de rem op het aantal werkt: elke kandidaat kost een verzoek");
+
+            Check.Dat(FavoriteFromUrl.Kandidaten(zoekpagina, new SiteDefinition { IdPattern = "" }, 8).Count == 0,
+                "een site zonder IdPattern doet niet mee: dan is een kavellink niet te herkennen");
+
+            // 4. En de weigeringen, zonder dat er één verzoek de deur uitgaat.
+            var history = new HistoryStore();
+
+            var kort = await FavoriteFromUrl.VoegToeAsync("https://www.bopa.be/", new List<SiteDefinition>(), history);
+            Check.Dat(!kort.Ok && kort.Melding.Contains("te kort"),
+                $"een adres zonder pad bewijst niets en wordt niet gezocht ({kort.Melding})");
+
+            var geenVeiling = await FavoriteFromUrl.VoegToeAsync(
+                "https://www.bopa.be/auction/520/lot/57380",
+                new List<SiteDefinition> { new() { Name = "2dehands", IsAuction = false, Enabled = true } },
+                history);
+
+            Check.Dat(!geenVeiling.Ok && geenVeiling.Melding.Contains("geen veilingsite"),
+                $"zonder veilingsite valt er niets terug te zoeken ({geenVeiling.Melding})");
+        }
+
+        // ---------------------------------------------------------------------------
         Check.Groep("Rechtsklik: wat er van een pagina gemaakt wordt");
         {
             var history = new HistoryStore();

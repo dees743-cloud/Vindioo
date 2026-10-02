@@ -464,6 +464,61 @@ Het contextmenu zelf heeft **geen** toestemming per site nodig: Chrome geeft het
 link mee zonder dat we in de pagina moeten kijken. Haalt de app die pagina daarna via de brug op
 (een site met `UseBridge`), dan speelt jouw toestemming voor die site wel weer mee.
 
+### Een kavel van een veilinghuis dat Zentrix niet kent
+
+Je staat op `bopa.be` en wil dat kavel bewaren, maar bopa.be staat niet bij je sites. Een
+sitebestand per veilinghuis maken is geen antwoord: AlleVeilingen verzamelt er **twintig**, en die
+lijst verandert.
+
+Wat wél werkt, en wat de hele opzet draagt: **een kavelpagina van AlleVeilingen draagt een link
+terug naar het veilinghuis** ("Bekijk dit kavel op Bopa"). Daarmee hoeft Zentrix niet te raden of
+twee kavels hetzelfde zijn - ze zoekt het adres waarop jij klikte terug in de pagina van de
+kandidaat. Staat het er niet in, dan is het een ander kavel. Punt.
+
+Dat maakt de zoekterm **onbelangrijk**, en dat is het mooie eraan: hij hoeft enkel goed genoeg te
+zijn om het kavel ergens in de lijst te krijgen. Een misser levert "niet teruggevonden" op, nooit
+een verkeerde favoriet. Daarom mag `Zoekterm()` losser zijn dan `FavoriteWatch.TitelUitPagina`,
+die de titel van een favoriet bepaalt en dus wél precies moet zijn.
+
+De weg, gemeten op 2 oktober 2026 met lot 1 van BOPA:
+
+```
+bopa.be/auction/520/lot/57380
+  -> <h1> "Lot 1: Elektrische fiets Villette"
+  -> zoeken op AlleVeilingen -> /nl/Bopa/kavel/12528539/lot-1---elektrische-fiets-villette
+  -> die pagina bevat "bopa.be/auction/520/lot/57380"   -> treffer
+  -> einddatum 08/10/2026 19:30, zoals op de site van BOPA zelf
+```
+
+**970 ms**, drie verzoeken, geen browser en geen toestemming per site. De favoriet is daarna een
+gewone AlleVeilingen-favoriet: *Nakijken*, de einddatum en de veilingwaarschuwing werken allemaal.
+
+Vier dingen die de opzet bepalen, en elk ervan is gemeten:
+
+- **De `<h1>` levert de zoekterm**, niet `<title>`. De titel van een BOPA-kavelpagina is "BOPA
+  Veilingen | Uw veiling makelaar voor online veilingen" - ook **ná** het renderen, dus zelfs de
+  extensie zou er niets aan hebben. De h1 draagt wel de kavelnaam, en die staat al in de gewone
+  HTML: geen brug nodig.
+- **De kandidaten komen uit de kale zoekpagina**, geplukt met het `IdPattern` van het sitebestand.
+  Dat patroon bestaat juist om een kavellink te herkennen, dus er hoeft niets nieuws ingesteld te
+  worden - en er is geen browser nodig, ook al staat AlleVeilingen op `NeedsBrowser`. Gemeten: 30
+  kavellinks in de kale HTML, maar 3 van de 30 volledige kaarten. Een site **zonder** `IdPattern`
+  doet dus niet mee.
+- **De titel van de favoriet komt uit de h1 van de kavelpagina**, niet uit de gewone weg:
+  AlleVeilingen hangt de naam van het veilinghuis achter haar `og:title` én haar `<title>`
+  ("Lot 1 - elektrische fiets villette **| Bopa**"), de h1 niet.
+- **Er komt geen prijs mee.** Op de kale kavelpagina staat geen `ld+json` en geen
+  `div[title='Huidig bod']` - het huidige bod zit in een JSON-blok dat pas met JavaScript een
+  prijs wordt. Daar een getal uit vissen zou gokwerk zijn, en een verkeerde prijs op een favoriet
+  is erger dan geen. Bij een veiling verandert het bod toch per uur.
+
+**En de kopregels.** bopa.be antwoordde met **429 Too Many Requests** op het eerste verzoek met
+enkel onze User-Agent, en met 200 op een kale `Mozilla/5.0` én op een volledige browser-set. Wie
+zegt dat hij Chrome is maar de kopregels van Chrome niet meestuurt, valt op. `HttpFactory` stuurt
+nu `Accept` en `Sec-Fetch-*` mee - nagemeten dat ze er **samen** bij moeten zijn, elk apart bleef
+429. Met de tegenproef nagegaan dat je zeven rechtstreekse sites er niets van merken: dezelfde
+statuscodes en dezelfde omvang, met en zonder.
+
 Nagemeten: `tools/meet-extensie-toegang.mjs` draait de échte luisteraar van het contextmenu tegen
 een nagebootste Chrome (een gewone link, een pagina zonder link, `http://`, een privé-adres,
 `javascript:`, geen koppelcode, en een vreemd programma op de poort). De tegenproef zonder

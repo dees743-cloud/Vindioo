@@ -35,6 +35,14 @@ public static class HttpFactory
     /// sessiecookie en laat het volgende verzoek gewoon door; dat was het verschil tussen
     /// <c>curl</c> (altijd de muur) en een browser (meteen de pagina). Zie "Een toestemmingsmuur
     /// op een ander domein" in <c>docs/brug.md</c>.</para>
+    ///
+    /// <para><b>Met de kopregels die bij die User-Agent horen</b> (2 oktober 2026). Dezelfde
+    /// redenering als bij de compressie, en met hetzelfde soort bewijs: bopa.be antwoordde met
+    /// <b>429 Too Many Requests</b> op het eerste verzoek met enkel onze User-Agent, maar met
+    /// 200 op een kale <c>Mozilla/5.0</c> én op een volledige browser-set. Wie zegt dat hij
+    /// Chrome is maar de kopregels van Chrome niet meestuurt, valt op. Nagemeten welke het doen:
+    /// <c>Accept</c> en <c>Sec-Fetch-*</c> moeten er <b>samen</b> bij zijn - elk apart bleef
+    /// 429.</para>
     /// </summary>
     /// <param name="timeout">
     /// Hoelang er op een antwoord gewacht wordt. Dat verschilt wél per gebruik: een zoekpagina
@@ -52,6 +60,29 @@ public static class HttpFactory
         };
 
         client.DefaultRequestHeaders.Add("User-Agent", UserAgent);
+
+        foreach (var (naam, waarde) in Kopregels)
+            client.DefaultRequestHeaders.Add(naam, waarde);
+
         return client;
     }
+
+    /// <summary>
+    /// Wat Chrome naast zijn User-Agent meestuurt bij het openen van een pagina.
+    ///
+    /// <c>Accept</c> noemt ook afbeeldingen en eindigt op <c>*&#47;*</c>, dus een foto van een CDN
+    /// komt er even goed door; <c>Sec-Fetch-Dest: document</c> klopt niet voor een afbeelding,
+    /// maar geen enkele site hier gaat daarop af - en zonder deze regels gaat bopa.be al bij het
+    /// eerste verzoek dicht.
+    /// </summary>
+    private static readonly (string Naam, string Waarde)[] Kopregels =
+    {
+        ("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"),
+        ("Accept-Language", "nl-BE,nl;q=0.9,en;q=0.8"),
+        ("Sec-Fetch-Dest", "document"),
+        ("Sec-Fetch-Mode", "navigate"),
+        ("Sec-Fetch-Site", "none"),
+        ("Sec-Fetch-User", "?1"),
+        ("Upgrade-Insecure-Requests", "1")
+    };
 }

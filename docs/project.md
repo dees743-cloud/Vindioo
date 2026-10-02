@@ -133,6 +133,18 @@ Nagemeten met de echte methode over de echte databank: van 4510 bewaarde identit
 volledig adres zijn, verandert er geen enkele. Dat was de vraag die ertoe deed - was het antwoord
 anders geweest, dan had alles wat je ooit zag opnieuw als nieuw geteld.
 
+**0.15.0** sinds 2 oktober 2026. Het tweede cijfer: rechtsklikken werkt nu ook op een **veilinghuis
+dat Zentrix niet kent**. Je staat op bopa.be, kiest *Zet in favorieten van Zentrix*, en de app
+zoekt dat kavel terug op je veilingsites - zeker, niet gokkend: de kavelpagina van AlleVeilingen
+draagt een link terug naar het veilinghuis, en die moet het adres zijn waarop jij klikte. Geen
+treffer betekent dat er niets bewaard wordt en dat gezegd wordt. Zie `docs/brug.md` bij "Een kavel
+van een veilinghuis dat Zentrix niet kent".
+
+Daar hing één wijziging aan die **elk** verzoek van de app raakt: `HttpFactory` stuurt nu de
+kopregels mee die bij zijn User-Agent horen (`Accept` en `Sec-Fetch-*`). bopa.be gaf anders 429 op
+het eerste verzoek. Met een tegenproef nagegaan dat de zeven rechtstreekse sites er niets van
+merken. De extensie verandert niet mee en blijft op 2.1.
+
 Het is op twee plaatsen zichtbaar, en allebei om dezelfde reden - **er draaien twee exe's op
 deze pc**, een uit Visual Studio en een gepubliceerde (bij mij `C:\Zentrix`), met
 dezelfde gegevensmap:
