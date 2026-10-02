@@ -254,7 +254,7 @@ public partial class MainWindow
     /// </summary>
     private void OpenSearchSettings(SavedSearch search)
     {
-        var window = new SearchSettingsWindow(search, _store, _history) { Owner = this };
+        var window = new SearchSettingsWindow(search, _store, _history).Boven(this);
 
         if (window.ShowDialog() != true) return;
 

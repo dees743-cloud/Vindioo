@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -245,7 +245,7 @@ public partial class LotPriceWindow : Wpf.Ui.Controls.FluentWindow
     {
         if ((sender as FrameworkElement)?.DataContext is not LotRowView rij) return;
 
-        new PriceIndicationWindow(_listing, _sites, term: rij.Titel) { Owner = this }.Show();
+        new PriceIndicationWindow(_listing, _sites, term: rij.Titel).Boven(this).Show();
     }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();

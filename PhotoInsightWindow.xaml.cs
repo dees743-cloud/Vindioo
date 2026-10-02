@@ -143,7 +143,7 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
     /// op zichzelf te koop staat. Zie <see cref="LotPriceWindow"/>.
     /// </summary>
     private void LotButton_Click(object sender, RoutedEventArgs e) =>
-        new LotPriceWindow(_listing, _sites, _gelezenSamen) { Owner = this }.Show();
+        new LotPriceWindow(_listing, _sites, _gelezenSamen).Boven(this).Show();
 
     /// <summary>
     /// Wat is dit ongeveer waard? Hetzelfde venster als elders, maar met een betere zoekterm:
@@ -155,7 +155,7 @@ public partial class PhotoInsightWindow : Wpf.Ui.Controls.FluentWindow
     /// geen zoekterm uit, en dat is gemeten: zie <see cref="PriceIndicator.AlsZoektermen"/>.
     /// </summary>
     private void PriceButton_Click(object sender, RoutedEventArgs e) =>
-        new PriceIndicationWindow(_listing, _sites, _gelezenSamen) { Owner = this }.Show();
+        new PriceIndicationWindow(_listing, _sites, _gelezenSamen).Boven(this).Show();
 
     /// <summary>
     /// Alles wat er staat naar het klembord: bij een doos vol dvd's is die namenlijst juist het

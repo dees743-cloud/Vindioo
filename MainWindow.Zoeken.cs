@@ -105,7 +105,7 @@ public partial class MainWindow
 
     private void NotifyMenu_Click(object sender, RoutedEventArgs e)
     {
-        var window = new NotifySettingsWindow { Owner = this };
+        var window = new NotifySettingsWindow().Boven(this);
         window.ShowDialog();
     }
 

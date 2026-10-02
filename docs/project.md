@@ -145,6 +145,13 @@ kopregels mee die bij zijn User-Agent horen (`Accept` en `Sec-Fetch-*`). bopa.be
 het eerste verzoek. Met een tegenproef nagegaan dat de zeven rechtstreekse sites er niets van
 merken. De extensie verandert niet mee en blijft op 2.1.
 
+**0.16.0** sinds 2 oktober 2026. Twee dingen aan de vensters. Een **vergrote foto** heeft nu
+bladerpijlen bovenaan met een teller ertussen ("2 van 4"), en de pijltjestoetsen doen hetzelfde;
+de volgende foto kostte er drie klikken. Bij de eerste foto staat er geen pijl naar links en bij
+de laatste geen naar rechts. En een **pop-upvenster sluiten** haalt Zentrix weer naar voren in
+plaats van het achter een Verkenner of Chrome te laten verdwijnen. Zie `docs/zoekertje.md` en
+`docs/weergave.md`.
+
 Het is op twee plaatsen zichtbaar, en allebei om dezelfde reden - **er draaien twee exe's op
 deze pc**, een uit Visual Studio en een gepubliceerde (bij mij `C:\Zentrix`), met
 dezelfde gegevensmap:

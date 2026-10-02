@@ -109,6 +109,7 @@ Vensters (root):
   LotPriceWindow        wat er in een partij zit: elke gelezen titel apart opgezocht
   PhotoInsightWindow    wat de AI op de foto van een zoekertje ziet
   ListingDetailWindow   alles van één zoekertje (dubbelklik)
+  Vensters.cs           hoe een venster boven een ander opengaat, en wie daarna vooraan komt
 extension/   de brug: een Chrome-extensie die pagina's ophaalt in je eigen browser
 tools/       hulpmiddelen om buiten de app om na te meten (zie docs/fouten-opsporen.md)
 tests/Zentrix.Checks/   controles zonder testframework

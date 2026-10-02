@@ -180,7 +180,7 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
 
     private void AddSiteButton_Click(object sender, RoutedEventArgs e)
     {
-        var window = new AddSiteWindow { Owner = this };
+        var window = new AddSiteWindow().Boven(this);
 
         if (window.ShowDialog() == true && window.Result is not null)
         {

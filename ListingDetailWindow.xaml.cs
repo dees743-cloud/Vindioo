@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
@@ -53,6 +53,9 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
     private readonly Listing _listing;
     private readonly IReadOnlyList<SiteDefinition> _sites;
     private readonly ObservableCollection<FotoView> _fotos = new();
+
+    /// <summary>Welke foto er schermvullend staat, als plaats in <see cref="_fotos"/>.</summary>
+    private int _zoomPlaats;
 
     private CancellationTokenSource? _cts;
 
@@ -306,14 +309,61 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
     {
         if (BigPhoto.Source is null) return;
 
-        ZoomPhoto.Source = BigPhoto.Source;
-
-        ZoomHint.Text = BigPhoto.Source is BitmapSource beeld && beeld.PixelWidth > 0
-            ? $"{beeld.PixelWidth} × {beeld.PixelHeight} beeldpunten — klik of Esc om te sluiten"
-            : "Klik of Esc om te sluiten";
+        var actief = _fotos.FirstOrDefault(f => f.IsActief);
+        ToonZoom(actief is null ? 0 : _fotos.IndexOf(actief));
 
         ZoomLayer.Visibility = Visibility.Visible;
     }
+
+    /// <summary>
+    /// De foto op deze plaats schermvullend tonen, met de pijlen en de teller erbij.
+    ///
+    /// Zet ook de grote foto eronder en het vinkje op de miniatuur mee: sluit je de vergroting,
+    /// dan sta je op de foto die je als laatste bekeek en niet terug op die van daarvoor.
+    /// </summary>
+    private void ToonZoom(int plaats)
+    {
+        if (_fotos.Count == 0) return;
+
+        _zoomPlaats = Math.Clamp(plaats, 0, _fotos.Count - 1);
+
+        ZetGroot(_fotos[_zoomPlaats]);
+        ZoomPhoto.Source = BigPhoto.Source;
+
+        ZoomTeller.Text = _fotos.Count > 1 ? $"{_zoomPlaats + 1} van {_fotos.Count}" : "";
+
+        // Hidden en niet Collapsed: zo blijft de andere pijl op zijn plaats staan.
+        ZoomVorige.Visibility = _zoomPlaats > 0 ? Visibility.Visible : Visibility.Hidden;
+        ZoomVolgende.Visibility = _zoomPlaats < _fotos.Count - 1 ? Visibility.Visible : Visibility.Hidden;
+
+        ZetZoomTekst(BigPhoto.Source as BitmapImage);
+    }
+
+    /// <summary>
+    /// Hoeveel beeldpunten de foto werkelijk heeft: dan weet je meteen of de site meer te bieden
+    /// had.
+    ///
+    /// Bij het bladeren is die foto nog niet binnen - een <see cref="BitmapImage"/> van een
+    /// webadres haalt zichzelf op de achtergrond op, en dan staat het formaat nog op nul. Daarom
+    /// wordt de tekst ook nog eens gezet zodra ze er is; zonder dat stond er bij elke volgende
+    /// foto enkel "Klik of Esc om te sluiten".
+    /// </summary>
+    private void ZetZoomTekst(BitmapImage? beeld)
+    {
+        Zet();
+
+        if (beeld is { IsDownloading: true })
+            beeld.DownloadCompleted += (_, _) => Zet();
+
+        void Zet() =>
+            ZoomHint.Text = beeld is { PixelWidth: > 0 }
+                ? $"{beeld.PixelWidth} × {beeld.PixelHeight} beeldpunten — klik of Esc om te sluiten"
+                : "Klik of Esc om te sluiten";
+    }
+
+    private void ZoomVorige_Click(object sender, RoutedEventArgs e) => ToonZoom(_zoomPlaats - 1);
+
+    private void ZoomVolgende_Click(object sender, RoutedEventArgs e) => ToonZoom(_zoomPlaats + 1);
 
     private void Zoom_Klik(object sender, MouseButtonEventArgs e) => SluitZoom();
 
@@ -329,11 +379,23 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
     /// </summary>
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
-        if (e.Key == Key.Escape && ZoomLayer.Visibility == Visibility.Visible)
+        if (ZoomLayer.Visibility == Visibility.Visible)
         {
-            SluitZoom();
-            e.Handled = true;
-            return;
+            if (e.Key == Key.Escape)
+            {
+                SluitZoom();
+                e.Handled = true;
+                return;
+            }
+
+            // De pijltjestoetsen doen hetzelfde als de knoppen. Wie met de muis bladert, houdt
+            // zijn hand daar; wie net Esc leerde, bladert liever met het toetsenbord.
+            if (e.Key is Key.Left or Key.Right)
+            {
+                ToonZoom(_zoomPlaats + (e.Key == Key.Left ? -1 : 1));
+                e.Handled = true;
+                return;
+            }
         }
 
         base.OnPreviewKeyDown(e);
@@ -372,11 +434,11 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
     /// zoekertje en de sites mee.
     /// </summary>
     private void PriceButton_Click(object sender, RoutedEventArgs e) =>
-        new PriceIndicationWindow(_listing, _sites) { Owner = this }.Show();
+        new PriceIndicationWindow(_listing, _sites).Boven(this).Show();
 
     /// <summary>Doorsturen naar de AI-controle, met alle foto's die we hier al kennen.</summary>
     private void AiButton_Click(object sender, RoutedEventArgs e) =>
-        new PhotoInsightWindow(_listing, _sites, alleFotos: true) { Owner = this }.Show();
+        new PhotoInsightWindow(_listing, _sites, alleFotos: true).Boven(this).Show();
 
     private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 }

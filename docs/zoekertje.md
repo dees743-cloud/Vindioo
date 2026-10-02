@@ -265,3 +265,22 @@ Drie dingen die daarbij hoorden:
 **De einddatum van AlleVeilingen loopt hier niet langs.** Die gaat via `FillAsync`, met een gewoon
 verzoek, en dat blijft zo - dat draait automatisch voor elk zoekertje in beeld, en daar hoort geen
 browser bij te komen.
+
+## Bladeren door de vergrote foto's
+
+Erbij op 2 oktober 2026. Klik je een foto groot, dan kostte de volgende er **drie**: deze kleiner
+maken, een miniatuur kiezen, en die weer groot klikken. Nu staan er bovenaan twee pijlen met een
+teller ertussen ("2 van 4"), en de pijltjestoetsen doen hetzelfde.
+
+Drie keuzes die het gedrag bepalen:
+
+- **De pijl die niet kan, staat er niet.** Bij de eerste foto geen pijl naar links, bij de laatste
+  geen naar rechts - zo zie je meteen waar je bent, zonder een grijze knop die niets doet. Op
+  `Hidden` en niet op `Collapsed`, want anders schuift de overblijvende pijl naar het midden en
+  springt de teller heen en weer.
+- **Bladeren verzet ook de foto eronder** (`ToonZoom` roept `ZetGroot` aan). Sluit je de
+  vergroting, dan sta je op de foto die je als laatste bekeek - niet terug op die van daarvoor.
+- **De tekst met het aantal beeldpunten wordt twee keer gezet.** Een `BitmapImage` van een
+  webadres haalt zichzelf op de achtergrond op, dus bij het bladeren is het formaat nog nul; zodra
+  de foto binnen is (`DownloadCompleted`) komt de juiste tekst er alsnog. Zonder dat stond er bij
+  elke volgende foto enkel "Klik of Esc om te sluiten".

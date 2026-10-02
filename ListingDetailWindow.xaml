@@ -233,8 +233,32 @@
              onderhouden worden die hetzelfde doet. -->
         <Grid x:Name="ZoomLayer" Grid.RowSpan="3" Visibility="Collapsed"
               Background="#E6000000" Cursor="Hand" MouseLeftButtonUp="Zoom_Klik">
-            <Image x:Name="ZoomPhoto" Stretch="Uniform" Margin="24"
+            <Image x:Name="ZoomPhoto" Stretch="Uniform" Margin="24,56,24,24"
                    RenderOptions.BitmapScalingMode="HighQuality" />
+
+            <!-- Bladeren zonder eerst te sluiten. Tot 2 oktober 2026 kostte de volgende foto
+                 drie klikken: deze kleiner maken, een miniatuur kiezen, en die weer groot
+                 klikken.
+
+                 Bovenaan en niet aan de zijkanten, zoals gevraagd. De pijl die niet kan, staat
+                 er niet: zo zie je meteen dat je bij de eerste of de laatste foto bent. Hidden
+                 en niet Collapsed, want dan blijft de andere pijl op zijn plaats staan in
+                 plaats van naar het midden te schuiven. -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Top"
+                        Margin="0,14,0,0">
+                <ui:Button x:Name="ZoomVorige" Click="ZoomVorige_Click" Appearance="Secondary"
+                           Icon="{ui:SymbolIcon ChevronLeft24}" Padding="14,6" Margin="0,0,6,0"
+                           ToolTip="Vorige foto (pijltje naar links)" />
+
+                <TextBlock x:Name="ZoomTeller" VerticalAlignment="Center" Margin="10,0"
+                           FontSize="13" Foreground="#CCFFFFFF" MinWidth="90"
+                           TextAlignment="Center" />
+
+                <ui:Button x:Name="ZoomVolgende" Click="ZoomVolgende_Click" Appearance="Secondary"
+                           Icon="{ui:SymbolIcon ChevronRight24}" Padding="14,6" Margin="6,0,0,0"
+                           ToolTip="Volgende foto (pijltje naar rechts)" />
+            </StackPanel>
+
             <TextBlock x:Name="ZoomHint" VerticalAlignment="Bottom" HorizontalAlignment="Center"
                        Margin="0,0,0,14" FontSize="12" Foreground="#CCFFFFFF" />
         </Grid>

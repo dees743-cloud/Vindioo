@@ -235,3 +235,26 @@ witte tekst leesbaar blijft.
   uitgelijnde `StackPanel` verdween het begin van een lange melding links buiten beeld.
 - **Het logo verdwijnt onder 1040 beeldpunten breed.** Het staat gecentreerd in dezelfde rij als
   de zoekbalk, en schoof anders over het vergrootglas en het tandwiel.
+
+## Een venster boven een ander venster
+
+Elk venster dat van een ander opengaat, gaat via `Vensters.Boven(eigenaar)` - één plaats in
+plaats van dertien keer `{ Owner = this }`. Die helper doet twee dingen: de eigenaar zetten, en de
+eigenaar naar voren halen wanneer dit venster sluit.
+
+**Dat tweede hoort niet nodig te zijn.** Windows activeert bij het sluiten van een venster normaal
+zijn eigenaar. In de praktijk gebeurde op 2 oktober 2026 iets anders: stond er een Verkenner of
+een Chrome tussen Zentrix en het pop-upvenster, dan sprong Zentrix bij het sluiten helemaal naar
+achter - je moest het uit de taakbalk terughalen om verder te werken.
+
+**Niet nagemeten in een harnas, en dat hoort erbij.** Windows laat een proces dat op de achtergrond
+gestart is de vensters niet herschikken: in de proefopzet kwam noch Kladblok (op Windows 11 een
+Store-app, waarvan je het venster niet eens te pakken krijgt) noch de Verkenner naar voren, dus de
+situatie viel er niet na te bootsen. Wat er wél gemeten is, met het echte detailvenster en
+`GetForegroundWindow`: zónder een ander programma ertussen komt het hoofdvenster na het sluiten
+gewoon terug - met en zonder deze helper. De klacht gaat dus over het geval met iets ertussen, en
+daar dwingt deze regel het antwoord af in plaats van erop te vertrouwen.
+
+Het kan geen aandacht stelen van een ander programma: wie dit venster sluit, had het net nog
+vooraan staan. En een eigenaar die intussen weg of geminimaliseerd is, blijft met rust - anders zou
+het sluiten van een venster een geminimaliseerde Zentrix uit het systeemvak trekken.

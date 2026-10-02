@@ -58,7 +58,7 @@ public partial class MainWindow
         // zien welke site hernoemd werd.
         var namenVoor = _store.Sites.GroupBy(s => s.Id).ToDictionary(g => g.Key, g => g.First().Name);
 
-        var window = new SettingsWindow(_store, site) { Owner = this };
+        var window = new SettingsWindow(_store, site).Boven(this);
         window.ShowDialog();
 
         // De sites kunnen bewerkt, toegevoegd of verwijderd zijn: opnieuw inlezen
@@ -110,7 +110,7 @@ public partial class MainWindow
 
     private void AddSiteMenu_Click(object sender, RoutedEventArgs e)
     {
-        var window = new AddSiteWindow { Owner = this };
+        var window = new AddSiteWindow().Boven(this);
 
         if (window.ShowDialog() == true && window.Result is not null)
         {
@@ -228,7 +228,7 @@ public partial class MainWindow
     {
         if ((sender as FrameworkElement)?.DataContext is not Listing listing) return;
 
-        new PriceIndicationWindow(listing, _store.Sites) { Owner = this }.Show();
+        new PriceIndicationWindow(listing, _store.Sites).Boven(this).Show();
     }
 
     /// <summary>
@@ -249,7 +249,7 @@ public partial class MainWindow
     {
         if ((sender as FrameworkElement)?.DataContext is not Listing listing) return;
 
-        new PhotoInsightWindow(listing, _store.Sites, alleFotos) { Owner = this }.Show();
+        new PhotoInsightWindow(listing, _store.Sites, alleFotos).Boven(this).Show();
     }
 
     /// <summary>
@@ -261,6 +261,6 @@ public partial class MainWindow
     {
         if (lijst?.SelectedItem is not Listing listing) return;
 
-        new ListingDetailWindow(listing, _store.Sites) { Owner = this }.Show();
+        new ListingDetailWindow(listing, _store.Sites).Boven(this).Show();
     }
 }
