@@ -258,3 +258,28 @@ daar dwingt deze regel het antwoord af in plaats van erop te vertrouwen.
 Het kan geen aandacht stelen van een ander programma: wie dit venster sluit, had het net nog
 vooraan staan. En een eigenaar die intussen weg of geminimaliseerd is, blijft met rust - anders zou
 het sluiten van een venster een geminimaliseerde Zentrix uit het systeemvak trekken.
+
+## Het pictogram van de app
+
+`Assets/zentrix.ico`, gemaakt uit `Assets/logo.png` met `tools/maak-icoon.py`.
+
+**Op 2 oktober 2026 bleek het bijna onzichtbaar**: in de taakbalk stond een leeg wit kadertje. De
+oorzaak was de bron. `logo.png` is een **banner** van 1158x513 - het beeldmerk én het woord
+"Zentrix" - en maar 10% van zijn punten is dekkend; de rest is gloed. Dat hele ding in een
+vierkantje persen gaf een veeg: gemeten gemiddelde dekking **33 van 255**, bij elk formaat.
+
+Nu wordt enkel het **beeldmerk** uitgesneden (het vergrootglas met het atoom, links in de banner),
+en dat staat op een eigen tegel met afgeronde hoeken in de kleuren uit `App.xaml`
+(`BackgroundTopColor` naar `BackgroundBottomColor`). Gemiddelde dekking: **245 van 255**.
+
+**Waarom een tegel en niet doorzichtig.** Het beeldmerk is neonkunst: lichtgevende lijnen op
+niets. Op een donkere taakbalk leest dat, op een lichte wast het uit tot precies dat vage kadertje
+- nagemeten op allebei. Met een eigen achtergrond is het overal hetzelfde en overal leesbaar.
+
+Formaten: 16, 24, 32, 48, 64, 128 en 256. Het zit via `<ApplicationIcon>` in de exe en daarnaast
+als `Resource`, want `NotifyIcon` in het systeemvak heeft het bestand zelf nodig.
+
+**Het logo ín het venster is iets anders** en mankeert niets: `<Image Source="/Assets/logo.png">`
+boven de zoekbalk, verborgen onder 1040 punten breed. Let op bij het nameten met een
+wegwerpprojectje: zo'n relatief adres zoekt in de **toepassing**, en dat is dan het projectje en
+niet Zentrix - dan is `Logo.Source` leeg terwijl er in de echte app niets aan de hand is.

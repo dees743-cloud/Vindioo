@@ -266,6 +266,26 @@ Drie dingen die daarbij hoorden:
 verzoek, en dat blijft zo - dat draait automatisch voor elk zoekertje in beeld, en daar hoort geen
 browser bij te komen.
 
+## Hoe groot de foto staat
+
+Erbij op 2 oktober 2026. De grote foto kreeg tot dan enkel de ruimte die de rest overliet, en dat
+gaf hetzelfde venster twee heel verschillende maten: een zoekertje zonder beschrijving toonde de
+auto groot, en een zoekertje met een lap tekst over export buiten Europa toonde dezelfde auto half
+zo klein. Een foto is waar je naar kijkt; die hoort niet af te hangen van hoe spraakzaam de
+verkoper is.
+
+`VolgVensterhoogte` zet nu een ondergrens op de fotorij die met de **breedte** van het venster
+meegroeit: `max(220, min(breedte x 0,46, hoogte x 0,45))`. Op de breedte, want dat is wat je zelf
+instelt door het venster te verslepen - breder venster, grotere foto. De hoogte doet mee als
+bovengrens, anders houdt een breed en laag venster niets over voor de rest.
+
+Wat de beschrijving dan nog mag innemen, volgt daaruit: `hoogte - fotominimum - 300`, met 160 als
+ondergrens zodat ze niet verdwijnt. Die 300 is de rest van het venster - titel en prijs, de rij
+miniaturen, de regel eronder, de knoppenbalk en de marges.
+
+Nagemeten met twee vensters naast elkaar, hetzelfde zoekertje met en zonder lange beschrijving:
+de foto staat nu in allebei even groot.
+
 ## Bladeren door de vergrote foto's
 
 Erbij op 2 oktober 2026. Klik je een foto groot, dan kostte de volgende er **drie**: deze kleiner

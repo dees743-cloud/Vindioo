@@ -86,7 +86,9 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" MinHeight="160" />
+                <!-- De ondergrens wordt in de code gezet en groeit mee met de BREEDTE van het
+                     venster; zie VolgVensterhoogte. -->
+                <RowDefinition x:Name="FotoRij" Height="*" MinHeight="160" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>

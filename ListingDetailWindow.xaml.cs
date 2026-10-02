@@ -246,18 +246,33 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
     }
 
     /// <summary>
-    /// Hoe hoog het onderste blok hoogstens mag worden: iets minder dan de helft van het venster.
-    /// De rij eronder staat op Auto, dus een korte beschrijving krijgt geen half leeg vak; een
-    /// lange loopt tot deze grens en schuift daarbinnen. Zonder die grens duwt een advertentie
-    /// met algemene voorwaarden de foto het venster uit.
+    /// Verdeelt de hoogte tussen de foto en het blok eronder.
     ///
-    /// De grens staat op het blok en niet op de rij, en dat is precies het punt: een rij op Auto
-    /// meet haar kind met oneindige hoogte. De ScrollViewer besluit dan dat er niets te schuiven
-    /// valt, en daarna knipt de rij de tekst af - zichtbaar afgeknipt, zonder schuifbalk.
+    /// <para><b>De foto krijgt een ondergrens die met de BREEDTE meegroeit.</b> Daarvoor kreeg
+    /// hij enkel wat de beschrijving overliet, en dat gaf hetzelfde venster twee heel
+    /// verschillende maten: een auto zonder beschrijving stond groot, en dezelfde auto met een
+    /// lap tekst over export buiten Europa stond ineens half zo klein. Een foto van een zoekertje
+    /// is waar je naar kijkt; die hoort niet af te hangen van hoe spraakzaam de verkoper is.</para>
+    ///
+    /// <para>Op de breedte en niet op de hoogte, want dat is wat je zelf instelt door het venster
+    /// te verslepen: breder venster, grotere foto. De hoogte doet wel mee als bovengrens, anders
+    /// zou een breed en laag venster geen plaats meer overhouden.</para>
+    ///
+    /// <para><b>De bovengrens van het onderste blok</b> staat op het blok en niet op zijn rij, en
+    /// dat is precies het punt: een rij op Auto meet haar kind met oneindige hoogte. De
+    /// ScrollViewer besluit dan dat er niets te schuiven valt, en daarna knipt de rij de tekst af
+    /// - zichtbaar afgeknipt, zonder schuifbalk.</para>
     /// </summary>
     private void VolgVensterhoogte()
     {
-        InfoBlock.MaxHeight = Math.Max(200, ActualHeight * 0.45);
+        var fotoMinimum = Math.Max(220, Math.Min(ActualWidth * 0.46, ActualHeight * 0.45));
+        FotoRij.MinHeight = fotoMinimum;
+
+        // Wat er dan nog voor de beschrijving overblijft. De 300 is de rest van het venster:
+        // titel en prijs, de rij miniaturen, de regel eronder, de knoppenbalk en de marges.
+        var overschot = ActualHeight - fotoMinimum - 300;
+
+        InfoBlock.MaxHeight = Math.Max(160, Math.Min(ActualHeight * 0.45, overschot));
     }
 
     /// <summary>
