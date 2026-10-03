@@ -631,11 +631,44 @@ enkel in zijn beschrijving had staan. In het venster van een zoekopdracht staat 
 vinkje, onder dat voor foto's.
 
 **Wat het niet doet.** Dit zeeft wat er binnenkwam; het haalt niets extra op. Geeft een site
-tweeduizend resultaten en zit jouw titeltreffer op plaats 2500, dan vind je hem hiermee ook
-niet. Sommige sites kunnen zelf al op titel zoeken - Marktplaats heeft
-`searchInTitleAndDescription` in zijn zoek-URL - en dat zou beter zijn, want dan komt er geen
-ruis binnen om weg te gooien. Maar dat verschilt per site en hoort dus in het sitebestand; het
-staat open.
+tweeduizend resultaten en zit jouw titeltreffer op plaats 2500, dan vind je hem hiermee ook niet.
+
+### Kan het niet beter, bij de bron?
+
+Dat zou het: wat een site zelf al op titel zoekt, hoeft de app niet op te halen om daarna weg te
+gooien. Marktplaats en 2dehands hebben `searchInTitleAndDescription=true` **zichtbaar in hun
+zoek-URL** staan, dus dat leek een kwestie van `false` invullen.
+
+**Die parameter wordt genegeerd.** Vier varianten gemeten op 3 oktober 2026 - `=true`, `=false`,
+de parameter helemaal weggelaten, en `true` én `false` samen - en alle vier geven exact hetzelfde:
+hetzelfde aantal, hetzelfde percentage, hetzelfde eerste zoekertje dat niet in de titel past.
+
+Met de tegenproef, want "er verandert niets" kan ook betekenen dat je wijziging niet aankomt:
+`limit=100` naar `limit=7` verandert de uitkomst wél, en een andere zoekterm in de sjabloon geeft
+fietsen in plaats van matrassen. De wijzigingen bereiken de server dus prima - de parameter doet
+gewoon niets.
+
+### Hoeveel elke site zelf al op de titel zoekt
+
+Gemeten met een zoekterm van twee woorden per site, 3 oktober 2026:
+
+| site | zoekterm | resultaten | met alle woorden in de titel |
+|---|---|---|---|
+| Tweakers V&A | samsung 256gb | 40 | **98%** - zoekt zelf al op de titel |
+| Marktplaats | matras 140x200 | 100 | 87% |
+| 2dehands | matras 140x200 | 100 | 81% |
+| kleinanzeigen.de | matratze 140x200 | 27 | 63% |
+| Delcampe | postkaart brugge | 100 | 63% |
+| **Vinted** | nike schoenen | 100 | **0%** |
+
+**Die nul bij Vinted is geen meetfout.** Daar heet een zoekertje gewoon "Nike" - het merk staat
+in de titel, en de soort, de maat en de staat staan in aparte velden. Zet je de zeef aan met een
+zoekterm van twee woorden, dan houdt Vinted dus **niets** over.
+
+Daarom zegt het lege tabblad dat ook, in plaats van het algemene "ze vallen buiten je filters":
+*"Geen van de 100 resultaten heeft alle woorden in de titel. Zet 'Enkel in de titel' uit om ze te
+zien - sommige sites zetten weinig in hun titel."* Een lege tab zonder uitleg is precies waar
+deze app elders vanaf wil.
 
 De regel zelf staat op één plaats: `SavedSearch.InTitel`. Het hoofdscherm stelt dezelfde vraag
 zonder bewaarde zoekopdracht - wie gewoon iets intypt verwacht hetzelfde - en twee lezers van

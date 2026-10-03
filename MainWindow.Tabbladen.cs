@@ -103,6 +103,17 @@ public partial class MainWindow
                        "wijs het waarschuwingsteken op de tab aan voor de reden.";
         }
 
+        // Staat "Enkel in de titel" aan en valt daardoor ALLES weg, zeg dan dát - niet het
+        // algemene "buiten je filters". Dit is geen verzonnen geval: Vinted zet enkel het merk
+        // in zijn titel ("Nike"), de maat en de soort staan in aparte velden. Gemeten op
+        // 3 oktober 2026 met "nike schoenen": 100 resultaten, 0 met alle woorden in de titel.
+        // Een lege tab zonder uitleg is precies waar deze app elders vanaf wil.
+        if (gevonden > 0 && _enkelTitel &&
+            !_results.Where(r => _active.IsAll || r.Source == _active.Name)
+                     .Any(r => SavedSearch.InTitel(_zoektermVanResultaten, r.Title)))
+            return $"Geen van de {gevonden} resultaten heeft alle woorden in de titel. " +
+                   "Zet 'Enkel in de titel' uit om ze te zien - sommige sites zetten weinig in hun titel.";
+
         if (gevonden > 0)
             return gevonden == 1
                 ? "Er is 1 resultaat, maar het valt buiten je filters."
