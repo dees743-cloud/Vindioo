@@ -208,6 +208,14 @@ verandert en dat is precies de kapotte, **0 van de 178** zoekresultaten hadden d
 `docs/favorieten.md` bij "Een titel die dubbel gecodeerd is" - ook voor de misstap onderweg, want
 mijn eerste oplossing zat op de verkeerde plaats.
 
+**0.19.0** sinds 3 oktober 2026. Een schakelaar **Enkel in de titel** boven de resultaten: die
+houdt enkel over wat alle woorden van je zoekterm in zijn **titel** draagt. Zoek je "matras
+140x200", dan geven de sites ook alles terug waar die woorden in de beschrijving staan; gemeten
+valt daar een derde van weg zonder dat er iets goeds verdwijnt. Hij hoort bij de zoekopdracht,
+dus een geplande beurt 's nachts gebruikt dezelfde zeef. Zie `docs/zoeken.md` bij "Enkel in de
+titel", ook voor hoeveel elke site zelf al op de titel zoekt - en waarom je hem beter uit laat
+als Vinted meezoekt.
+
 **0.18.0** sinds 3 oktober 2026. **Zentrix heet voortaan Vindioo** - *Alles gevonden. Op één
 plek.* De naam bleek in meerdere vormen al te bestaan. Aan wat de app doet verandert niets; wat
 er wel verandert, staat bovenaan dit bestand bij "De naam, de gegevensmap en GitHub", inclusief
