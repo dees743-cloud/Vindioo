@@ -290,6 +290,12 @@ waar het paneel bros is:
 ook wat andere hulpmiddelen achterlieten: `.codex` (een kopie van die adviseurs), `AGENTS.md` (een
 kopie van dit bestand) en `chatgpt_tips.md`. De sites staan sowieso niet in het project maar in de gegevensmap.
 
+`AGENTS.md` **bestaat niet meer** sinds 3 oktober 2026: Codex wordt niet meer gebruikt, en het
+bestand liep sinds 20 september achter - het beschreef de app nog van vóór de opsplitsing van
+`CLAUDE.md` naar `docs/`. Een tweede kopie van de documentatie die niemand bijwerkt, stuurt een
+lezer het bos in. De regel in `.gitignore` blijft wel staan, voor als er ooit weer zo'n bestand
+vanzelf verschijnt.
+
 **De app komt zonder sites.** Die staan in een aparte repository, `vindioo-sites`: een
 algemene zoekmotor publiek delen is iets anders dan kant-en-klare bestanden die op
 bepaalde sites gericht zijn, en een deel daarvan omzeilt bewust de beveiliging tegen
