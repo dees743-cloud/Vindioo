@@ -169,7 +169,7 @@ Wie AlleVeilingen al had staan, **importeert dat sitebestand opnieuw** of plakt 
 vakje - anders verandert er niets. Bestaande favorieten houden hun lege prijs; *Nakijken* vult ze
 voortaan wel in.
 
-**Na 0.17.0, nog niet uitgebracht.** `FavoriteWatch` las een advertentiepagina met drie reguliere
+**0.17.1** sinds 3 oktober 2026. `FavoriteWatch` las een advertentiepagina met drie reguliere
 expressies - voor het `ld+json`-blok, voor `og:title` en voor `<title>`. Die gaan nu alle drie
 langs de **ontlede** pagina. Aanleiding was de vorige stap: een regex vindt `ld+json` niet meer
 zodra een site haar scripttype als `application/ld&#x2B;json` schrijft, en dat deed AlleVeilingen.
