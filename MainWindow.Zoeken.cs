@@ -204,6 +204,7 @@ public partial class MainWindow
 
         BouwPager(paginas);
         UpdateNieuwSchakelaar();
+        UpdateTitelSchakelaar();
         VulEinddatumsAan();
     }
 
@@ -230,6 +231,45 @@ public partial class MainWindow
         _resultsView.Refresh();
         ToonPagina();
         UpdateEmptyHints();
+    }
+
+    /// <summary>
+    /// De schakelaar "Enkel in de titel" aan- of uitgezet.
+    ///
+    /// Er wordt niet opnieuw gezocht: dit zeeft wat er al binnen is, dus het werkt meteen.
+    /// Staat er een bewaarde zoekopdracht open, dan gaat de keuze daar ook in - net als de
+    /// filters - zodat een geplande beurt 's nachts dezelfde zeef gebruikt en je geen melding
+    /// krijgt over een zoekertje dat je woord enkel in zijn beschrijving had staan.
+    /// </summary>
+    private void TitleOnlyButton_Click(object sender, RoutedEventArgs e)
+    {
+        _enkelTitel = TitleOnlyButton.IsChecked == true;
+        _pagina = 0;
+
+        if (_activeSearch is not null)
+        {
+            _activeSearch.TitleOnly = _enkelTitel;
+            _history.Update(_activeSearch);
+        }
+
+        _resultsView.Refresh();
+        ToonPagina();
+        UpdateEmptyHints();
+    }
+
+    /// <summary>Zet de schakelaar "Enkel in de titel" gelijk met wat er geldt.</summary>
+    private void UpdateTitelSchakelaar()
+    {
+        TitleOnlyButton.IsChecked = _enkelTitel;
+
+        // Zonder zoekterm valt er niets op een titel te zeven; dan staat hij uit én gedimd,
+        // met in de tooltip waarom - dat is de regel die ook voor de andere knoppen geldt.
+        var kan = _zoektermVanResultaten.Length > 0;
+
+        TitleOnlyButton.IsEnabled = kan;
+        TitleOnlyButton.ToolTip = kan
+            ? "Enkel zoekertjes met alle woorden van je zoekterm in de titel"
+            : "Werkt pas met een zoekterm: er valt dan niets op een titel te zeven";
     }
 
     /// <summary>
@@ -388,6 +428,21 @@ public partial class MainWindow
     private bool _enkelNieuw;
 
     /// <summary>
+    /// Staat de schakelaar "Enkel in de titel" aan? Dan tellen enkel zoekertjes waarvan de
+    /// titel alle woorden van de zoekterm draagt (<see cref="SavedSearch.InTitel"/>).
+    ///
+    /// Anders dan "Enkel nieuwe" is dit géén weergavefilter maar een filter van de
+    /// zoekopdracht zelf: wat hier buiten valt telt niet mee in de teller, wordt niet bewaard
+    /// en geldt niet als gezien. Dezelfde keuze als bij de prijsgrens, en om dezelfde reden -
+    /// anders zegt de teller iets anders dan de lijst eronder, en geldt als bekeken wat je
+    /// nooit te zien kreeg.
+    /// </summary>
+    private bool _enkelTitel;
+
+    /// <summary>De zoekterm waar de resultaten op het scherm vandaan komen.</summary>
+    private string _zoektermVanResultaten = "";
+
+    /// <summary>
     /// De tab en de prijs, zonder de schakelaar "Enkel nieuwe": daarmee telt de
     /// schakelaar hoeveel nieuwe er op deze tab staan.
     /// </summary>
@@ -420,6 +475,11 @@ public partial class MainWindow
     private bool HoortBijZoekopdracht(Listing listing)
     {
         if (_activeSearch is not null && !_activeSearch.Matches(listing)) return false;
+
+        // Zonder bewaarde zoekopdracht geldt dezelfde regel, met de zoekterm van deze
+        // resultaten. Mét een bewaarde zoekopdracht deed Matches het hierboven al.
+        if (_activeSearch is null && _enkelTitel &&
+            !SavedSearch.InTitel(_zoektermVanResultaten, listing.Title)) return false;
 
         var bron = _tabs.FirstOrDefault(t => !t.IsAll && t.Name == listing.Source);
         if (bron is null) return true;
@@ -456,6 +516,11 @@ public partial class MainWindow
         // gezien", met een nieuw tijdstip dat de planner verzette, en met de fouten van
         // "fiets" over die van "marantz" heen. Hier geldt het voor elke weg naar zoeken.
         if (_activeSearch is not null && !IsActieveZoekterm(query)) _activeSearch = null;
+
+        // De zoekterm waar de resultaten vandaan komen. "Enkel in de titel" zeeft daarop, en
+        // niet op wat er NU in de zoekbalk staat: typ je iets nieuws zonder te zoeken en zet
+        // je dan die schakelaar om, dan zou de lijst leegslaan op een woord dat nooit gezocht is.
+        _zoektermVanResultaten = query;
 
         var searching = _tabs.Where(t => t.IsEnabled && !t.IsAll).ToList();
         if (searching.Count == 0)

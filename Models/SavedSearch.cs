@@ -43,6 +43,28 @@ public class SavedSearch : ObservableObject
     /// <summary>Alleen resultaten met minstens één foto.</summary>
     public bool PhotosOnly { get; set; }
 
+    /// <summary>
+    /// Alleen resultaten waarvan de <b>titel</b> alle woorden van de zoekterm bevat.
+    ///
+    /// Waarvoor: zoek je "matras 140x200", dan geven de sites ook alles terug waar die woorden
+    /// érgens staan - in de beschrijving, bij de verzendkosten, in een opsomming van andere
+    /// maten die de verkoper ook heeft. Wat jij zocht is een matras van die maat, en dat staat
+    /// in de titel.
+    ///
+    /// <para>Nagemeten op 3 oktober 2026 met precies die zoekterm: van 300 resultaten houden er
+    /// 238 (2dehands) en 245 (Marktplaats) alle woorden in hun titel. Een vijfde ruis weg dus.
+    /// En belangrijker: <b>geen enkel</b> zoekertje dat onterecht wegviel. De maat staat in die
+    /// titels als <c>140x200</c> (244x) of <c>140X200</c> (8x), en dat verschil is enkel een
+    /// hoofdletter - waar <see cref="InTitel"/> doorheen kijkt.</para>
+    ///
+    /// <para><b>Wat het niet doet.</b> Dit zeeft wat er binnenkwam; het haalt niets extra op.
+    /// Geeft een site 2000 resultaten en zit jouw titeltreffer op plaats 2500, dan vind je hem
+    /// hiermee ook niet. Sommige sites kunnen zelf al op titel zoeken (Marktplaats heeft
+    /// <c>searchInTitleAndDescription</c> in zijn zoek-URL); dat zou beter zijn, maar het
+    /// verschilt per site en hoort dus in het sitebestand.</para>
+    /// </summary>
+    public bool TitleOnly { get; set; }
+
     // ---------- sites en hun filters ----------
 
     /// <summary>
@@ -262,7 +284,35 @@ public class SavedSearch : ObservableObject
 
     /// <summary>Mag dit zoekertje meetellen voor deze zoekopdracht?</summary>
     public bool Matches(Listing listing) =>
-        !PhotosOnly || listing.ImageUrls.Count > 0;
+        (!PhotosOnly || listing.ImageUrls.Count > 0) &&
+        (!TitleOnly || InTitel(Query, listing.Title));
+
+    /// <summary>
+    /// Staan alle woorden van de zoekterm in deze titel? Hoofdletters tellen niet mee.
+    ///
+    /// <para>Eén regel, en met opzet een simpele: élk woord moet erin staan, ergens. Geen
+    /// volgorde, geen hele woorden. Dat laatste is belangrijk - "140x200" zit in "matras
+    /// 140x200cm", en een controle op hele woorden zou dat net wegfilteren.</para>
+    ///
+    /// <para>Staat hier als één methode, en niet twee keer, omdat het hoofdscherm dezelfde
+    /// vraag stelt zonder bewaarde zoekopdracht: wie gewoon iets intypt, verwacht hetzelfde.
+    /// Twee lezers van dezelfde regel groeien uit elkaar - zie <c>PriceParser</c> voor hoe dat
+    /// afloopt.</para>
+    ///
+    /// <para>Een lege zoekterm laat alles door: er is dan niets om op te zoeken, en dan is
+    /// "niets tonen" een rare uitkomst van een schakelaar die "enkel in de titel" heet.</para>
+    /// </summary>
+    public static bool InTitel(string query, string titel)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return true;
+        if (string.IsNullOrWhiteSpace(titel)) return false;
+
+        foreach (var woord in query.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+            if (!titel.Contains(woord, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+        return true;
+    }
 
     // ---------- oud formaat ----------
 

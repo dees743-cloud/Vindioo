@@ -49,6 +49,38 @@
             </Setter>
         </Style>
 
+        <!-- Dezelfde pil, maar als schakelaar: hij blijft aan staan, en dan moet je dat
+             kunnen zien. Aan krijgt hij het accentverloop, net als "Enkel nieuwe" - want
+             allebei doen ze hetzelfde soort ding, ze verbergen een deel van wat er is. -->
+        <Style x:Key="PillToggle" TargetType="ToggleButton">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Back" Background="Transparent"
+                                CornerRadius="13" Padding="16,8" MinWidth="52">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Back" Property="Background"
+                                        Value="{StaticResource SurfaceHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Back" Property="Background"
+                                        Value="{StaticResource AccentGradientBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Back" Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Een klein knopje op een lichte kaart: donker pictogram, geen vlak
              tenzij de muis erop staat. Voor de knoppen bij een zoekopdracht. -->
         <Style x:Key="CardIconButton" TargetType="Button">
@@ -937,6 +969,17 @@
                                 Click="FilterButton_Click" ToolTip="Volgorde van de resultaten">
                             <ui:SymbolIcon Symbol="ArrowSortDownLines24" Filled="True" FontSize="19" />
                         </Button>
+
+                        <!-- Enkel zoekertjes waarvan de TITEL alle woorden van de zoekterm
+                             draagt. Zoek je "matras 140x200", dan geven de sites ook alles
+                             terug waar die woorden in de beschrijving staan; wat jij zocht
+                             staat in de titel. Een ToggleButton, want hij blijft aan staan
+                             en je moet kunnen zien dat hij aan staat. -->
+                        <ToggleButton x:Name="TitleOnlyButton" Style="{StaticResource PillToggle}"
+                                      Click="TitleOnlyButton_Click"
+                                      ToolTip="Enkel zoekertjes met alle woorden in de titel">
+                            <ui:SymbolIcon Symbol="TextCaseTitle24" Filled="True" FontSize="19" />
+                        </ToggleButton>
 
                         <Button x:Name="LayoutButton" Style="{StaticResource PillButton}"
                                 Click="LayoutButton_Click" ToolTip="Wisselen tussen lijst en raster">

@@ -244,5 +244,69 @@ public static class NieuwChecks
                 $"terwijl een andere verbinding schrijft: het bewaren wacht en lukt daarna ({klok.ElapsedMilliseconds} ms" +
                 $"{(fout is null ? "" : ", " + fout.Message)})");
         }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Enkel in de titel: de zeef op de zoekwoorden");
+        {
+            // Waarvoor dit bestaat: zoek je "matras 140x200", dan geven de sites ook alles
+            // terug waar die woorden ergens staan - in de beschrijving, bij de verzendkosten,
+            // of in een opsomming van andere maten die de verkoper ook heeft.
+            //
+            // Nagemeten op 3 oktober 2026 met precies die zoekterm: van 300 resultaten houden
+            // er 238 (2dehands) en 245 (Marktplaats) alle woorden in hun titel, en er viel er
+            // GEEN ENKELE onterecht af. De maat staat daar als 140x200 (244x) of 140X200 (8x).
+            const string term = "matras 140x200";
+
+            Check.Dat(SavedSearch.InTitel(term, "Gloednieuwe matras 140x200"),
+                "alle woorden in de titel: die blijft");
+
+            Check.Dat(SavedSearch.InTitel(term, "Veiling - Emma Essential matras 140X200 cm Nieuw!"),
+                "hoofdletters tellen niet mee (140X200 is dezelfde maat)");
+
+            Check.Dat(SavedSearch.InTitel(term, "Matras 140x200 Matt Sleeps | Refurbished"),
+                "en de volgorde doet er niet toe");
+
+            Check.Dat(!SavedSearch.InTitel(term, "Mooi matras, zie beschrijving voor de maten"),
+                "een van de twee woorden ontbreekt: die valt eruit");
+
+            Check.Dat(!SavedSearch.InTitel(term, "Bedbodem 140x200"),
+                "en dit is geen matras");
+
+            // GEEN hele woorden, en dat is met opzet. "140x200" zit in "140x200cm", en wie op
+            // hele woorden zou controleren, gooit juist de goede zoekertjes weg.
+            Check.Dat(SavedSearch.InTitel(term, "matras 140x200cm pocketvering"),
+                "een maat die aan de eenheid vastgeplakt zit, telt gewoon mee");
+
+            // Een lege zoekterm laat alles door: er valt dan niets te zeven, en niets tonen
+            // is een rare uitkomst van een schakelaar die "enkel in de titel" heet.
+            Check.Dat(SavedSearch.InTitel("", "om het even wat"), "zonder zoekterm blijft alles staan");
+            Check.Dat(!SavedSearch.InTitel("fiets", ""), "een zoekertje zonder titel valt eruit");
+
+            // En de weg die de app echt loopt: via Matches, zodat ook een geplande beurt
+            // 's nachts dezelfde zeef gebruikt.
+            var zoek = new SavedSearch { Query = term, TitleOnly = true };
+
+            Check.Dat(zoek.Matches(new Listing { Title = "matras 140x200 nieuw" }),
+                "Matches laat door wat de titel draagt");
+
+            Check.Dat(!zoek.Matches(new Listing { Title = "matras, diverse maten" }),
+                "en houdt tegen wat het enkel in zijn beschrijving had");
+
+            // Staat de schakelaar uit, dan verandert er niets.
+            var uit = new SavedSearch { Query = term, TitleOnly = false };
+
+            Check.Dat(uit.Matches(new Listing { Title = "matras, diverse maten" }),
+                "met de schakelaar uit blijft alles staan");
+
+            // De twee zeven bijten elkaar niet: enkel-met-foto en enkel-in-de-titel gelden
+            // allebei, en een zoekertje moet door allebei.
+            var samen = new SavedSearch { Query = term, TitleOnly = true, PhotosOnly = true };
+            var metFoto = new Listing { Title = "matras 140x200" };
+            metFoto.ImageUrls.Add("https://voorbeeld.be/1.jpg");
+
+            Check.Dat(samen.Matches(metFoto), "titel en foto allebei in orde: blijft");
+            Check.Dat(!samen.Matches(new Listing { Title = "matras 140x200" }),
+                "goede titel maar geen foto: valt alsnog af");
+        }
     }
 }

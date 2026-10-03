@@ -590,6 +590,57 @@ loskoppelen voorkomt daarnaast een pictogram in het systeemvak en een planner di
 niet de eerste in de alfabetische lijst. De tekst bij het pictogram ("3 nieuw bij ...") gaat
 weg zodra je het venster opent.
 
+## Enkel in de titel
+
+Zoek je **matras 140x200**, dan geven de sites ook alles terug waar die woorden érgens staan: in
+de beschrijving, bij de verzendkosten, of in een opsomming van andere maten die de verkoper ook
+heeft. Wat jij zocht is een matras van die maat, en dat staat in de titel.
+
+De schakelaar **Ab** boven de resultaten houdt enkel over wat alle woorden van je zoekterm in
+zijn **titel** draagt. Hij werkt meteen: er wordt niet opnieuw gezocht, want het zeeft wat er al
+binnen is.
+
+**Hoeveel dat scheelt**, gemeten op 3 oktober 2026 met precies die zoekterm:
+
+| | resultaten | met alle woorden in de titel |
+|---|---|---|
+| 2dehands | 300 | 238 |
+| Marktplaats | 300 | 245 |
+
+En in een echte beurt over allebei de sites: **3627 binnen, 2293 over** - een derde eruit.
+
+**Er viel niets onterecht af**, en dat was de vraag die ertoe deed. De maat staat in die titels
+als `140x200` (244x) of `140X200` (8x), en dat verschil is enkel een hoofdletter; `InTitel`
+vergelijkt zonder hoofdlettergevoeligheid. Zoekertjes die de maat ánders schrijven en toch
+zouden wegvallen: geen enkele.
+
+**De regel is met opzet simpel**: elk woord moet ergens in de titel staan, in willekeurige
+volgorde, en **niet** als heel woord. Dat laatste is geen slordigheid maar precies wat je wil -
+`140x200` zit in "matras 140x200cm", en een controle op hele woorden zou juist dat zoekertje
+weggooien.
+
+**Wat hier buiten valt, bestaat niet voor de zoekopdracht**: het telt niet mee in de teller
+"nieuw", het wordt niet bewaard en het geldt niet als gezien. Dezelfde keuze als bij de
+prijsgrens, en om dezelfde reden - anders zegt de teller iets anders dan de lijst eronder, en
+geldt als bekeken wat je nooit te zien kreeg. Zie `docs/sites.md` bij de prijsgrens.
+
+**Het hoort bij de zoekopdracht**, niet bij het scherm. Staat er een bewaarde zoekopdracht open
+als je de schakelaar omzet, dan gaat de keuze daar ook in - net als de filters - en gebruikt een
+geplande beurt 's nachts dezelfde zeef. Zo krijg je geen melding over een zoekertje dat je woord
+enkel in zijn beschrijving had staan. In het venster van een zoekopdracht staat hij ook als
+vinkje, onder dat voor foto's.
+
+**Wat het niet doet.** Dit zeeft wat er binnenkwam; het haalt niets extra op. Geeft een site
+tweeduizend resultaten en zit jouw titeltreffer op plaats 2500, dan vind je hem hiermee ook
+niet. Sommige sites kunnen zelf al op titel zoeken - Marktplaats heeft
+`searchInTitleAndDescription` in zijn zoek-URL - en dat zou beter zijn, want dan komt er geen
+ruis binnen om weg te gooien. Maar dat verschilt per site en hoort dus in het sitebestand; het
+staat open.
+
+De regel zelf staat op één plaats: `SavedSearch.InTitel`. Het hoofdscherm stelt dezelfde vraag
+zonder bewaarde zoekopdracht - wie gewoon iets intypt verwacht hetzelfde - en twee lezers van
+dezelfde regel groeien uit elkaar; zie `PriceParser` voor hoe dat afloopt.
+
 ## Resultaten over pagina's
 
 Er stond lang een **rem op wat er binnenkwam**: honderd zoekertjes per site, in te

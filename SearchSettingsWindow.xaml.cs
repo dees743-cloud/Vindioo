@@ -76,6 +76,7 @@ public partial class SearchSettingsWindow : Wpf.Ui.Controls.FluentWindow
     {
         QueryBox.Text = _search.Query;
         PhotosOnlyBox.IsChecked = _search.PhotosOnly;
+        TitleOnlyBox.IsChecked = _search.TitleOnly;
 
         // Eén regel per site die de app kent, met de bewaarde waarden ingevuld.
         // Sites die er later bij komen verschijnen dus vanzelf, uitgevinkt.
@@ -150,6 +151,7 @@ public partial class SearchSettingsWindow : Wpf.Ui.Controls.FluentWindow
     {
         doel.Query = QueryBox.Text.Trim();
         doel.PhotosOnly = PhotosOnlyBox.IsChecked == true;
+        doel.TitleOnly = TitleOnlyBox.IsChecked == true;
 
         doel.SiteSettings = _sites.Select(s => s.ToSetting()).ToList();
 

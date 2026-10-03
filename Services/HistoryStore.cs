@@ -261,6 +261,7 @@ public class HistoryStore
             if (config is null) return;
 
             search.PhotosOnly = config.PhotosOnly;
+        search.TitleOnly = config.TitleOnly;
             search.SiteSettings = config.SiteSettings;
             search.Schedule = config.Schedule;
 
@@ -278,6 +279,7 @@ public class HistoryStore
     private static string WriteConfig(SavedSearch search) => JsonSerializer.Serialize(new SearchConfig
     {
         PhotosOnly = search.PhotosOnly,
+        TitleOnly = search.TitleOnly,
         SiteSettings = search.SiteSettings,
         Schedule = search.Schedule,
         LastErrors = search.LastErrors,
@@ -289,6 +291,9 @@ public class HistoryStore
     private sealed class SearchConfig
     {
         public bool PhotosOnly { get; set; }
+
+        /// <summary>Enkel wat de zoekterm in zijn titel draagt; zie <see cref="SavedSearch.TitleOnly"/>.</summary>
+        public bool TitleOnly { get; set; }
         public List<SiteSetting> SiteSettings { get; set; } = new();
         public SearchSchedule Schedule { get; set; } = new();
 

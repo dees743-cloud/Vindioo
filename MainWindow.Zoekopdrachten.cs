@@ -104,6 +104,11 @@ public partial class MainWindow
             listing.IsNew = search.IsUnviewed(gezien.TryGetValue(listing.Key, out var eerst) ? eerst : null);
 
         _enkelNieuw = enkelNieuw && bewaard.Any(l => l.IsNew);
+
+        // De zeef op de titel hoort bij de zoekopdracht, dus die komt mee bij het openen.
+        _enkelTitel = search.TitleOnly;
+        _zoektermVanResultaten = search.Query;
+
         ToonBewaard(search, bewaard);
 
         // Nu heb je ze gezien. Het NIEUW-label blijft staan zolang deze lijst op het scherm

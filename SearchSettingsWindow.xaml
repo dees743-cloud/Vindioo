@@ -95,7 +95,13 @@
                         <!-- Hoort bij de resultaten en niet bij het zoekwoord, dus
                              staat het hier en niet in het blok hierboven. -->
                         <CheckBox x:Name="PhotosOnlyBox" Content="Alleen resultaten met een foto"
-                                  Margin="0,0,0,12" />
+                                  Margin="0,0,0,6" />
+
+                        <!-- Dezelfde schakelaar als de knop boven de resultaten; hier staat ze
+                             zodat ze meegaat met de zoekopdracht, ook bij een geplande beurt. -->
+                        <CheckBox x:Name="TitleOnlyBox" Content="Alleen als alle woorden in de titel staan"
+                                  Margin="0,0,0,12"
+                                  ToolTip="Zoek je 'matras 140x200', dan geven de sites ook alles terug waar die woorden in de beschrijving staan. Dit houdt enkel over wat ze in de titel heeft." />
 
                         <ItemsControl x:Name="SitesList">
                             <ItemsControl.ItemTemplate>
