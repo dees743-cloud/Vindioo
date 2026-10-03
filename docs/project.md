@@ -179,7 +179,7 @@ prijs en titel. Wat weg is, is een klasse fouten die pas opvalt wanneer er een s
 `docs/favorieten.md` bij "Geen regexen meer op de pagina", met de tegenproef waarin vier controles
 omvallen zodra de oude uitdrukkingen terugkomen.
 
-**Na 0.17.1, nog niet uitgebracht.** Een advertentie bij kleinanzeigen die *Segelyacht Compromis
+**0.17.2** sinds 3 oktober 2026. Een advertentie bij kleinanzeigen die *Segelyacht Compromis
 777 "Fiete"* heet, kwam als favoriet binnen met `&#034;` in plaats van de aanhalingstekens. De
 site codeert tekst die zelf al gecodeerd was, en de ontleder haalt daar maar één slag af; nu gaat
 er één slag bovenop, op de titel en nergens anders. Gemeten: **1 van de 38** advertentietitels
