@@ -1,10 +1,10 @@
-﻿<ui:FluentWindow x:Class="Zentrix.MainWindow"
+﻿<ui:FluentWindow x:Class="Vindioo.MainWindow"
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-                 xmlns:controls="clr-namespace:Zentrix.Controls"
-                 xmlns:models="clr-namespace:Zentrix.Models"
-                 Title="Zentrix"
+                 xmlns:controls="clr-namespace:Vindioo.Controls"
+                 xmlns:models="clr-namespace:Vindioo.Models"
+                 Title="Vindioo"
                  Height="860" Width="1180"
                  MinHeight="560" MinWidth="820"
                  WindowBackdropType="None"
@@ -988,7 +988,7 @@
                                    HorizontalAlignment="Center" />
                         <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" TextAlignment="Center"
                                    Foreground="{StaticResource TextSubtleBrush}" FontSize="14"
-                                   Text="Zentrix zoekt op de sites die jij toevoegt. Heb je een map met sitebestanden, importeer die dan in één keer. Anders voeg je een site toe: plak een zoek-URL, en de app zoekt zelf uit hoe de pagina in elkaar zit." />
+                                   Text="Vindioo zoekt op de sites die jij toevoegt. Heb je een map met sitebestanden, importeer die dan in één keer. Anders voeg je een site toe: plak een zoek-URL, en de app zoekt zelf uit hoe de pagina in elkaar zit." />
                         <WrapPanel HorizontalAlignment="Center" Margin="0,18,0,0">
                             <ui:Button Content="Sites importeren uit map" Appearance="Primary"
                                        Icon="{ui:SymbolIcon ArrowImport24}" Padding="16,8" Margin="0,0,10,0"

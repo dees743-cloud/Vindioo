@@ -1,11 +1,11 @@
 # Designsysteem en UI-conventies
 
-Onderdeel van de documentatie van Zentrix; de korte versie staat in
+Onderdeel van de documentatie van Vindioo; de korte versie staat in
 [CLAUDE.md](../CLAUDE.md).
 
 ## Designsysteem
 
-De app heet overal **Zentrix**, ook in de code en in de gegevensmap; zie "De naam,
+De app heet overal **Vindioo**, ook in de code en in de gegevensmap; zie "De naam,
 de gegevensmap en GitHub" voor hoe dat hernoemen ging.
 
 Alle kleur, vorm en typografie staat in `App.xaml` en nergens anders. Vensters
@@ -75,8 +75,8 @@ lijsten van WPF-UI dezelfde kleur hebben als de rest.
 
 ### Afbeeldingen
 
-`Assets/` bevat `logo.png`, `background.png` en `zentrix.ico`, alle drie als
-`Resource` in het csproj — ze zitten dus in de exe. `zentrix.ico` staat als
+`Assets/` bevat `logo.png`, `background.png` en `vindioo.ico`, alle drie als
+`Resource` in het csproj — ze zitten dus in de exe. `vindioo.ico` staat als
 `ApplicationIcon` en verschijnt in de titelbalk, de taakbalk en op het bestand.
 De iconen worden gemaakt met `tools/afbeeldingen.py` uit de aangeleverde
 bestanden; draai dat script opnieuw wanneer er een nieuw logo komt.
@@ -244,7 +244,7 @@ eigenaar naar voren halen wanneer dit venster sluit.
 
 **Dat tweede hoort niet nodig te zijn.** Windows activeert bij het sluiten van een venster normaal
 zijn eigenaar. In de praktijk gebeurde op 2 oktober 2026 iets anders: stond er een Verkenner of
-een Chrome tussen Zentrix en het pop-upvenster, dan sprong Zentrix bij het sluiten helemaal naar
+een Chrome tussen Vindioo en het pop-upvenster, dan sprong Vindioo bij het sluiten helemaal naar
 achter - je moest het uit de taakbalk terughalen om verder te werken.
 
 **Niet nagemeten in een harnas, en dat hoort erbij.** Windows laat een proces dat op de achtergrond
@@ -257,16 +257,22 @@ daar dwingt deze regel het antwoord af in plaats van erop te vertrouwen.
 
 Het kan geen aandacht stelen van een ander programma: wie dit venster sluit, had het net nog
 vooraan staan. En een eigenaar die intussen weg of geminimaliseerd is, blijft met rust - anders zou
-het sluiten van een venster een geminimaliseerde Zentrix uit het systeemvak trekken.
+het sluiten van een venster een geminimaliseerde Vindioo uit het systeemvak trekken.
 
 ## Het pictogram van de app
 
-`Assets/zentrix.ico`, gemaakt uit `Assets/logo.png` met `tools/maak-icoon.py`.
+`Assets/vindioo.ico`, gemaakt uit `Assets/logo.png` met `tools/maak-icoon.py`.
 
 **Op 2 oktober 2026 bleek het bijna onzichtbaar**: in de taakbalk stond een leeg wit kadertje. De
 oorzaak was de bron. `logo.png` is een **banner** van 1158x513 - het beeldmerk én het woord
-"Zentrix" - en maar 10% van zijn punten is dekkend; de rest is gloed. Dat hele ding in een
+ernaast - en maar 10% van zijn punten is dekkend; de rest is gloed. Dat hele ding in een
 vierkantje persen gaf een veeg: gemeten gemiddelde dekking **33 van 255**, bij elk formaat.
+
+> **Let op, dit staat nog open.** Het woord in die banner is nog altijd "Zentrix". Een
+> afbeelding is niet mee te hernoemen met een zoek-en-vervang, en grep vindt ze niet. Zolang
+> `logo.png` niet opnieuw getekend is, toont de app bovenaan de oude naam. Hetzelfde geldt voor
+> `extension/icon{16,48,128}.png` en `docs/schermafbeelding.png`. Het **pictogram** heeft er
+> geen last van: dat snijdt enkel het beeldmerk uit, zonder het woord.
 
 Nu wordt enkel het **beeldmerk** uitgesneden (het vergrootglas met het atoom, links in de banner),
 en dat staat op een eigen tegel met afgeronde hoeken in de kleuren uit `App.xaml`
@@ -296,4 +302,4 @@ wit blad toonde - dan blijft enkel de cache over.
 **Het logo ín het venster is iets anders** en mankeert niets: `<Image Source="/Assets/logo.png">`
 boven de zoekbalk, verborgen onder 1040 punten breed. Let op bij het nameten met een
 wegwerpprojectje: zo'n relatief adres zoekt in de **toepassing**, en dat is dan het projectje en
-niet Zentrix - dan is `Logo.Source` leeg terwijl er in de echte app niets aan de hand is.
+niet Vindioo - dan is `Logo.Source` leeg terwijl er in de echte app niets aan de hand is.

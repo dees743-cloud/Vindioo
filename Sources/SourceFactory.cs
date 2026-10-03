@@ -1,6 +1,6 @@
-using Zentrix.Models;
+using Vindioo.Models;
 
-namespace Zentrix.Sources;
+namespace Vindioo.Sources;
 
 /// <summary>
 /// Maakt van een sitebeschrijving de juiste bron. Elke site is dus data; enkel

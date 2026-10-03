@@ -1,6 +1,6 @@
 # Zoeken: de planner, meldingen, het systeemvak en paginering
 
-Onderdeel van de documentatie van Zentrix; de korte versie staat in
+Onderdeel van de documentatie van Vindioo; de korte versie staat in
 [CLAUDE.md](../CLAUDE.md).
 
 ## Automatisch zoeken
@@ -459,7 +459,7 @@ leesbaar - terwijl wie het token heeft, als jouw bot schrijft en leest wat jij h
 - **Niet te openen** (een bestand van een andere pc of een ander account): de waarde is leeg, het
   logboek zegt waar je ze opnieuw invult, en de beschermde vorm blijft in het bestand staan tot je
   iets nieuws invult. Een ander vinkje bewaren wist ze dus niet.
-- **Een oudere Zentrix** kent `dpapi:` niet, leest de beschermde vorm als het wachtwoord zelf (de
+- **Een oudere Vindioo** kent `dpapi:` niet, leest de beschermde vorm als het wachtwoord zelf (de
   mail mislukt dan) en pakt ze bij het bewaren in als `b64:`. De nieuwe code pakt dat weer uit.
   Start na de omzetting dus liever geen oude versie meer: publiceer de exe opnieuw.
 - **Bewaren wijzigt het object niet meer.** Vroeger werd het wachtwoord even vervangen door de
@@ -475,7 +475,7 @@ ontdekken dat je token niet klopt, is geen manier van werken.
 
 **Hoeveel zoekertjes er in een melding staan:** de ballon 3, Telegram 15 (plus hoogstens zes
 met foto), een e-mail 50. Telkens met eronder hoeveel er nog zijn; de e-mail zegt ook waar: de
-teller van die zoekopdracht in Zentrix. Een e-mail zette er tot 22 september 2026 alle nieuwe in,
+teller van die zoekopdracht in Vindioo. Een e-mail zette er tot 22 september 2026 alle nieuwe in,
 en sinds een site tot 2000 zoekertjes levert, kon dat er 1700 zijn.
 
 **Een bericht op Telegram wordt nooit midden in de HTML afgeknipt** (22 september 2026). Telegram
@@ -519,7 +519,7 @@ geen `StartupUri` meer in `App.xaml`: die toont het venster altijd. `MainWindow_
 `StartOpAchtergrond` lopen samen via `StartAchtergrondAsync`, dat maar één keer iets doet
 (`AchtergrondGestart`). Hetzelfde bij de instelling "meteen in het systeemvak" (`StartMinimized`).
 
-Waarom: na het opstarten van de pc bleef het venster soms spierwit, tot de eigenaar Zentrix
+Waarom: na het opstarten van de pc bleef het venster soms spierwit, tot de eigenaar Vindioo
 herstartte. De app liep gewoon - om 17:05 zocht de planner en stuurde ze een melding - enkel het
 tekenen faalde, zonder één fout in het logboek of in dat van Windows, en zonder een hapering van
 het stuurprogramma van de grafische kaart. Tot dan werd het venster ook bij een start door Windows
@@ -531,17 +531,17 @@ venster" bij Fouten opsporen. Nagemeten zonder pc-start: geen venster na een sta
 die doet, het venster er na een tweede start (en 226 ms later getekend), een gewone start, en het
 kruisje met opnieuw openen.
 
-**De eerste echte pc-start erna ging goed** (23 september 2026): pc aan om 16:39, Zentrix om 16:40
+**De eerste echte pc-start erna ging goed** (23 september 2026): pc aan om 16:39, Vindioo om 16:40
 in het systeemvak zonder venster, en bij het openen om 16:44:36 stond het beeld er 251 ms later.
 Eén meetpunt - het witte venster kwam ook vroeger niet elke keer - maar precies het geval dat
 misging. Blijft het bij volgende pc-starts goed, dan is het hiermee weg.
 
-**Er draait maar één Zentrix tegelijk.** `App.OnStartup` neemt een benoemd slot (`Mutex`);
+**Er draait maar één Vindioo tegelijk.** `App.OnStartup` neemt een benoemd slot (`Mutex`);
 een tweede start vindt dat bezet, geeft het draaiende exemplaar een seintje
 (`EventWaitHandle`) en stopt meteen, en dat exemplaar haalt zijn venster naar voren
 (`MainWindow.BrengNaarVoren`). Vroeger liep een tweede exemplaar stil vast op de bezette
 poort van de brug, en leek de snelkoppeling niets te doen. Gevolg voor wie test: een lege
-gegevensmap proberen met `ZENTRIX_DATA` kan enkel terwijl de gewone Zentrix dicht is.
+gegevensmap proberen met `VINDIOO_DATA` kan enkel terwijl de gewone Vindioo dicht is.
 
 Dit is het **enige stuk WinForms** in de app: WPF heeft geen eigen pictogram voor
 het systeemvak en WPF-UI 4.3 levert er ook geen (de naam `NotifyIcon` komt niet
@@ -569,15 +569,15 @@ Windows 11 verstopt een nieuw pictogram standaard achter het pijltje in het
 systeemvak. Wie het vast wil zien staan, sleept het er één keer uit.
 
 **Opstarten met Windows bewaart nooit `dotnet.exe`.** Wordt de app gestart als
-`dotnet Zentrix.dll` - zo doet een testprogramma het - dan is het proces dotnet.exe, en schreef
+`dotnet Vindioo.dll` - zo doet een testprogramma het - dan is het proces dotnet.exe, en schreef
 `Autostart.RefreshPath` dat in het register: `"dotnet.exe" --systeemvak`, waarmee Windows niets
 start. Op 16 september 2026 gebeurde dat echt, door een testprojectje dat `new App()` deed:
 **`App.OnStartup` loopt ook dan**, zodra de dispatcher berichten verwerkt. `Autostart.ExePad`
-neemt nu de `Zentrix.exe` naast de dll, en anders niets.
+neemt nu de `Vindioo.exe` naast de dll, en anders niets.
 
 **Wie in een testprojectje `App` aanmaakt, moet `App.OnStartup` overslaan.** `new App()` zet
 de opstart klaar, en die loopt zodra de dispatcher de eerste keer berichten verwerkt. Draait
-Zentrix intussen gewoon, dan vindt die opstart het slot "Zentrix draait al", haalt ze het
+Vindioo intussen gewoon, dan vindt die opstart het slot "Vindioo draait al", haalt ze het
 venster van de gebruiker naar voren en stopt ze het testprojectje. Zo sla je ze over: zet
 voor het eerste pompen het private statische veld `Application._isShuttingDown` op `true`,
 laat de dispatcher één keer pompen, en zet het terug op `false`. (`_startupUri` op null zetten

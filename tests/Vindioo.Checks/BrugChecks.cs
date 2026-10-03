@@ -4,16 +4,16 @@ using System.Net.Http;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using Zentrix.Models;
-using Zentrix.Services;
-using Zentrix.Sources;
+using Vindioo.Models;
+using Vindioo.Services;
+using Vindioo.Sources;
 
-namespace Zentrix.Checks;
+namespace Vindioo.Checks;
 
 /// <summary>
 /// De lokale server van de brug, met verzoeken zoals een webpagina en zoals de extensie ze
 /// sturen, en een nagebootste extensie die opdrachten aanneemt en pagina's terugstuurt.
-/// Heeft poort 8731 nodig: draait Zentrix, dan wordt dit overgeslagen.
+/// Heeft poort 8731 nodig: draait Vindioo, dan wordt dit overgeslagen.
 /// </summary>
 public static class BrugChecks
 {
@@ -51,7 +51,7 @@ public static class BrugChecks
 
         // ---------------------------------------------------------------------------
         // Deze staat bewust vóór de poortcontrole hieronder: ze kijkt naar een bestand in de
-        // broncode en niet naar iets dat draait, dus ze hoort ook te werken terwijl Zentrix open
+        // broncode en niet naar iets dat draait, dus ze hoort ook te werken terwijl Vindioo open
         // staat - en dan zijn alle andere brugcontroles overgeslagen.
         Check.Groep("Brug: het manifest van de extensie vraagt niet om alle sites");
         ManifestControles();
@@ -61,7 +61,7 @@ public static class BrugChecks
 
         if (!PoortVrij())
         {
-            Check.Overgeslagen($"poort {BridgeServer.Port} is bezet (draait Zentrix?): de brugcontroles zijn overgeslagen");
+            Check.Overgeslagen($"poort {BridgeServer.Port} is bezet (draait Vindioo?): de brugcontroles zijn overgeslagen");
             return;
         }
 
@@ -89,7 +89,7 @@ public static class BrugChecks
         // de échte koppelcode. Dit controleproject heeft een eigen gegevensmap en dus een andere
         // code, dus voor deze brug is dat een verkeerde - en dan staat WrongCodeRecently altijd
         // aan, los van wat wij sturen. Die twee controles vallen dan weg, zoals de hele groep
-        // wegvalt wanneer Zentrix de poort bezet houdt.
+        // wegvalt wanneer Vindioo de poort bezet houdt.
         await Task.Delay(1200);
         var vreemdeExtensie = brug.WrongCodeRecently;
 
@@ -111,12 +111,12 @@ public static class BrugChecks
         }
 
         var voorvraagWeb = await StuurAsync("OPTIONS", "/job?token=verzonnen", "Origin: https://kwaad.example",
-            "Access-Control-Request-Headers: x-zentrix-brug");
+            "Access-Control-Request-Headers: x-vindioo-brug");
         Check.Dat(!voorvraagWeb.Contains("Access-Control-Allow", StringComparison.OrdinalIgnoreCase),
             "voorvraag van een webpagina voor de kopregel: geweigerd");
 
         var voorvraagExt = await StuurAsync("OPTIONS", "/job?token=x", "Origin: chrome-extension://abcdefgh",
-            "Access-Control-Request-Headers: x-zentrix-brug");
+            "Access-Control-Request-Headers: x-vindioo-brug");
         Check.Dat(voorvraagExt.Contains("Access-Control-Allow-Origin: chrome-extension://abcdefgh") &&
                   voorvraagExt.Contains(BridgeServer.ExtensionHeader),
             "voorvraag van de extensie: toegestaan");

@@ -6,9 +6,9 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using SymbolIcon = Wpf.Ui.Controls.SymbolIcon;
 using SymbolRegular = Wpf.Ui.Controls.SymbolRegular;
-using Zentrix.Models;
+using Vindioo.Models;
 
-namespace Zentrix.Controls;
+namespace Vindioo.Controls;
 
 /// <summary>
 /// De timer rechtsonder op een veilingkaart: een klokje en hoelang er nog geboden kan worden.

@@ -143,7 +143,7 @@ await handleJob(opdracht("https://webmail.voorbeeld.be/inbox"), "code");
 dat(geopend.length === 0, `zonder toestemming gaat er geen tabblad open (${geopend.length})`);
 dat((laatste().error || "").includes("webmail.voorbeeld.be"),
     `de app krijgt te horen welke site het is ("${laatste().error}")`);
-dat((laatste().error || "").includes("Zentrix-pictogram"),
+dat((laatste().error || "").includes("Vindioo-pictogram"),
     "en wat je eraan doet");
 dat(laatste().html === undefined, "er komt zeker geen pagina mee");
 dat(onthouden.includes("webmail.voorbeeld.be"),
@@ -209,7 +209,7 @@ dat(!(await mag("niet-eens-een-adres")), "mag(): onleesbaar adres is nee");
 // Eerst: staat het menu-item er überhaupt? Het wordt bij het laden van dit script aangemaakt,
 // dus het moet er nu al zijn - zonder dat te wachten op onInstalled of onStartup, want of een
 // herlaad in chrome://extensions die geeft, hangt af van Chrome.
-dat(gemaakteMenus.length === 1 && gemaakteMenus[0].id === "zentrix-favoriet",
+dat(gemaakteMenus.length === 1 && gemaakteMenus[0].id === "vindioo-favoriet",
     `het menu-item wordt bij het laden aangemaakt (${JSON.stringify(gemaakteMenus)})`);
 
 dat((gemaakteMenus[0]?.contexts ?? []).includes("link") &&
@@ -218,7 +218,7 @@ dat((gemaakteMenus[0]?.contexts ?? []).includes("link") &&
 
 antwoord = { ok: true, melding: "Bij je favorieten gezet: Lot 229" };
 
-await rechtsklik({ menuItemId: "zentrix-favoriet", linkUrl: "https://www.voorbeeld.be/kavel/229" });
+await rechtsklik({ menuItemId: "vindioo-favoriet", linkUrl: "https://www.voorbeeld.be/kavel/229" });
 
 dat(gevraagd.length === 1 && gevraagd[0].pad === "/favorite" &&
     gevraagd[0].body.url === "https://www.voorbeeld.be/kavel/229",
@@ -228,7 +228,7 @@ dat(meldingen.length === 1 && meldingen[0].includes("Lot 229"),
     `en je krijgt te zien wat er gebeurde (${meldingen[0]})`);
 
 // Geen link maar de pagina zelf: dan werkt het ook op de advertentiepagina.
-await rechtsklik({ menuItemId: "zentrix-favoriet", pageUrl: "https://www.voorbeeld.be/kavel/300" });
+await rechtsklik({ menuItemId: "vindioo-favoriet", pageUrl: "https://www.voorbeeld.be/kavel/300" });
 
 dat(gevraagd.length === 1 && gevraagd[0].body.url === "https://www.voorbeeld.be/kavel/300",
     "zonder link wordt het adres van de pagina genomen");
@@ -240,7 +240,7 @@ for (const [adres, waarom] of [
   ["https://192.168.1.1/beheer", "een adres op je eigen netwerk"],
   ["javascript:alert(1)", "geen webadres"]
 ]) {
-  await rechtsklik({ menuItemId: "zentrix-favoriet", linkUrl: adres });
+  await rechtsklik({ menuItemId: "vindioo-favoriet", linkUrl: adres });
 
   dat(gevraagd.length === 0 && meldingen.length === 1,
       `${waarom}: er gaat niets naar de app, wel een melding (${meldingen[0] ?? "geen"})`);
@@ -248,7 +248,7 @@ for (const [adres, waarom] of [
 
 // Nog geen koppelcode: dan zegt de extensie wat je moet doen in plaats van stil te vallen.
 bewaardeCode = "";
-await rechtsklik({ menuItemId: "zentrix-favoriet", linkUrl: "https://www.voorbeeld.be/kavel/229" });
+await rechtsklik({ menuItemId: "vindioo-favoriet", linkUrl: "https://www.voorbeeld.be/kavel/229" });
 
 dat(gevraagd.length === 0 && (meldingen[0] ?? "").includes("koppelcode"),
     `zonder koppelcode: geen verzoek, wel uitleg (${meldingen[0] ?? "geen"})`);
@@ -257,9 +257,9 @@ bewaardeCode = "koppelcode-van-de-gebruiker";
 
 // Iets anders op poort 8731: dan voeren we er niets van uit en zeggen we dat.
 antwoord = { nietDeApp: true };
-await rechtsklik({ menuItemId: "zentrix-favoriet", linkUrl: "https://www.voorbeeld.be/kavel/229" });
+await rechtsklik({ menuItemId: "vindioo-favoriet", linkUrl: "https://www.voorbeeld.be/kavel/229" });
 
-dat((meldingen[0] ?? "").includes("Zentrix niet"),
+dat((meldingen[0] ?? "").includes("Vindioo niet"),
     `een vreemd programma op de poort wordt gemeld (${meldingen[0] ?? "geen"})`);
 
 // Een ander menu-item (van een andere extensie) mag ons niet laten lopen.

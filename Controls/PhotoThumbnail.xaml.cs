@@ -1,7 +1,7 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
 
-namespace Zentrix.Controls;
+namespace Vindioo.Controls;
 
 /// <summary>
 /// De miniatuur van een zoekertje. Staat apart omdat zowel de lijst- als de rasterweergave

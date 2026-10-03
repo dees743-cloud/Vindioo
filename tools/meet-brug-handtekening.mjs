@@ -34,7 +34,7 @@ const stukken = [
 const CODE = "koppelcode-van-de-gebruiker";
 let poort;
 
-// De nep-app. Met "eerlijk" tekent ze zoals Zentrix; anders doet ze maar wat - zoals een
+// De nep-app. Met "eerlijk" tekent ze zoals Vindioo; anders doet ze maar wat - zoals een
 // programma dat de poort bezet houdt.
 let eerlijk = true;
 
@@ -47,7 +47,7 @@ const server = createServer((req, res) => {
     : "0".repeat(64);
 
   res.setHeader("Content-Type", "application/json");
-  res.setHeader("X-Zentrix-Sig", sig);
+  res.setHeader("X-Vindioo-Sig", sig);
   res.end(body);
 });
 
@@ -56,7 +56,7 @@ poort = server.address().port;
 
 // vraagApp laden met APP_URL naar onze nep-app.
 const APP_URL = `http://127.0.0.1:${poort}`;
-const BRUG_KOP = { "X-Zentrix-Brug": "1" };
+const BRUG_KOP = { "X-Vindioo-Brug": "1" };
 
 const laad = new Function("APP_URL", "BRUG_KOP", "crypto", "fetch", "TextEncoder",
   stukken.join("\n\n") + "\nreturn { vraagApp, teken };");
@@ -87,7 +87,7 @@ dat(uit.nietDeApp === true, `met een verkeerde koppelcode: geweigerd (${JSON.str
 let gezien = "";
 const kijker = createServer((req, res) => {
   gezien += req.url + "\n" + JSON.stringify(req.headers) + "\n";
-  res.setHeader("X-Zentrix-Sig", "0".repeat(64));
+  res.setHeader("X-Vindioo-Sig", "0".repeat(64));
   res.end("{}");
 });
 await new Promise((klaar) => kijker.listen(0, "127.0.0.1", klaar));

@@ -1,7 +1,7 @@
-using Zentrix.Models;
-using Zentrix.Sources;
+using Vindioo.Models;
+using Vindioo.Sources;
 
-namespace Zentrix.Checks;
+namespace Vindioo.Checks;
 
 /// <summary>
 /// Hoeveel pagina's er gevraagd worden (de gewone weg, zonder brug), en in welke volgorde

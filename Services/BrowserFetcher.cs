@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Microsoft.Playwright;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// Haalt pagina's op met een echte Chrome die een eigen profielmap gebruikt.
@@ -474,16 +474,16 @@ public class BrowserFetcher : IAsyncDisposable
     }
 
     /// <summary>
-    /// Een vorige sessie van Zentrix kan een Chrome hebben laten staan die het profiel
+    /// Een vorige sessie van Vindioo kan een Chrome hebben laten staan die het profiel
     /// vasthoudt - bijvoorbeeld wanneer de app in Visual Studio gestopt werd terwijl ze
     /// aan het zoeken was. Die moet eerst dicht, anders raakt de nieuwe Chrome niet aan het
     /// profiel.
     ///
     /// Enkel díe, en daarvoor gelden twee voorwaarden: de opdrachtregel noemt ONZE
-    /// profielmap, en het proces is ouder dan deze Zentrix. Tot september 2026 ging elk
+    /// profielmap, en het proces is ouder dan deze Vindioo. Tot september 2026 ging elk
     /// Chrome-proces zonder venster dicht dat jonger was dan een minuut. Dat trof de gewone
     /// Chrome van de gebruiker: een tabblad dat net openging, en de extensie van de brug
-    /// wanneer Zentrix Chrome daarvoor net zelf gestart had - sinds de rijstroken gebeurt
+    /// wanneer Vindioo Chrome daarvoor net zelf gestart had - sinds de rijstroken gebeurt
     /// dat tegelijk. Een achtergebleven Chrome was bovendien zelden jonger dan een minuut.
     /// </summary>
     private static void SluitAchtergeblevenChrome()
@@ -496,7 +496,7 @@ public class BrowserFetcher : IAsyncDisposable
             {
                 try
                 {
-                    // Gestart na deze Zentrix: van de gebruiker, of van onszelf. Dan de
+                    // Gestart na deze Vindioo: van de gebruiker, of van onszelf. Dan de
                     // opdrachtregel niet eens lezen.
                     if (process.StartTime >= onzeStart) continue;
 
@@ -516,7 +516,7 @@ public class BrowserFetcher : IAsyncDisposable
 
     /// <summary>
     /// De beslissing zelf, los van Windows, zodat ze na te rekenen is: ouder dan deze
-    /// Zentrix, en de opdrachtregel noemt ons profiel.
+    /// Vindioo, en de opdrachtregel noemt ons profiel.
     /// </summary>
     internal static bool IsAchtergebleven(DateTime procesStart, string? opdrachtregel,
                                           DateTime onzeStart, string profiel) =>

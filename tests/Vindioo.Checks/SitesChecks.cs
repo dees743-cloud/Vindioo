@@ -1,10 +1,10 @@
 ﻿using System.Text.Json;
 using System.Text.RegularExpressions;
-using Zentrix.Models;
-using Zentrix.Services;
-using Zentrix.Sources;
+using Vindioo.Models;
+using Vindioo.Services;
+using Vindioo.Sources;
 
-namespace Zentrix.Checks;
+namespace Vindioo.Checks;
 
 /// <summary>
 /// Wat de motoren met een sitebestand doen: de linkmotor op kaarten zoals Facebook ze toont,

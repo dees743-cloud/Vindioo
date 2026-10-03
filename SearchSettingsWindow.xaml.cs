@@ -4,11 +4,11 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using Zentrix.Controls;
-using Zentrix.Models;
-using Zentrix.Services;
+using Vindioo.Controls;
+using Vindioo.Models;
+using Vindioo.Services;
 
-namespace Zentrix;
+namespace Vindioo;
 
 /// <summary>
 /// Alles van één zoekopdracht op één scherm: het zoekwoord, welke sites

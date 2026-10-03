@@ -1,7 +1,7 @@
 ﻿using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace Zentrix.Models;
+namespace Vindioo.Models;
 
 /// <summary>
 /// Eén zoekertje of kavel, los van de site waar het vandaan komt.

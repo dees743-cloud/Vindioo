@@ -4,7 +4,7 @@ using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 
-namespace Zentrix.Controls;
+namespace Vindioo.Controls;
 
 /// <summary>
 /// Eén regel tekst in een vak dat te smal kan zijn. In rust staat ze stil, met een

@@ -3,7 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 
-namespace Zentrix.Controls;
+namespace Vindioo.Controls;
 
 /// <summary>
 /// Laat een lijst met het muiswiel vloeiend schuiven in plaats van met sprongen.

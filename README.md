@@ -1,14 +1,14 @@
-# Zentrix
+# Vindioo
 
-**Eén zoekopdracht over al je tweedehandssites tegelijk.**
+**Alles gevonden. Op één plek.**
 
-Zentrix is een Windows-desktopapp die meerdere tweedehands- en veilingsites naast elkaar
+Vindioo is een Windows-desktopapp die meerdere tweedehands- en veilingsites naast elkaar
 doorzoekt en de resultaten in één lijst zet. Het doel is eenvoudig: het dagelijkse rondje langs
 tien sites — dat anders een voormiddag kost — terugbrengen tot één minuut.
 
 Gemeten op acht sites tegelijk met het woord "cd": **621 resultaten in 35 seconden.**
 
-![Zentrix: één zoekterm over vier sites tegelijk, met de resultaten in één lijst](docs/schermafbeelding.png)
+![Vindioo: één zoekterm over vier sites tegelijk, met de resultaten in één lijst](docs/schermafbeelding.png)
 
 <sub>Eén zoekterm over vier sites, alles in één lijst, met per zoekertje de prijs, de plaats en van
 welke site hij komt. De tabbladen bovenaan tonen elke site ook apart. De sitebestanden op deze foto
@@ -53,17 +53,17 @@ komt nergens iets centraal samen.
 Je hebt nodig: **Windows**, de **.NET 10 SDK** en **Visual Studio 2022** of gewoon `dotnet`.
 
 ```bash
-git clone https://github.com/dees743-cloud/Zentrix.git
+git clone https://github.com/dees743-cloud/Vindioo.git
 ```
 
 ```bash
-dotnet run --project Zentrix.csproj
+dotnet run --project Vindioo.csproj
 ```
 
 Een versie die je zonder .NET kan dubbelklikken, maak je zo:
 
 ```bash
-dotnet publish Zentrix.csproj -c Release -r win-x64 --self-contained true -o C:\Zentrix
+dotnet publish Vindioo.csproj -c Release -r win-x64 --self-contained true -o C:\Vindioo
 ```
 
 Optioneel:
@@ -100,12 +100,12 @@ en vooral **wat er misging en waarom**. Het is geschreven om niets twee keer te 
 De controles draai je zonder testframework en zonder netwerk:
 
 ```bash
-dotnet run --project tests\Zentrix.Checks -- --snel
+dotnet run --project tests\Vindioo.Checks -- --snel
 ```
 
 ## Status
 
-**Versie 0.17.3.** De app wordt dagelijks gebruikt en doet wat ze moet doen, maar er staan nog
+**Versie 0.18.0.** De app wordt dagelijks gebruikt en doet wat ze moet doen, maar er staan nog
 stukken open — zie [docs/volgende-stappen.md](docs/volgende-stappen.md). Vandaar de nul vooraan.
 
 ## Licentie
@@ -114,7 +114,7 @@ stukken open — zie [docs/volgende-stappen.md](docs/volgende-stappen.md). Vanda
 
 ---
 
-<sub>**In English** — Zentrix is a Windows desktop app that searches several second-hand and
+<sub>**In English** — Vindioo is a Windows desktop app that searches several second-hand and
 auction sites at once and merges the results into one list, with scheduled searches, notifications,
 a price indication built from real asking prices, and an on-device AI check that reads what is
 written on the photos. The interface and the documentation are in Dutch. It ships without any site

@@ -3,9 +3,9 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using AngleSharp.Html.Parser;
-using Zentrix.Models;
+using Vindioo.Models;
 
-namespace Zentrix.Sources;
+namespace Vindioo.Sources;
 
 /// <summary>
 /// Voert een SiteDefinition uit. Eén klasse die elke site aankan

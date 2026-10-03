@@ -1,6 +1,6 @@
 # Een site toevoegen, en hoe de AI-analyse werkt
 
-Onderdeel van de documentatie van Zentrix; de korte versie staat in
+Onderdeel van de documentatie van Vindioo; de korte versie staat in
 [CLAUDE.md](../CLAUDE.md).
 
 ## Sites toevoegen
@@ -206,7 +206,7 @@ Voor wie eraan werkt:
   verbeterronde leest de pagina uit de cache (een tiende van de prijs) en betaalt vooral
   het nieuwe antwoord. Wil het goedkoper, dan is `MaxHtmlChars` de knop — maar meet dan
   of de resultatenlijst nog volledig meegaat.
-- De laatst geanalyseerde pagina staat in `%APPDATA%\Zentrix\laatste-analyse.html` (of
+- De laatst geanalyseerde pagina staat in `%APPDATA%\Vindioo\laatste-analyse.html` (of
   `.json`). Dat bestand kwam vroeger op het bureaublad terecht.
 - De Services-map heeft geen globale `using System.IO` in dit WPF-project: schrijf die
   zelf bovenaan, of `Path` en `File` bestaan niet.

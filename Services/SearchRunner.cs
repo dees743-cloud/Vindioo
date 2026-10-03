@@ -1,7 +1,7 @@
-﻿using Zentrix.Models;
-using Zentrix.Sources;
+﻿using Vindioo.Models;
+using Vindioo.Sources;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>Wat één keer draaien van een zoekopdracht opleverde.</summary>
 public class SearchOutcome
@@ -30,7 +30,7 @@ public class SearchOutcome
 
     /// <summary>
     /// De sites die dit zoekwoord niet kennen - AutoScout24 bij elk woord dat geen automerk
-    /// is. Zie <see cref="Zentrix.Sources.UnsupportedQueryException"/>.
+    /// is. Zie <see cref="Vindioo.Sources.UnsupportedQueryException"/>.
     ///
     /// Ze staan ook in <see cref="SiteErrors"/>, zodat je op hun tab leest waarom er niets
     /// kwam, maar ze tellen <b>niet</b> als mislukking: niet in de regel onderaan, en niet in

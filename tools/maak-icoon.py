@@ -1,9 +1,9 @@
-"""Het beeldmerk op een eigen tegel, in de kleuren van de app, als Assets/zentrix.ico.
+"""Het beeldmerk op een eigen tegel, in de kleuren van de app, als Assets/vindioo.ico.
 
 Twee dingen die op 2 oktober 2026 nagemeten zijn en samen de taakbalk weer een pictogram geven:
 
 1. DE BRON. Het oude icoon was gemaakt uit logo.png, en dat is een BANNER van 1158x513 - het
-   beeldmerk EN het woord "Zentrix" - waarvan maar 10% van de punten dekkend is; de rest is gloed.
+   beeldmerk EN het woord "Vindioo" - waarvan maar 10% van de punten dekkend is; de rest is gloed.
    Dat hele ding in een vierkantje persen gaf een veeg: gemiddelde dekking 33 van 255. Hier wordt
    enkel het beeldmerk uitgesneden en op een tegel gezet: 245 van 255.
 
@@ -36,7 +36,7 @@ from PIL import Image, ImageDraw
 
 HIER = os.path.dirname(os.path.abspath(__file__))
 LOGO = os.path.join(HIER, "..", "Assets", "logo.png")
-ICO = os.path.join(HIER, "..", "Assets", "zentrix.ico")
+ICO = os.path.join(HIER, "..", "Assets", "vindioo.ico")
 
 BOVEN = (59, 52, 112)     # #3B3470, BackgroundTopColor uit App.xaml
 ONDER = (29, 25, 58)      # #1D193A, BackgroundBottomColor

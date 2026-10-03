@@ -1,6 +1,6 @@
 # Hoe een site binnenkomt: rechtstreeks, de browser of de brug
 
-Onderdeel van de documentatie van Zentrix; de korte versie staat in
+Onderdeel van de documentatie van Vindioo; de korte versie staat in
 [CLAUDE.md](../CLAUDE.md).
 
 ## Hoe een site binnenkomt — drie wegen
@@ -16,7 +16,7 @@ Onderdeel van de documentatie van Zentrix; de korte versie staat in
 
 ### De brug
 
-Een Chrome-extensie ("Zentrix Brug", uitgepakt geladen uit de map `extension\` van dit project)
+Een Chrome-extensie ("Vindioo Brug", uitgepakt geladen uit de map `extension\` van dit project)
 vraagt elke 250 ms aan `http://127.0.0.1:8731/job` of er werk is, opent de URL
 in een tabblad op de achtergrond en stuurt de HTML terug naar `/result`. De
 koppeling gebeurt met een code uit `brug-code.txt`, zichtbaar via tandwiel >
@@ -107,7 +107,7 @@ Nu:
 
 - `BridgeServer` onthoudt een verkeerde code (`WrongCodeRecently`) en logt ze eens per minuut;
 - de extensie telt een foutantwoord niet als contact, en de popup kent vier toestanden
-  (verbonden, verkeerde code, geen code, Zentrix draait niet);
+  (verbonden, verkeerde code, geen code, Vindioo draait niet);
 - na "Code opslaan" vraagt de popup meteen `/ping`, dus je ziet bij het plakken of de code klopt;
 - werkt de brug niet, dan **slaat de zoekopdracht de brugsites meteen over** met die reden,
   in plaats van per site 90 seconden te wachten;
@@ -117,7 +117,7 @@ Nu:
 **Een verkeerde code telt enkel als ze van de extensie komt.** Elke webpagina in elke browser
 op deze pc kan `127.0.0.1:8731` aanspreken. De koppelcode houdt haar buiten, maar tot september
 2026 kon ze met een verzonnen code wel `WrongCodeRecently` aanzetten, en dan sloeg de app alle
-brugsites over. Nu stuurt de extensie de kopregel `X-Zentrix-Brug` mee, en telt een foute code
+brugsites over. Nu stuurt de extensie de kopregel `X-Vindioo-Brug` mee, en telt een foute code
 enkel met die kopregel. Een webpagina kan zo'n eigen kopregel niet sturen zonder eerst
 toestemming te vragen (een CORS-voorvraag), en die toestemming krijgt enkel nog een
 `chrome-extension://`-herkomst: de brug antwoordde vroeger met `Access-Control-Allow-Origin: *`
@@ -128,7 +128,7 @@ verder, maar een verkeerde code heet dan weer "de extensie meldt zich niet".
 **De brug neemt niet alles aan** (22 september 2026, een tip uit een beoordeling door ChatGPT).
 Tot dan las ze elke kop en elke body tot het einde, en reserveerde ze meteen de maat die een
 verzoek aankondigde: `Content-Length: 1500000000` legde 1,5 GB vast nog voor er één byte binnen
-was, en een verbinding die zweeg, bleef open tot Zentrix stopte. Nu, in `HandleClientAsync`:
+was, en een verbinding die zweeg, bleef open tot Vindioo stopte. Nu, in `HandleClientAsync`:
 
 - **De koppelcode wordt nagekeken voor de body.** Ze staat in het adres, dus dat kan. Wie de code
   niet kent - elke webpagina - krijgt nooit een body gelezen, hoe groot die ook zegt te zijn.
@@ -163,7 +163,7 @@ Cloudflare kan de app weigeren op de vingerafdruk van zijn TLS-handdruk: .NET en
 headless Playwright krijgen "Just a moment...", een echte browser niet. Dan is de brug
 de weg, en voor een API de tweede soort brugopdracht (`rawText`, zie "Twee soorten
 opdrachten"). Discogs is daar het voorbeeld van; het hele verhaal, met wat we
-probeerden en waarom het niet lukte, staat in `SITES.md` van `zentrix-sites`.
+probeerden en waarom het niet lukte, staat in `SITES.md` van `vindioo-sites`.
 
 ## Een toestemmingsmuur op een ander domein
 
@@ -241,11 +241,11 @@ dat mag gewoon in het adres. Daarnaast gaan er twee kopregels mee:
 
 | kopregel | waarover | waarvoor |
 |---|---|---|
-| `X-Zentrix-Sig` | `nonce \n body` | bewijst dat dit bericht van iemand komt die de code kent, en dat de body onderweg niet veranderd is |
-| `X-Zentrix-Voor` | enkel `nonce` | hetzelfde bewijs, maar **al na te kijken met enkel de kopregels in de hand** |
+| `X-Vindioo-Sig` | `nonce \n body` | bewijst dat dit bericht van iemand komt die de code kent, en dat de body onderweg niet veranderd is |
+| `X-Vindioo-Voor` | enkel `nonce` | hetzelfde bewijs, maar **al na te kijken met enkel de kopregels in de hand** |
 
 **En de app tekent haar antwoord óók.** Dat is de helft die de extensie beschermt: zij voert uit
-wat uit `/job` komt, dus zij moet weten dat ze met de echte Zentrix praat. Klopt de handtekening
+wat uit `/job` komt, dus zij moet weten dat ze met de echte Vindioo praat. Klopt de handtekening
 niet, dan gaat er geen tabblad open.
 
 **Waarom twee handtekeningen, en niet één.** De brug kon de koppelcode vroeger nakijken *voor* ze
@@ -256,7 +256,7 @@ gegaan; dat kwam boven doordat een bestaande controle (1,5 GB aangekondigd → 4
 gaf.
 
 **Een oude extensie werkt niet meer**, en de app zegt dat ook zo: `BridgeStatus.OldExtension`
-("de Zentrix Brug in Chrome is een oudere versie. Herlaad ze: chrome://extensions...") in plaats
+("de Vindioo Brug in Chrome is een oudere versie. Herlaad ze: chrome://extensions...") in plaats
 van over de koppelcode te klagen, want daar is niets mis mee. Omgekeerd geldt hetzelfde: een
 nieuwe extensie met een oude app krijgt geen geldige handtekening terug en weigert dan elke
 opdracht. **App en extensie moeten dus samen mee.**
@@ -265,7 +265,7 @@ Nagemeten, allebei de kanten:
 
 - **Dat C# en JavaScript hetzelfde tekenen**, met waarden die met Node uitgerekend zijn - dus
   tegen een onafhankelijke implementatie en niet tegen zichzelf (`BrugChecks`, en die groep
-  draait óók met Zentrix open, want ze heeft de poort niet nodig).
+  draait óók met Vindioo open, want ze heeft de poort niet nodig).
 - **Dat de app weigert** zonder handtekening, met die van een andere code, en bij een webpagina
   met een verzonnen handtekening; dat haar antwoord getekend is; en dat een oud verzoek
   "verouderde extensie" krijgt (`BrugChecks`, met de poort vrij).
@@ -346,7 +346,7 @@ Die lijst komt uit twee bronnen, en samen dekken ze alles:
 | bron | wat ze weet | waarvoor ze er is |
 |---|---|---|
 | `/hosts` bij de app | de hosts van de sites met `UseBridge` (`SiteUrlCheck.Hosts`) | je vinkt ze aan **voor** er iets misloopt, in één Chrome-venster |
-| `chrome.storage.local`, sleutel `nodig` | elke host die onderweg geweigerd werd | een site die nog niet in Zentrix staat (een nieuwe, die je laat analyseren), en een site die doorverwijst naar een andere naam |
+| `chrome.storage.local`, sleutel `nodig` | elke host die onderweg geweigerd werd | een site die nog niet in Vindioo staat (een nieuwe, die je laat analyseren), en een site die doorverwijst naar een andere naam |
 
 `/hosts` zit achter dezelfde handtekening als de rest: welke sites er op deze pc gezocht worden,
 is op zichzelf al iets over de gebruiker.
@@ -363,7 +363,7 @@ is op zichzelf al iets over de gebruiker.
    contents of the page" als melding, wat niemand verder helpt.
 
 In beide gevallen krijgt de app dezelfde zin te horen: *"de brug mag nog niet aan www.site.be -
-klik op het Zentrix-pictogram in Chrome en geef toegang"*. Die staat dan in Zentrix bij die site.
+klik op het Vindioo-pictogram in Chrome en geef toegang"*. Die staat dan in Vindioo bij die site.
 
 **Wat je er zelf van merkt.** Na het herladen van de extensie staat er niets aangevinkt: open de
 popup, en onderaan staan de sites met een vinkje of een streepje. Eén knop vraagt ze in één
@@ -398,7 +398,7 @@ cookies, en de C#-controles raken geen JavaScript.
 ## De andere kant op: rechtsklikken op een zoekertje
 
 Erbij op 2 oktober 2026 (extensie 2.1). Rechtsklik in Chrome op een zoekertje - op de link in een
-lijst, of ergens op de advertentiepagina zelf - en kies **Zet in favorieten van Zentrix**.
+lijst, of ergens op de advertentiepagina zelf - en kies **Zet in favorieten van Vindioo**.
 
 **Dit is de enige weg die deze kant op gaat.** Overal elders geeft de app werk aan de extensie en
 haalt die het op; hier stuurt de extensie iets dat de app niet gevraagd heeft, en dan nog een
@@ -464,14 +464,14 @@ Het contextmenu zelf heeft **geen** toestemming per site nodig: Chrome geeft het
 link mee zonder dat we in de pagina moeten kijken. Haalt de app die pagina daarna via de brug op
 (een site met `UseBridge`), dan speelt jouw toestemming voor die site wel weer mee.
 
-### Een kavel van een veilinghuis dat Zentrix niet kent
+### Een kavel van een veilinghuis dat Vindioo niet kent
 
 Je staat op `bopa.be` en wil dat kavel bewaren, maar bopa.be staat niet bij je sites. Een
 sitebestand per veilinghuis maken is geen antwoord: AlleVeilingen verzamelt er **twintig**, en die
 lijst verandert.
 
 Wat wél werkt, en wat de hele opzet draagt: **een kavelpagina van AlleVeilingen draagt een link
-terug naar het veilinghuis** ("Bekijk dit kavel op Bopa"). Daarmee hoeft Zentrix niet te raden of
+terug naar het veilinghuis** ("Bekijk dit kavel op Bopa"). Daarmee hoeft Vindioo niet te raden of
 twee kavels hetzelfde zijn - ze zoekt het adres waarop jij klikte terug in de pagina van de
 kandidaat. Staat het er niet in, dan is het een ander kavel. Punt.
 

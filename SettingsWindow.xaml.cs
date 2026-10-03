@@ -5,11 +5,11 @@ using System.Linq;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Win32;
-using Zentrix.Models;
-using Zentrix.Services;
-using Zentrix.Sources;
+using Vindioo.Models;
+using Vindioo.Services;
+using Vindioo.Sources;
 
-namespace Zentrix;
+namespace Vindioo;
 
 /// <summary>
 /// Instellingen: één kaart per site. Generieke sites zijn volledig bewerkbaar,
@@ -95,7 +95,7 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
 
     /// <summary>
     /// Opent de site zichtbaar in de browser van de app, zodat je je kan aanmelden. De
-    /// aanmelding blijft daarna bewaard in het browserprofiel van Zentrix.
+    /// aanmelding blijft daarna bewaard in het browserprofiel van Vindioo.
     /// </summary>
     private async void LoginButton_Click(object sender, RoutedEventArgs e)
     {
@@ -115,7 +115,7 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
             await browser.OpenForLoginAsync(card.Def.BaseUrl);
 
             // Of je echt aangemeld was, kan de app niet zien: enkel dat het venster dicht is.
-            card.Status = "Browser gesloten. Als je aangemeld was, onthoudt Zentrix dat.";
+            card.Status = "Browser gesloten. Als je aangemeld was, onthoudt Vindioo dat.";
         }
         catch (Exception ex)
         {

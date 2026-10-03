@@ -1,4 +1,4 @@
-namespace Zentrix.Models;
+namespace Vindioo.Models;
 
 /// <summary>
 /// De instellingen van de linkmotor (<see cref="SiteEngine.LinkText"/>), uit het

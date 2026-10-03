@@ -2,9 +2,9 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
-using Zentrix.Models;
+using Vindioo.Models;
 
-namespace Zentrix.Checks;
+namespace Vindioo.Checks;
 
 /// <summary>
 /// Een lokale website voor de controles. Per paginanummer (<c>page=N</c> in de URL) geeft
@@ -39,7 +39,7 @@ public sealed class Proefsite : IDisposable
     /// <summary>
     /// Een andere status dan 200 voor een bepaald pad. Nodig om een zoekertje na te bootsen
     /// dat van de site verdwenen is: 2dehands antwoordt daarop met 410, en dat is het enige
-    /// harde bewijs dat een site kan geven (zie <see cref="Zentrix.Services.FavoriteWatch"/>).
+    /// harde bewijs dat een site kan geven (zie <see cref="Vindioo.Services.FavoriteWatch"/>).
     /// </summary>
     public Dictionary<string, int> Status { get; } = new();
 

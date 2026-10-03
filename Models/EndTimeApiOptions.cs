@@ -1,4 +1,4 @@
-namespace Zentrix.Models;
+namespace Vindioo.Models;
 
 /// <summary>
 /// Waar een site het exacte sluitingstijdstip van haar veilingen in bulk geeft: een API die

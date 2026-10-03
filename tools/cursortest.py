@@ -58,7 +58,7 @@ def vind_venster(titel):
     return max(gevonden, key=oppervlak)
 
 
-hwnd = vind_venster(sys.argv[1] if len(sys.argv) > 1 else "Zentrix")
+hwnd = vind_venster(sys.argv[1] if len(sys.argv) > 1 else "Vindioo")
 if hwnd is None:
     print("venster niet gevonden")
     sys.exit(1)

@@ -1,9 +1,9 @@
-﻿// Controles voor Zentrix.
+﻿// Controles voor Vindioo.
 //
 // Draaien, vanuit de projectmap, terwijl Visual Studio gewoon open mag blijven:
 //
-//     dotnet run --project tests\Zentrix.Checks
-//     dotnet run --project tests\Zentrix.Checks -- --snel      (zonder de trage controles)
+//     dotnet run --project tests\Vindioo.Checks
+//     dotnet run --project tests\Vindioo.Checks -- --snel      (zonder de trage controles)
 //
 // Waarom geen xUnit: dat pakket staat niet in de lokale NuGet-cache, en dit hier heeft
 // niets nodig wat de app zelf niet al gebruikt. Elke controle drukt OK of FOUT af; de
@@ -11,7 +11,7 @@
 //
 // Drie regels waar alles hier aan vastzit:
 //
-// 1. Nooit aan de echte gegevens komen. ZENTRIX_DATA wijst naar een nieuwe, lege map,
+// 1. Nooit aan de echte gegevens komen. VINDIOO_DATA wijst naar een nieuwe, lege map,
 //    en dat moet gebeuren voor iets anders AppPaths aanraakt: SiteStore en Log vragen
 //    hun pad al bij het laden van hun klasse. Daarna wordt nagekeken dat het gelukt is.
 // 2. Geen netwerk naar echte sites. Een site die iets moet teruggeven, is een lokale
@@ -21,12 +21,12 @@
 //    zoals de extensie of een webpagina ze stuurt.
 
 using System.IO;
-using Zentrix.Checks;
-using Zentrix.Services;
+using Vindioo.Checks;
+using Vindioo.Services;
 
-var data = Path.Combine(Path.GetTempPath(), "zentrix-checks", DateTime.Now.ToString("yyyyMMdd-HHmmss-fff"));
+var data = Path.Combine(Path.GetTempPath(), "vindioo-checks", DateTime.Now.ToString("yyyyMMdd-HHmmss-fff"));
 Directory.CreateDirectory(data);
-Environment.SetEnvironmentVariable("ZENTRIX_DATA", data);
+Environment.SetEnvironmentVariable("VINDIOO_DATA", data);
 
 if (!string.Equals(AppPaths.Folder, data, StringComparison.OrdinalIgnoreCase))
 {

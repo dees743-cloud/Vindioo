@@ -1,21 +1,37 @@
 # Het project: naam, versie, gegevensmap, publiceren en GitHub
 
-Onderdeel van de documentatie van Zentrix; de korte versie staat in
+Onderdeel van de documentatie van Vindioo; de korte versie staat in
 [CLAUDE.md](../CLAUDE.md).
 
 ## De naam, de gegevensmap en GitHub
 
-Tot september 2026 heette de app in de code **zoekhulp**; in de interface was ze al
-Zentrix. Nu heet alles zo: de namespace `Zentrix`, het project `Zentrix.csproj`, de exe
-`Zentrix.exe`, de gegevensmap `%APPDATA%\Zentrix` met `zentrix.db` en
-`zentrix-log.txt`, en de extensie "Zentrix Brug". Alleen de projectmap
-`source\repos\zoekhulp` heet nog zo; die hernoem je met Visual Studio dicht, of bij het
-aanmaken van de repository op GitHub.
+**Deze app heet sinds 3 oktober 2026 Vindioo**, met als ondertitel *Alles gevonden. Op één
+plek.* Daarvoor heette ze **Zentrix**, en in de code daarvoor **zoekhulp**. De aanleiding voor
+de laatste wijziging was niet technisch: de naam Zentrix bleek in meerdere vormen al te bestaan.
+
+Die geschiedenis staat hier omdat ze nog in de app zit. Drie namen betekent twee verhuizingen,
+en overal waar een oude naam blijft staan, staat hij er met opzet:
+
+| Waar | Wat er staat | Waarom het blijft |
+|---|---|---|
+| `AppPaths.LegacyNames` | `Zentrix`, `Zoekhulp` | anders vindt de app de gegevensmap van een bestaande installatie niet |
+| `AppPaths.OudeDataVariabelen` | `ZENTRIX_DATA` | een proefopstelling die daar nog op leunt, zou anders op de échte gegevens draaien |
+| `Autostart.OudeNamen` | `Zentrix`, `Zoekhulp` | anders blijft Windows de oude exe mee opstarten |
+| `App.OudeSloten` | `Local\Zentrix-een-exemplaar` | anders draaien een oude en een nieuwe versie tegelijk, en loopt de tweede vast op poort 8731 |
+| `BridgeServer.Oude*Header` | `X-Zentrix-Brug` en twee andere | de extensie wordt apart herladen; zonder dit weigert de nieuwe app een extensie die nog niet bij is |
+| `AppSettings.Extra` | `Zentrix-instellingen` | **sleutelmateriaal**, geen tekst: wijzig je dit, dan is de bewaarde API-sleutel onleesbaar |
+
+Verder heet alles Vindioo: de namespace, het project `Vindioo.csproj`, de exe `Vindioo.exe`,
+de gegevensmap `%APPDATA%\Vindioo` met `vindioo.db` en `vindioo-log.txt`, en de extensie
+"Vindioo Brug". Alleen de projectmap `source\repos\zoekhulp` draagt nog de oudste naam van
+de drie.
 
 **De gegevensmap verhuist vanzelf.** `AppPaths` is de enige plaats die weet waar de
 gegevens staan; vroeger schreven zeven klassen `%APPDATA%\Zoekhulp` elk zelf uit. Bij de
-eerste start na het hernoemen wordt de oude map hernoemd naar de nieuwe, en daarin
-`zoekhulp.db` en `zoekhulp-log.txt`. Een naamswijziging op dezelfde schijf, geen kopie:
+eerste start onder een nieuwe naam wordt de oude map hernoemd naar de nieuwe, en daarin de
+databank en het logboek. Dat is een **keten**: `Vindioo` ← `Zentrix` ← `Zoekhulp`, nieuwste
+eerst, zodat wie een hernoeming oversloeg zijn gegevens evengoed terugvindt. Een
+naamswijziging op dezelfde schijf, geen kopie:
 ook de 540 MB van het browserprofiel gaan mee zonder wachten. Lukt het niet - een bestand
 in gebruik, bijvoorbeeld door een achtergebleven Chrome van Playwright - dan blijft de app
 de oude map gebruiken en probeert ze het bij de volgende start opnieuw. Wat er gebeurde,
@@ -32,10 +48,15 @@ Twee valkuilen die daarbij horen:
 
 ## De versie
 
-Het nummer staat op **één plaats**: `<Version>` in `Zentrix.csproj`. `Services/Versie.cs` leest
+Het nummer staat op **één plaats**: `<Version>` in `Vindioo.csproj`. `Services/Versie.cs` leest
 het daar uit de assembly, zodat het scherm nooit iets anders zegt dan het bestand. Sinds
 27 september 2026 staat er een nul vooraan: de app doet wat ze moet doen, maar er staan nog
 stukken open (zie "Volgende stappen"), en dat is wat die nul betekent.
+
+> **Alles tot en met 0.17.3 is uitgebracht onder de naam Zentrix.** In het logboek hieronder
+> staat overal de naam van nu, zodat het leesbaar blijft - maar de zips, de tags en de
+> releases op GitHub van vóór 0.18.0 heten nog `Zentrix-…`. Dat is geen slordigheid: een
+> uitgebracht bestand hernoem je niet achteraf.
 
 **0.9.1** sinds 29 september 2026. Wat er veranderde zit helemaal in *Site toevoegen*: de
 AI-analyse bekijkt nu ook de pagina van een zoekertje, stuurt de zoek-URL bij voor paginering in
@@ -75,13 +96,13 @@ van 30 september 2026" in `docs/volgende-stappen.md`). Wat je er wél van merkt:
   een extensie die er niet was, en sloeg dan alle brugsites over;
 - en een gedeeld **sitebestand** wordt nu nagekeken voor het binnenkomt.
 
-Het nummer is opgehoogd **voor** het publiceren, en met opzet: wat er in `C:\Zentrix` staat moet
-zeggen wat het is. Bleef het op 0.10.0, dan stond er in het logboek "Zentrix 0.10.0 gestart" bij
+Het nummer is opgehoogd **voor** het publiceren, en met opzet: wat er in `C:\Vindioo` staat moet
+zeggen wat het is. Bleef het op 0.10.0, dan stond er in het logboek "Vindioo 0.10.0 gestart" bij
 iets anders dan de release met dat nummer, en dat is precies de les van 0.9.2 hierboven. Er hoort
 dus nog een release `v0.10.1` bij, of het nummer gaat later opnieuw omhoog.
 
 **0.11.0** sinds 1 oktober 2026, het laatste punt van die codeanalyse. Weer het tweede cijfer, en
-deze keer niet omdat er in Zentrix iets bijkomt: de **extensie** vraagt geen toegang tot alle
+deze keer niet omdat er in Vindioo iets bijkomt: de **extensie** vraagt geen toegang tot alle
 sites meer, maar per site - en daarvoor zit er onderaan haar popup een lijst met de sites en een
 knop om ze aan te vinken. Dat is een nieuw stuk dat je ziet én iets wat je één keer zelf moet
 doen, dus geen 0.10.6.
@@ -100,12 +121,12 @@ stempel **AFGELOPEN** (veiling voorbij). Dat laatste was het echte gemis: de tel
 op 2.0 - herladen hoeft dus niet.
 
 **0.13.0** sinds 2 oktober 2026, dezelfde dag. Opnieuw het tweede cijfer: er komt een melding bij
-die er niet was. Zentrix waarschuwt nu dat een **bewaarde veiling bijna afloopt**, via systeemvak,
+die er niet was. Vindioo waarschuwt nu dat een **bewaarde veiling bijna afloopt**, via systeemvak,
 Telegram of e-mail, op momenten die je zelf kiest (1 dag, 4 uur, 1 uur, 15 minuten). Aanzetten in
 *Meldingen en achtergrond*; standaard staat het uit. Zie `docs/favorieten.md`.
 
 Het nummer gaat omhoog en blijft niet op 0.12.0 staan, hoewel daar nog geen release bij hoort:
-`C:\Zentrix` draaide al een exe die zich 0.12.0 noemde, met andere inhoud. Twee builds met
+`C:\Vindioo` draaide al een exe die zich 0.12.0 noemde, met andere inhoud. Twee builds met
 hetzelfde nummer in hetzelfde logboek is precies de les van 0.9.2 hierboven.
 
 De databank krijgt er twee kolommen bij (`favorites.endsAt` en `alertedLead`); dat gaat vanzelf
@@ -113,7 +134,7 @@ bij de eerste start. Van je bestaande favorieten kent de app de sluitingstijd no
 er bij de eerstvolgende ronde *Nakijken* in, of zodra je ze opnieuw bewaart.
 
 **0.14.0** sinds 2 oktober 2026. Rechtsklik in Chrome op een zoekertje - op de link in een lijst,
-of op de advertentiepagina zelf - en kies **Zet in favorieten van Zentrix**. Dat is de eerste weg
+of op de advertentiepagina zelf - en kies **Zet in favorieten van Vindioo**. Dat is de eerste weg
 die van de browser naar de app loopt in plaats van omgekeerd; zie `docs/brug.md` bij "De andere
 kant op: rechtsklikken op een zoekertje".
 
@@ -134,11 +155,11 @@ volledig adres zijn, verandert er geen enkele. Dat was de vraag die ertoe deed -
 anders geweest, dan had alles wat je ooit zag opnieuw als nieuw geteld.
 
 **0.15.0** sinds 2 oktober 2026. Het tweede cijfer: rechtsklikken werkt nu ook op een **veilinghuis
-dat Zentrix niet kent**. Je staat op bopa.be, kiest *Zet in favorieten van Zentrix*, en de app
+dat Vindioo niet kent**. Je staat op bopa.be, kiest *Zet in favorieten van Vindioo*, en de app
 zoekt dat kavel terug op je veilingsites - zeker, niet gokkend: de kavelpagina van AlleVeilingen
 draagt een link terug naar het veilinghuis, en die moet het adres zijn waarop jij klikte. Geen
 treffer betekent dat er niets bewaard wordt en dat gezegd wordt. Zie `docs/brug.md` bij "Een kavel
-van een veilinghuis dat Zentrix niet kent".
+van een veilinghuis dat Vindioo niet kent".
 
 Daar hing één wijziging aan die **elk** verzoek van de app raakt: `HttpFactory` stuurt nu de
 kopregels mee die bij zijn User-Agent horen (`Accept` en `Sec-Fetch-*`). bopa.be gaf anders 429 op
@@ -146,7 +167,7 @@ het eerste verzoek. Met een tegenproef nagegaan dat de zeven rechtstreekse sites
 merken. De extensie verandert niet mee en blijft op 2.1.
 
 **0.16.x** van 2 oktober 2026, in stappen. **0.16.0**: bladerpijlen op de vergrote foto en een
-pop-upvenster dat Zentrix niet meer achter een ander programma laat verdwijnen. **0.16.1**: die
+pop-upvenster dat Vindioo niet meer achter een ander programma laat verdwijnen. **0.16.1**: die
 pijlen reageerden niet op een klik - ze stonden in de strook die bij de titelbalk hoort, en die
 ligt voor de muis boven de donkere laag. **0.16.2**: de grote foto houdt een maat die met de
 breedte van het venster meegroeit in plaats van met de lengte van de beschrijving, en het
@@ -198,42 +219,42 @@ Zie `docs/zoeken.md` bij "niet alles wat geen resultaat geeft, is een mislukking
 **0.16.0** sinds 2 oktober 2026. Twee dingen aan de vensters. Een **vergrote foto** heeft nu
 bladerpijlen bovenaan met een teller ertussen ("2 van 4"), en de pijltjestoetsen doen hetzelfde;
 de volgende foto kostte er drie klikken. Bij de eerste foto staat er geen pijl naar links en bij
-de laatste geen naar rechts. En een **pop-upvenster sluiten** haalt Zentrix weer naar voren in
+de laatste geen naar rechts. En een **pop-upvenster sluiten** haalt Vindioo weer naar voren in
 plaats van het achter een Verkenner of Chrome te laten verdwijnen. Zie `docs/zoekertje.md` en
 `docs/weergave.md`.
 
 Het is op twee plaatsen zichtbaar, en allebei om dezelfde reden - **er draaien twee exe's op
-deze pc**, een uit Visual Studio en een gepubliceerde (bij mij `C:\Zentrix`), met
+deze pc**, een uit Visual Studio en een gepubliceerde (bij mij `C:\Vindioo`), met
 dezelfde gegevensmap:
 
-- **Onderaan het tandwielmenu**, als een grijs regeltje ("Zentrix 0.9.0"). Geen menu-item: er
+- **Onderaan het tandwielmenu**, als een grijs regeltje ("Vindioo 0.9.0"). Geen menu-item: er
   valt niets te klikken.
-- **In het logboek bij elke start**, met de map erbij: `Zentrix 0.9.0 gestart vanuit
-  C:\Zentrix`. Zonder die regel staat er in een logboek van twee weken niet bij
+- **In het logboek bij elke start**, met de map erbij: `Vindioo 0.9.0 gestart vanuit
+  C:\Vindioo`. Zonder die regel staat er in een logboek van twee weken niet bij
   welke versie een fout maakte.
 
 `Version` levert ook `FileVersion` en `ProductVersion` op het bestand zelf, en die laatste
 krijgt van de bouwomgeving de commit-hash erachter (`0.9.0+5998a84...`). `Versie.Nummer` knipt
-dat af. Nagemeten met het hoofdscherm buiten beeld: het menu toont "Zentrix 0.9.0".
+dat af. Nagemeten met het hoofdscherm buiten beeld: het menu toont "Vindioo 0.9.0".
 
 Let op bij het controleproject: dat compileert de broncode zelf, dus `Versie` leest daar de
 assembly van *dat* project (1.0.0). Het nummer van de app is er dus niet na te meten - enkel
 dat er een leesbaar nummer uit komt.
 
-**Zentrix staat openbaar op GitHub** sinds 29 september 2026
-(`dees743-cloud/Zentrix`, MIT-licentie); **`zentrix-sites` blijft privé**. Wat daarvoor nodig was
+**Vindioo staat openbaar op GitHub** sinds 29 september 2026
+(`dees743-cloud/Vindioo`, MIT-licentie); **`vindioo-sites` blijft privé**. Wat daarvoor nodig was
 en waarom de sites niet meegaan, staat bij "Volgende stappen" punt 8. Twee bestanden zijn er toen
 bijgekomen en horen bij een openbare repository: `README.md` (de voordeur: wat het is, hoe je het
 bouwt, en dat de app zonder sites komt) en `LICENSE`.
 
 **In de README staat een schermafbeelding** (`docs/schermafbeelding.png`, 29 september 2026), en
-die is met opzet niet van de eigen Zentrix gemaakt. Ze toont een **lege gegevensmap**
-(`ZENTRIX_DATA` naar een verse map) met vier rechtstreekse sites, zodat er geen bewaarde
+die is met opzet niet van de eigen Vindioo gemaakt. Ze toont een **lege gegevensmap**
+(`VINDIOO_DATA` naar een verse map) met vier rechtstreekse sites, zodat er geen bewaarde
 zoekopdrachten, favorieten, postcode of straal in beeld staan. Facebook blijft er bewust uit: die
 zoekt in je eigen regio, en dan staan de steden rond je thuis op een foto die openbaar gaat. Zo is
 ze opnieuw te maken:
 
-- De sitebestanden naar `<map>\sites` kopiëren, de app één keer starten zodat `zentrix.db`
+- De sitebestanden naar `<map>\sites` kopiëren, de app één keer starten zodat `vindioo.db`
   bestaat, en dan met een scriptje een bewaarde zoekopdracht in de tabel `searches` zetten met
   `RunOnStartup` aan. De planner draait ze dan bij het opstarten
   (`SearchScheduler.RunStartupSearchesAsync`) en het scherm staat vanzelf klaar. Dat is de
@@ -269,7 +290,7 @@ waar het paneel bros is:
 ook wat andere hulpmiddelen achterlieten: `.codex` (een kopie van die adviseurs), `AGENTS.md` (een
 kopie van dit bestand) en `chatgpt_tips.md`. De sites staan sowieso niet in het project maar in de gegevensmap.
 
-**De app komt zonder sites.** Die staan in een aparte repository, `zentrix-sites`: een
+**De app komt zonder sites.** Die staan in een aparte repository, `vindioo-sites`: een
 algemene zoekmotor publiek delen is iets anders dan kant-en-klare bestanden die op
 bepaalde sites gericht zijn, en een deel daarvan omzeilt bewust de beveiliging tegen
 robots. Wie de app voor het eerst start, ziet daarom geen lege lijst met "typ hierboven
@@ -284,11 +305,11 @@ de sites ook `instellingen.json` staat. Nagemeten in een lege gegevensmap: 0 naa
 sites, met elke sleutel, motor en eigen filter intact, en een tweede import gaf geen
 dubbels.
 
-**Een andere gegevensmap** kan met de omgevingsvariabele `ZENTRIX_DATA`. Zo is een lege
+**Een andere gegevensmap** kan met de omgevingsvariabele `VINDIOO_DATA`. Zo is een lege
 eerste start na te bootsen zonder aan je eigen sites en zoekopdrachten te komen:
 
 ```bash
-set ZENTRIX_DATA=C:\ergens\leeg
+set VINDIOO_DATA=C:\ergens\leeg
 ```
 
 Er wordt dan niets verhuisd; `AppPaths` gebruikt die map gewoon.
@@ -302,17 +323,17 @@ Chrome een andere extensie, met een lege opslag.
 ## Starten zonder Visual Studio
 
 Een versie die je gewoon dubbelklikt, zet je met het commando hieronder in een map naar keuze
-(hier `C:\Zentrix`, sinds 18 september 2026). Ze is **zelfstandig**: .NET zit erin, dus ze start ook op een pc zonder
-Visual Studio of .NET. Opnieuw maken na een wijziging, met Zentrix dicht (anders zijn de
+(hier `C:\Vindioo`, sinds 18 september 2026). Ze is **zelfstandig**: .NET zit erin, dus ze start ook op een pc zonder
+Visual Studio of .NET. Opnieuw maken na een wijziging, met Vindioo dicht (anders zijn de
 bestanden in gebruik):
 
 ```bash
-dotnet publish Zentrix.csproj -c Release -r win-x64 --self-contained true -o C:\Zentrix
+dotnet publish Vindioo.csproj -c Release -r win-x64 --self-contained true -o C:\Vindioo
 ```
 
 Wat daarbij hoort:
 
-- **Snelkoppelingen** "Zentrix" staan op het bureaublad en in het startmenu. Let op als je
+- **Snelkoppelingen** "Vindioo" staan op het bureaublad en in het startmenu. Let op als je
   bureaublad door OneDrive beheerd wordt: dan staat het niet waar je het verwacht. Die in het
   startmenu staat onder `%APPDATA%`, dus vanuit de Claude-app aangemaakt via
   `Win32_Process.Create` - anders belandt hij in de omgeleide kopie en verschijnt hij nooit.
@@ -321,14 +342,14 @@ Wat daarbij hoort:
   290 MB. Het grootste deel is .NET zelf en het stuk van Playwright dat Chrome aanstuurt
   (`.playwright\node`). Daarom geen "enkel bestand": Playwright zoekt die map naast de exe.
   Browsers hoeven er niet bij, want Playwright gebruikt de gewone Chrome (`Channel = "chrome"`).
-- **Dezelfde gegevens als vanuit Visual Studio**: `%APPDATA%\Zentrix`, met dezelfde sites,
+- **Dezelfde gegevens als vanuit Visual Studio**: `%APPDATA%\Vindioo`, met dezelfde sites,
   favorieten en zoekopdrachten. En er draait er maar één tegelijk: sluit de ene voor je de
   andere start.
 - **Opstarten met Windows volgt de exe die het laatst draaide.** `Autostart.RefreshPath` zet het
   pad bij elke start gelijk. Start je vanuit Visual Studio, dan wijst het naar
-  `bin\Debug\...\Zentrix.exe`; start je daarna de gepubliceerde, dan naar die. Wie wil dat
+  `bin\Debug\...\Vindioo.exe`; start je daarna de gepubliceerde, dan naar die. Wie wil dat
   Windows de gepubliceerde start, start die dus één keer na het werken in Visual Studio.
-- **Proefstarten vanuit de Claude-app** gebeurt met `ZENTRIX_DATA` naar een lege map (zie "Fouten
+- **Proefstarten vanuit de Claude-app** gebeurt met `VINDIOO_DATA` naar een lege map (zie "Fouten
   opsporen" over de omgeleide gegevensmap). Het register hoeft daarbij niet bewaakt te worden:
   ook dat is vanuit de Claude-app omgeleid, dus de proef kan het echte "opstarten met Windows"
   niet wijzigen. Zo nagemeten: proces draaiend na 7 s, "hoofdscherm opgebouwd" in het logboek,
@@ -338,7 +359,7 @@ Wat daarbij hoort:
 
 - Zoeken over meerdere aangevinkte sites tegelijk, met voortgang en tijd per
   bron. De app komt zonder sites: welke er zijn en wat elk kan, staat in `SITES.md`
-  van `zentrix-sites`. Tijdens het zoeken wordt het vergrootglas een **stopknop**: wat al
+  van `vindioo-sites`. Tijdens het zoeken wordt het vergrootglas een **stopknop**: wat al
   binnen was blijft staan, en de zoekopdracht telt die halve beurt niet mee
 - Sites importeren uit een map (ook meteen bij een lege eerste start), toevoegen
   met de AI-analyse, en verwijderen in het instellingen-scherm (de knop
@@ -439,4 +460,4 @@ Wat daarbij hoort:
   op rij op dezelfde site, dan komt er een melding
 - **De brug zegt waarom ze niet werkt** (verkeerde koppelcode, extensie uit, geen Chrome),
   zowel in de app als in de popup van de extensie, en slaat de brugsites dan meteen over
-- Maar **één Zentrix tegelijk**; een tweede start haalt het open venster naar voren
+- Maar **één Vindioo tegelijk**; een tweede start haalt het open venster naar voren

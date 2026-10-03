@@ -2,9 +2,9 @@
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Zentrix.Models;
+using Vindioo.Models;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// Bewaart elke site als een apart JSON-bestand in de map van de gebruiker.

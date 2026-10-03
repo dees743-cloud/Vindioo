@@ -1,6 +1,6 @@
 # Het hoofdscherm: indeling, tabs en de balk onderaan
 
-Onderdeel van de documentatie van Zentrix; de korte versie staat in
+Onderdeel van de documentatie van Vindioo; de korte versie staat in
 [CLAUDE.md](../CLAUDE.md).
 
 ## De indeling van het hoofdscherm

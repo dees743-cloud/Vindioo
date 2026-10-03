@@ -1,9 +1,9 @@
 ﻿using System.IO;
 using System.Text.Json;
-using Zentrix.Models;
-using Zentrix.Services;
+using Vindioo.Models;
+using Vindioo.Services;
 
-namespace Zentrix.Checks;
+namespace Vindioo.Checks;
 
 /// <summary>
 /// Wat er van <b>buiten</b> binnenkomt: een gedeeld sitebestand.
@@ -22,7 +22,7 @@ public static class ImportChecks
 {
     private static string Schrijf(string naam, object site)
     {
-        var map = Path.Combine(Path.GetTempPath(), "zentrix-import-proef");
+        var map = Path.Combine(Path.GetTempPath(), "vindioo-import-proef");
         Directory.CreateDirectory(map);
 
         var pad = Path.Combine(map, naam);
@@ -92,7 +92,7 @@ public static class ImportChecks
         // ---------------------------------------------------------------------------
         Check.Groep("Importeren: de Id bepaalt niet waar er geschreven wordt");
         {
-            var map = Path.Combine(Path.GetTempPath(), "zentrix-import-proef");
+            var map = Path.Combine(Path.GetTempPath(), "vindioo-import-proef");
             var buiten = Path.Combine(map, "ontsnapt.json");
             if (File.Exists(buiten)) File.Delete(buiten);
 

@@ -1,4 +1,4 @@
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// Eén Chrome voor een hele zoekopdracht in plaats van een per site.

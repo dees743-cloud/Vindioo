@@ -5,9 +5,9 @@ using System.Text.Json;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
-using Zentrix.Models;
+using Vindioo.Models;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// Stuurt een bericht wanneer een geplande zoekopdracht iets nieuws vindt.
@@ -47,8 +47,8 @@ public static class Notifier
         var settings = AppSettings.Current.Notify;
 
         var titel = nieuwe.Count == 1
-            ? $"Zentrix: 1 nieuw resultaat voor '{search.Name}'"
-            : $"Zentrix: {nieuwe.Count} nieuwe resultaten voor '{search.Name}'";
+            ? $"Vindioo: 1 nieuw resultaat voor '{search.Name}'"
+            : $"Vindioo: {nieuwe.Count} nieuwe resultaten voor '{search.Name}'";
 
         return await Verstuur($"'{search.Name}': {nieuwe.Count} nieuw", settings,
             () => ShowTray(titel, KorteSamenvatting(nieuwe)),
@@ -129,12 +129,12 @@ public static class Notifier
 
         var settings = AppSettings.Current.Notify;
 
-        var titel = $"Zentrix: '{search.Name}' kon niet overal zoeken";
+        var titel = $"Vindioo: '{search.Name}' kon niet overal zoeken";
         var regels = sites
             .Select(site => $"{site}: {search.LastErrors.GetValueOrDefault(site, "mislukt")}")
             .ToList();
 
-        const string slot = "Open Zentrix om het op te lossen.";
+        const string slot = "Open Vindioo om het op te lossen.";
 
         return await Verstuur($"'{search.Name}': {string.Join(", ", sites)} mislukt twee keer op rij", settings,
             () => ShowTray(titel, string.Join(Environment.NewLine, regels.Append(slot))),
@@ -157,7 +157,7 @@ public static class Notifier
         var settings = AppSettings.Current.Notify;
 
         var hoelang = AuctionWatch.Hoelang(over);
-        var titel = $"Zentrix: veiling loopt af over {hoelang}";
+        var titel = $"Vindioo: veiling loopt af over {hoelang}";
 
         var prijs = veiling.Price is { } p ? $" — nu €{p:0.##}" : "";
         var regel = veiling.Title + prijs;
@@ -235,7 +235,7 @@ public static class Notifier
     /// en dat kon: een site gaf er hoogstens 500. Sinds 22 september 2026 halen 2dehands en
     /// Marktplaats er tot 2000 op, en de eerste beurt daarna vond bij "Cd speler" zo'n 1700
     /// die nog nooit gezien waren - een mail van een paar honderd kilobyte om door te scrollen.
-    /// De rest staat in Zentrix, achter de teller van de zoekopdracht.
+    /// De rest staat in Vindioo, achter de teller van de zoekopdracht.
     /// </summary>
     internal const int MailMaximum = 50;
 
@@ -257,7 +257,7 @@ public static class Notifier
 
         // Zeggen dat er meer is, en waar: anders lijkt de lijst volledig.
         if (nieuwe.Count > MailMaximum)
-            sb.AppendLine($"<p><i>En nog {nieuwe.Count - MailMaximum} meer. Open Zentrix en klik bij " +
+            sb.AppendLine($"<p><i>En nog {nieuwe.Count - MailMaximum} meer. Open Vindioo en klik bij " +
                           $"Zoekopdrachten op de teller van '{Escape(search.Name)}' om ze allemaal te zien.</i></p>");
 
         return sb.ToString();
@@ -581,7 +581,7 @@ public static class Notifier
     {
         try
         {
-            const string titel = "Zentrix: proefbericht";
+            const string titel = "Vindioo: proefbericht";
             const string body = "Als je dit ziet, staan de meldingen goed.";
 
             switch (kanaal)

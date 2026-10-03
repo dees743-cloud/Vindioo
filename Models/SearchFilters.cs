@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Zentrix.Models;
+namespace Vindioo.Models;
 
 /// <summary>
 /// De filterwaarden die de gebruiker in het hoofdscherm invult. Elke bron mag

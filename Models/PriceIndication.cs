@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Zentrix.Models;
+namespace Vindioo.Models;
 
 /// <summary>Waarom een gevonden zoekertje wel of niet meetelt voor de marktwaarde.</summary>
 public enum ComparableKind

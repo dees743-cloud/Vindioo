@@ -3,13 +3,13 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using Microsoft.Win32;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// Schrijft in het logboek hoe WPF tekent en wat Windows aan het scherm verandert. Gemaakt
 /// voor een wit venster bij het opstarten van de pc (22 september 2026): de app liep gewoon, de
-/// planner zocht en stuurde meldingen, maar het venster bleef wit tot je Zentrix herstartte.
-/// Windows meldde geen fout van de grafische kaart, en het logboek van Zentrix ook niet.
+/// planner zocht en stuurde meldingen, maar het venster bleef wit tot je Vindioo herstartte.
+/// Windows meldde geen fout van de grafische kaart, en het logboek van Vindioo ook niet.
 /// Met deze regels zegt de volgende keer het logboek zelf wat er gebeurde:
 /// <list type="bullet">
 /// <item>bij de start: of er met de grafische kaart getekend wordt of op de processor, en

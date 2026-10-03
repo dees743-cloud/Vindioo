@@ -13,7 +13,7 @@ user32 = ctypes.windll.user32
 
 import vensterfoto as vf
 
-titel = sys.argv[4] if len(sys.argv) > 4 else "Zentrix"
+titel = sys.argv[4] if len(sys.argv) > 4 else "Vindioo"
 hwnd = vf.vind_venster(titel)
 if hwnd is None:
     print("venster niet gevonden:", titel)

@@ -23,8 +23,8 @@ saveButton.addEventListener("click", () => {
 
       savedNote.textContent =
         result === "ok" ? "Opgeslagen. De code klopt."
-        : result === "wrong" ? "Opgeslagen, maar deze code klopt niet. Kopieer ze opnieuw in Zentrix: tandwiel > Koppelcode."
-        : "Opgeslagen. Zentrix draait nu niet, dus de code is nog niet gecontroleerd.";
+        : result === "wrong" ? "Opgeslagen, maar deze code klopt niet. Kopieer ze opnieuw in Vindioo: tandwiel > Koppelcode."
+        : "Opgeslagen. Vindioo draait nu niet, dus de code is nog niet gecontroleerd.";
 
       savedNote.className = result === "ok" ? "saved" : "saved warn";
       savedNote.style.display = "block";
@@ -59,7 +59,7 @@ function toonHosts() {
     if (sites.length === 0) {
       const leeg = document.createElement("li");
       leeg.className = "dim";
-      leeg.append(teken("·"), tekst("Nog geen sites: Zentrix zegt bij het zoeken welke ze nodig heeft."));
+      leeg.append(teken("·"), tekst("Nog geen sites: Vindioo zegt bij het zoeken welke ze nodig heeft."));
       hostList.append(leeg);
     }
 
@@ -121,13 +121,13 @@ function refresh() {
     if (!s.hasToken) {
       tekst = "Nog geen koppelcode ingevuld.";
     } else if (s.connected) {
-      tekst = "Verbonden met Zentrix";
+      tekst = "Verbonden met Vindioo";
       klasse = "on";
     } else if (s.wrongCode) {
-      tekst = "Verkeerde koppelcode. Kopieer ze opnieuw in Zentrix en plak ze hier.";
+      tekst = "Verkeerde koppelcode. Kopieer ze opnieuw in Vindioo en plak ze hier.";
       klasse = "warn";
     } else {
-      tekst = "Zentrix draait niet op deze computer.";
+      tekst = "Vindioo draait niet op deze computer.";
     }
 
     dot.className = klasse ? `dot ${klasse}` : "dot";

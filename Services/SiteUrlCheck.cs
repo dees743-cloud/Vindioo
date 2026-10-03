@@ -1,8 +1,8 @@
 using System.Net;
 using System.Net.Sockets;
-using Zentrix.Models;
+using Vindioo.Models;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// Kijkt na waar een sitebestand de app naartoe stuurt.

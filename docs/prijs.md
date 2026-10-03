@@ -1,6 +1,6 @@
 # Prijsindicatie en de Pricewatch van Tweakers
 
-Onderdeel van de documentatie van Zentrix; de korte versie staat in
+Onderdeel van de documentatie van Vindioo; de korte versie staat in
 [CLAUDE.md](../CLAUDE.md).
 
 ### Prijsindicatie: wat is dit ongeveer waard
@@ -221,7 +221,7 @@ dichten.
 
 **Wat het niet is:** een verkoopprijs. Het zijn vraagprijzen van vandaag, en een vraagprijs is wat
 een verkoper hoopt. Verkochte prijzen (eBay heeft een filter "verkochte artikelen") zouden sterker
-zijn, maar eBay weigert een gewoon verzoek en loopt in Zentrix via de browser; dat is een volgende
+zijn, maar eBay weigert een gewoon verzoek en loopt in Vindioo via de browser; dat is een volgende
 stap. De woordenlijsten (toebehoren, defect, geen achtervoegsel) staan in `PriceIndicator` en zijn
 gemaakt op echte titels; een nieuwe soort rommel vraagt daar een woord bij. Nagemeten in
 `PrijsChecks` met de titels van die dag, en met een lokale proefsite van begin tot einde.

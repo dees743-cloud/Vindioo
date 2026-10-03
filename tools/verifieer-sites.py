@@ -6,11 +6,12 @@ Alleen sites die rechtstreeks bereikbaar zijn (geen browser, geen brug).
 """
 import io, json, os, glob, base64, urllib.parse, urllib.request
 
-# De sitesmap van de app. Sinds die Zentrix heet staat ze in %APPDATA%\Zentrix; wie
-# de app sinds het hernoemen nog niet opstartte, heeft enkel de oude map.
-MAP = next((m for m in (os.path.expandvars(r"%APPDATA%\Zentrix\sites"),
-                         os.path.expandvars(r"%APPDATA%\Zoekhulp\sites")) if os.path.isdir(m)),
-           os.path.expandvars(r"%APPDATA%\Zentrix\sites"))
+# De sitesmap van de app. De app is twee keer hernoemd - Zoekhulp, Zentrix, Vindioo - en
+# verhuist die map pas bij haar eerste start onder de nieuwe naam. Wie dat nog niet deed,
+# heeft enkel een oude map. Alle drie proberen, nieuwste eerst; een naam hier schrappen maakt
+# dit gereedschap blind voor een bestaande installatie.
+MAPPEN = [os.path.expandvars(rf"%APPDATA%\{naam}\sites") for naam in ("Vindioo", "Zentrix", "Zoekhulp")]
+MAP = next((m for m in MAPPEN if os.path.isdir(m)), MAPPEN[0])
 
 def is_json(d):
     """Is dit een JSON-bron? Kind mag 1 zijn of de naam "Json".

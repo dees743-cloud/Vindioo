@@ -1,6 +1,6 @@
-using Zentrix.Services;
+using Vindioo.Services;
 
-namespace Zentrix.Checks;
+namespace Vindioo.Checks;
 
 /// <summary>
 /// De Pricewatch van Tweakers: wat kost dit nieuw, en wat was de laatst bekende prijs.

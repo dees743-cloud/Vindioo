@@ -1,7 +1,7 @@
-using Zentrix.Models;
-using Zentrix.Services;
+using Vindioo.Models;
+using Vindioo.Services;
 
-namespace Zentrix.Checks;
+namespace Vindioo.Checks;
 
 /// <summary>
 /// Het opvolgen van een favoriet: staat het zoekertje er nog, en wat kost het nu?

@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="Zentrix.Controls.PhotoThumbnail"
+﻿<UserControl x:Class="Vindioo.Controls.PhotoThumbnail"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Name="Root">

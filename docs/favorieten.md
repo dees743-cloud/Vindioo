@@ -1,6 +1,6 @@
 # Favorieten opvolgen
 
-Onderdeel van de documentatie van Zentrix; de korte versie staat in
+Onderdeel van de documentatie van Vindioo; de korte versie staat in
 [CLAUDE.md](../CLAUDE.md).
 
 ### Favorieten opvolgen: staat dit er nog, en wat kost het nu

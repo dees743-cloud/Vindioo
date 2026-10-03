@@ -2,10 +2,10 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
-using Zentrix.Models;
-using Zentrix.Sources;
+using Vindioo.Models;
+using Vindioo.Sources;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// Bepaalt wat een toestel ongeveer waard is, uit wat er vandaag voor hetzelfde model gevraagd

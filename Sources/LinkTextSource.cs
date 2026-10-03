@@ -2,10 +2,10 @@
 using System.Text.RegularExpressions;
 using AngleSharp.Dom;
 using AngleSharp.Html.Parser;
-using Zentrix.Models;
-using Zentrix.Services;
+using Vindioo.Models;
+using Vindioo.Services;
 
-namespace Zentrix.Sources;
+namespace Vindioo.Sources;
 
 /// <summary>
 /// De linkmotor: voor sites waarvan de klassenamen versleuteld zijn en bij elke

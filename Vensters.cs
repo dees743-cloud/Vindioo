@@ -1,6 +1,6 @@
 using System.Windows;
 
-namespace Zentrix;
+namespace Vindioo;
 
 /// <summary>
 /// Hoe een venster boven een ander venster opengaat.
@@ -13,8 +13,8 @@ public static class Vensters
     ///
     /// <para>Waarom dat tweede nodig is. Een eigenaar zetten hoort genoeg te zijn: Windows
     /// activeert bij het sluiten van een venster normaal zijn eigenaar. In de praktijk gebeurde
-    /// op 2 oktober 2026 iets anders - stond er een Verkenner of een Chrome tussen Zentrix en het
-    /// pop-upvenster, dan sprong Zentrix bij het sluiten helemaal naar achter, achter dat andere
+    /// op 2 oktober 2026 iets anders - stond er een Verkenner of een Chrome tussen Vindioo en het
+    /// pop-upvenster, dan sprong Vindioo bij het sluiten helemaal naar achter, achter dat andere
     /// programma. Je moest het dan uit de taakbalk terughalen om verder te werken.</para>
     ///
     /// <para><b>Dit is niet nagemeten in een harnas, en dat hoort erbij.</b> Windows laat een
@@ -27,7 +27,7 @@ public static class Vensters
     ///
     /// <para>Het kan geen aandacht stelen van een ander programma: wie dit venster sluit, had het
     /// net nog vooraan staan. En een eigenaar die intussen weg of geminimaliseerd is, wordt met
-    /// rust gelaten - anders zou het sluiten van een venster een geminimaliseerde Zentrix uit het
+    /// rust gelaten - anders zou het sluiten van een venster een geminimaliseerde Vindioo uit het
     /// systeemvak trekken.</para>
     /// </summary>
     public static T Boven<T>(this T venster, Window eigenaar) where T : Window

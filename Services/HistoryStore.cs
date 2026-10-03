@@ -2,9 +2,9 @@
 using System.IO;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
-using Zentrix.Models;
+using Vindioo.Models;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// Bewaart vastgezette zoekopdrachten en onthoudt welke zoekertjes

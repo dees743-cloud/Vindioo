@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace Zentrix.Sources;
+namespace Vindioo.Sources;
 
 /// <summary>
 /// Leest een prijs uit de tekst die een site toont: "€ 1.499,95", "1 499 €", "12.50", "€ 175".

@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Controles voor Zentrix, zonder testframework: een gewoon consoleprogramma dat OK of
+  <!-- Controles voor Vindioo, zonder testframework: een gewoon consoleprogramma dat OK of
        FOUT per controle toont. Zie Program.cs voor waarom het zo in elkaar zit.
 
-       Het project verwijst NIET naar Zentrix.csproj en niet naar een gebouwde dll, maar
+       Het project verwijst NIET naar Vindioo.csproj en niet naar een gebouwde dll, maar
        compileert de broncode van Models, Sources en Services zelf mee. Zo test je altijd
        de code zoals ze nu op schijf staat, en botst het niet met Visual Studio: dit project
        heeft zijn eigen bin en obj. De vensters (XAML) zitten er niet in. -->
@@ -14,7 +14,7 @@
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>Zentrix.Checks</RootNamespace>
+    <RootNamespace>Vindioo.Checks</RootNamespace>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
@@ -27,7 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Dezelfde versies als Zentrix.csproj: die staan al in de lokale NuGet-cache. -->
+    <!-- Dezelfde versies als Vindioo.csproj: die staan al in de lokale NuGet-cache. -->
     <PackageReference Include="AngleSharp" Version="1.8.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="MailKit" Version="4.17.0" />

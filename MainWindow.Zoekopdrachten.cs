@@ -8,12 +8,12 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
-using Zentrix.Controls;
-using Zentrix.Models;
-using Zentrix.Services;
-using Zentrix.Sources;
+using Vindioo.Controls;
+using Vindioo.Models;
+using Vindioo.Services;
+using Vindioo.Sources;
 
-namespace Zentrix;
+namespace Vindioo;
 
 /// <summary>
 /// De bewaarde zoekopdrachten en wat de planner ermee doet.

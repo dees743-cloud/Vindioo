@@ -2,9 +2,9 @@ using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
-using Zentrix.Models;
+using Vindioo.Models;
 
-namespace Zentrix.Sources;
+namespace Vindioo.Sources;
 
 /// <summary>
 /// Bouwt de zoek-URL van een site: de zoekterm, de filters die de site kent en

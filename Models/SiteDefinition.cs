@@ -1,4 +1,4 @@
-namespace Zentrix.Models;
+namespace Vindioo.Models;
 
 /// <summary>Hoe de bron zijn resultaten aanlevert.</summary>
 public enum SiteKind
@@ -299,7 +299,7 @@ public class SiteDefinition
     /// <summary>Pagina eerst met een echte browser laten renderen (JavaScript-sites).</summary>
     public bool NeedsBrowser { get; set; }
 
-    /// <summary>Pagina ophalen via je eigen Chrome (de Zentrix Brug-extensie).</summary>
+    /// <summary>Pagina ophalen via je eigen Chrome (de Vindioo Brug-extensie).</summary>
     public bool UseBridge { get; set; }
     /// <summary>Staat het vinkje standaard aan.</summary>
     public bool Enabled { get; set; } = true;

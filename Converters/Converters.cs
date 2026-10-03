@@ -3,7 +3,7 @@ using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
 
-namespace Zentrix.Converters;
+namespace Vindioo.Converters;
 
 /// <summary>
 /// Maakt een afgeronde rechthoek ter grootte van het element zelf, om er een foto

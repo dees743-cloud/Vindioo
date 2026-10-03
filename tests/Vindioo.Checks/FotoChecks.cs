@@ -5,11 +5,11 @@ using System.Text;
 using System.Text.Json.Nodes;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using Zentrix.Models;
-using Zentrix.Services;
-using Zentrix.Sources;
+using Vindioo.Models;
+using Vindioo.Services;
+using Vindioo.Sources;
 
-namespace Zentrix.Checks;
+namespace Vindioo.Checks;
 
 /// <summary>
 /// De AI-controle op een foto (<see cref="PhotoAnalyzer"/>): het knippen, het samenvoegen en wat

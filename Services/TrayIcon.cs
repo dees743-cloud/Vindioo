@@ -3,7 +3,7 @@ using System.Windows;
 using System.Windows.Forms;
 using Application = System.Windows.Application;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// Het pictogram naast de klok, rechtsonder. Daardoor kan de app dichtstaan en
@@ -37,7 +37,7 @@ public sealed class TrayIcon : IDisposable
         {
             Icon = LaadIcoon(),
             Visible = true,
-            Text = "Zentrix"
+            Text = "Vindioo"
         };
 
         _icon.DoubleClick += (_, _) => Show();
@@ -55,7 +55,7 @@ public sealed class TrayIcon : IDisposable
             menu.ForeColor = System.Drawing.Color.White;
         }
 
-        menu.Items.Add("Zentrix openen", null, (_, _) => Show());
+        menu.Items.Add("Vindioo openen", null, (_, _) => Show());
         // Zegt wat het doet: de eerste zoekopdracht met een schema nu laten draaien.
         // "Nu zoeken" deed vermoeden dat alles opnieuw gezocht werd.
         menu.Items.Add("Eerstvolgende zoekopdracht nu uitvoeren", null, (_, _) => SearchNowRequested?.Invoke());
@@ -105,7 +105,7 @@ public sealed class TrayIcon : IDisposable
         try
         {
             var stream = Application.GetResourceStream(
-                new Uri("pack://application:,,,/Assets/zentrix.ico"))?.Stream;
+                new Uri("pack://application:,,,/Assets/vindioo.ico"))?.Stream;
 
             if (stream is not null) return new System.Drawing.Icon(stream);
         }

@@ -1,7 +1,7 @@
-using Zentrix.Models;
-using Zentrix.Services;
+using Vindioo.Models;
+using Vindioo.Services;
 
-namespace Zentrix.Checks;
+namespace Vindioo.Checks;
 
 /// <summary>
 /// De waarschuwing dat een bewaarde veiling bijna afloopt.

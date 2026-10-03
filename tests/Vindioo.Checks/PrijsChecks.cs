@@ -1,8 +1,8 @@
 using System.Text.Json;
-using Zentrix.Models;
-using Zentrix.Services;
+using Vindioo.Models;
+using Vindioo.Services;
 
-namespace Zentrix.Checks;
+namespace Vindioo.Checks;
 
 /// <summary>
 /// De prijsindicatie (rechtsklik op een foto). De titels en prijzen hieronder zijn wat 2dehands en

@@ -1,6 +1,6 @@
-using Zentrix.Models;
+using Vindioo.Models;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// Waarschuwt dat een bewaarde veiling bijna afloopt.

@@ -1,8 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Windows.Threading;
-using Zentrix.Models;
+using Vindioo.Models;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// Kijkt elke halve minuut welke zoekopdrachten aan de beurt zijn en voert ze

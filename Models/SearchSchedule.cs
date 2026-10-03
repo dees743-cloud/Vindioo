@@ -1,4 +1,4 @@
-namespace Zentrix.Models;
+namespace Vindioo.Models;
 
 /// <summary>Hoe vaak een zoekopdracht vanzelf opnieuw draait.</summary>
 public enum ScheduleMode

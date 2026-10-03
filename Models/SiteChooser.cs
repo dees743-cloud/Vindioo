@@ -1,6 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace Zentrix.Models;
+namespace Vindioo.Models;
 
 /// <summary>
 /// Het chipje achteraan de tabstrip waarmee je kiest welke sites meezoeken.

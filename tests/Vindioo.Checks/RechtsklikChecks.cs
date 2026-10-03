@@ -1,11 +1,11 @@
-using Zentrix.Models;
-using Zentrix.Services;
-using Zentrix.Sources;
+using Vindioo.Models;
+using Vindioo.Services;
+using Vindioo.Sources;
 
-namespace Zentrix.Checks;
+namespace Vindioo.Checks;
 
 /// <summary>
-/// Rechtsklikken in Chrome op een zoekertje: <i>Zet in favorieten van Zentrix</i>.
+/// Rechtsklikken in Chrome op een zoekertje: <i>Zet in favorieten van Vindioo</i>.
 ///
 /// Dit is de enige weg waarbij de app iets aanneemt dat ze niet gevraagd heeft, en dan nog een
 /// webadres dat ze zelf gaat ophalen. Daarom gaat het grootste deel hieronder over wat er
@@ -134,7 +134,7 @@ public static class RechtsklikChecks
                 "een gewone link komt bij de juiste site");
 
             // www ervoor of eraf is dezelfde site. Zonder dit zou een link van 2dehands.be
-            // "Zentrix kent deze site niet" opleveren terwijl de site er gewoon staat.
+            // "Vindioo kent deze site niet" opleveren terwijl de site er gewoon staat.
             Check.Dat(FavoriteFromUrl.SiteVoor("https://2dehands.be/v/audio/123", sites)?.Name == "2dehands",
                 "en zonder www ook");
 
@@ -173,10 +173,10 @@ public static class RechtsklikChecks
         }
 
         // ---------------------------------------------------------------------------
-        Check.Groep("Rechtsklik: een kavel van een veilinghuis dat Zentrix niet kent");
+        Check.Groep("Rechtsklik: een kavel van een veilinghuis dat Vindioo niet kent");
         {
             // Je staat op bopa.be en wil dat kavel bewaren, maar bopa.be staat niet bij je sites.
-            // Zentrix zoekt het dan terug op je veilingsites, en bewaart ENKEL bij een zekere
+            // Vindioo zoekt het dan terug op je veilingsites, en bewaart ENKEL bij een zekere
             // treffer: de pagina van de kandidaat moet het adres bevatten waarop jij klikte.
 
             // 1. De zoekterm. <h1> gaat voor, want de <title> van zo'n pagina is vaak die van de

@@ -3,10 +3,10 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using Zentrix.Models;
-using Zentrix.Services;
+using Vindioo.Models;
+using Vindioo.Services;
 
-namespace Zentrix;
+namespace Vindioo;
 
 /// <summary>Eén gelezen titel met wat ze ongeveer waard is, klaar om te tonen.</summary>
 public class LotRowView

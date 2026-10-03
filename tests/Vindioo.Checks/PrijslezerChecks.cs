@@ -1,7 +1,7 @@
-using Zentrix.Models;
-using Zentrix.Sources;
+using Vindioo.Models;
+using Vindioo.Sources;
 
-namespace Zentrix.Checks;
+namespace Vindioo.Checks;
 
 /// <summary>
 /// De prijs uit de tekst van een site lezen (<see cref="PriceParser"/>).

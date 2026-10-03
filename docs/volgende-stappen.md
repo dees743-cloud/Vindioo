@@ -1,11 +1,11 @@
 # Volgende stappen
 
-Onderdeel van de documentatie van Zentrix; de korte versie staat in
+Onderdeel van de documentatie van Vindioo; de korte versie staat in
 [CLAUDE.md](../CLAUDE.md).
 
 ## Volgende stappen
 
-Wat er per site nog ontbreekt, staat bij "Nog open" in `SITES.md` van `zentrix-sites`.
+Wat er per site nog ontbreekt, staat bij "Nog open" in `SITES.md` van `vindioo-sites`.
 Hieronder enkel wat aan de app zelf te doen valt.
 
 1. **Facebook verliest soms een kwart van zijn kaarten tussen het scrollen en het lezen.**
@@ -64,7 +64,7 @@ Hieronder enkel wat aan de app zelf te doen valt.
 6. Losse eindjes: `country` en `photosOnly` staan nog als ongebruikte kolommen
    in de SQLite-tabel van bewaarde zoekopdrachten (`photosOnly` zit nu in het JSON-blokje `config`).
    De ballon in het systeemvak toonde "zoekhulp" als afzender, de naam van het
-   proces. Sinds de exe `Zentrix.exe` heet is dat vermoedelijk opgelost - nog na te
+   proces. Sinds de exe `Vindioo.exe` heet is dat vermoedelijk opgelost - nog na te
    kijken; anders vraagt het een AppUserModelID.
 7. Uit de adviesronde van 15 september 2026, nog niet gedaan:
    - **Tekststijlen opruimen.** `TitleText`, `HeadingText`, `BodyText` en `CaptionText`
@@ -96,15 +96,15 @@ Hieronder enkel wat aan de app zelf te doen valt.
    - **Toetsenbord**: het sitechipje en de tabs zijn niet met Tab te bereiken.
    - **Zonder extensie** wacht elke zoekopdracht met een brugsite 30 seconden; de melding zegt
      nu wel hoe je de extensie installeert.
-   - ~~**GitHub**~~ (beslist op 17 september 2026, **gedaan op 27 september**): `Zentrix` en
-     `zentrix-sites` staan als **privé**-repositories op `dees743-cloud`, met het afgeschermde
+   - ~~**GitHub**~~ (beslist op 17 september 2026, **gedaan op 27 september**): `Vindioo` en
+     `vindioo-sites` staan als **privé**-repositories op `dees743-cloud`, met het afgeschermde
      noreply-adres als afzender. Nagekeken op de remote zelf, niet enkel lokaal: er staat geen
      `.claude/`, `.codex/`, `AGENTS.md` of `chatgpt_tips.md` op, en geen `bin`, `obj`, `.vs` of
      `.user`. Pushen gaat sindsdien na elke commit, zonder het apart te vragen.
 
      **Openbaar maken is een aparte beslissing**, en die is in twee stappen genomen. Op
      27 september 2026 luidde het antwoord nee, met drie dingen die eerst moesten gebeuren; op
-     **29 september is `Zentrix` openbaar gezet** nadat die drie er waren:
+     **29 september is `Vindioo` openbaar gezet** nadat die drie er waren:
 
      - een **README** als voordeur - wat het is, hoe je het bouwt, en meteen eerlijk dat de app
        zonder sites komt en waarom;
@@ -118,13 +118,13 @@ Hieronder enkel wat aan de app zelf te doen valt.
        auteur bij elke commit - dat is bij elke openbare repository zo, en het e-mailadres is het
        afgeschermde noreply-adres.
 
-     **`zentrix-sites` blijft privé, en dat is principieel.** Die bestanden en `SITES.md`
+     **`vindioo-sites` blijft privé, en dat is principieel.** Die bestanden en `SITES.md`
      beschrijven per site hoe je zijn robotbeveiliging omzeilt, met de namen erbij, en bij
      Tweakers staat er zwart op wit dat we een pad gebruiken dat hun `robots.txt` verbiedt. Dat
      hoort niet als handleiding op straat. Daar komt bij dat `sites/facebook.json` het nummer van
      de Marketplace-regio houdt, en dat is bij benadering een woonplaats.
 
-     Dat de app zelf wél openbaar kan, komt door een keuze van ver daarvoor: **Zentrix kent geen
+     Dat de app zelf wél openbaar kan, komt door een keuze van ver daarvoor: **Vindioo kent geen
      enkele site bij naam.** Elke site is een bestand. Zonder die splitsing was deze beslissing
      niet te nemen geweest zonder de sites mee te geven.
 9. ~~**De twee zoeklussen samenbrengen**~~ (uit de beoordeling door ChatGPT van 20 september 2026).

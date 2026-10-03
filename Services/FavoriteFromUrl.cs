@@ -1,13 +1,13 @@
 using System.Net.Http;
 using System.Text.RegularExpressions;
-using Zentrix.Models;
-using Zentrix.Sources;
+using Vindioo.Models;
+using Vindioo.Sources;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// Maakt een favoriet van één webadres: wat er gebeurt wanneer je in Chrome op een zoekertje
-/// rechtsklikt en <i>Zet in favorieten van Zentrix</i> kiest.
+/// rechtsklikt en <i>Zet in favorieten van Vindioo</i> kiest.
 ///
 /// Dit is de <b>enige</b> plaats waar de brug de andere kant op werkt. Overal elders geeft de app
 /// werk aan de extensie; hier komt er iets binnen dat de app niet gevraagd heeft. Daarom staan er
@@ -77,7 +77,7 @@ public static class FavoriteFromUrl
     /// Haalt de pagina op, leest eruit wat er te lezen valt en zet het bij de favorieten.
     ///
     /// Geeft altijd een zin terug die je iets zegt, ook wanneer het niet lukte: dit gebeurt in
-    /// een ander venster dan Zentrix, dus een stille mislukking zou je nooit opmerken.
+    /// een ander venster dan Vindioo, dus een stille mislukking zou je nooit opmerken.
     /// </summary>
     public static async Task<Uitkomst> VoegToeAsync(string url, IReadOnlyList<SiteDefinition> sites,
                                                     HistoryStore history, CancellationToken ct = default)
@@ -107,14 +107,14 @@ public static class FavoriteFromUrl
         return await VanPaginaAsync(url, def, html, history, ct);
     }
 
-    // ---------- een kavel van een veilinghuis dat Zentrix niet kent ----------
+    // ---------- een kavel van een veilinghuis dat Vindioo niet kent ----------
     //
     // De aanleiding: je staat op bopa.be en wil dat kavel bewaren, maar bopa.be staat niet bij je
     // sites. Een sitebestand per veilinghuis maken is geen antwoord - AlleVeilingen verzamelt er
     // twintig, en die lijst verandert.
     //
     // Wat wél werkt, en wat de hele opzet draagt: een kavelpagina van AlleVeilingen draagt een
-    // link TERUG naar het veilinghuis ("Bekijk dit kavel op Bopa"). Daarmee hoeft Zentrix niet te
+    // link TERUG naar het veilinghuis ("Bekijk dit kavel op Bopa"). Daarmee hoeft Vindioo niet te
     // raden of twee kavels hetzelfde zijn - ze kan het adres waarop jij klikte terugvinden in de
     // pagina van de kandidaat. Komt het er niet in voor, dan is het een ander kavel. Punt.
     //
@@ -150,7 +150,7 @@ public static class FavoriteFromUrl
         var kern = Kern(url);
 
         if (kern.Length < MinimumKern)
-            return new Uitkomst(false, "Zentrix kent deze site niet, en dit adres is te kort om een kavel terug te vinden.");
+            return new Uitkomst(false, "Vindioo kent deze site niet, en dit adres is te kort om een kavel terug te vinden.");
 
         // Enkel veilingsites, en de goedkoopste eerst: een site die rechtstreeks antwoordt kost
         // een verzoek, een brugsite een rondje langs jouw Chrome.
@@ -161,7 +161,7 @@ public static class FavoriteFromUrl
             .ToList();
 
         if (veilingsites.Count == 0)
-            return new Uitkomst(false, "Zentrix kent deze site niet, en er is geen veilingsite om het kavel op terug te zoeken.");
+            return new Uitkomst(false, "Vindioo kent deze site niet, en er is geen veilingsite om het kavel op terug te zoeken.");
 
         using var client = HttpFactory.MaakClient(TimeSpan.FromSeconds(20));
 
@@ -174,13 +174,13 @@ public static class FavoriteFromUrl
         catch (Exception fout)
         {
             Log.Write($"favoriet uit Chrome: {url} kwam niet binnen - {fout.Message}");
-            return new Uitkomst(false, $"Zentrix kent deze site niet en kon de pagina niet ophalen: {FriendlyError.Describe(fout)}");
+            return new Uitkomst(false, $"Vindioo kent deze site niet en kon de pagina niet ophalen: {FriendlyError.Describe(fout)}");
         }
 
         var zoekterm = Zoekterm(html);
 
         if (zoekterm.Length == 0)
-            return new Uitkomst(false, "Zentrix kent deze site niet, en er viel geen titel uit de pagina te lezen.");
+            return new Uitkomst(false, "Vindioo kent deze site niet, en er viel geen titel uit de pagina te lezen.");
 
         foreach (var site in veilingsites)
         {

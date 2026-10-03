@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using Zentrix.Sources;
+using Vindioo.Sources;
 
-namespace Zentrix.Models;
+namespace Vindioo.Models;
 
 /// <summary>
 /// Eén tabblad in het zoekscherm: de site, of hij meezoekt, of zijn tab open

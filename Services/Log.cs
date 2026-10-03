@@ -1,6 +1,6 @@
 using System.IO;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// Eenvoudig logboek in een tekstbestand, zodat achteraf te zien is waar iets

@@ -1,8 +1,8 @@
 using System.Globalization;
 using System.Windows;
-using Zentrix.Services;
+using Vindioo.Services;
 
-namespace Zentrix;
+namespace Vindioo;
 
 /// <summary>
 /// Waar meldingen heen gaan, en hoe de app zich op de achtergrond gedraagt.

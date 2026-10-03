@@ -5,7 +5,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// Kleine lokale server waarmee de browserextensie praat. Luistert enkel op
@@ -22,7 +22,21 @@ public class BridgeServer
     /// zonder eerst toestemming te vragen, en die toestemming krijgt enkel de extensie
     /// (zie <see cref="WriteAsync"/>).
     /// </summary>
-    public const string ExtensionHeader = "X-Zentrix-Brug";
+    public const string ExtensionHeader = "X-Vindioo-Brug";
+
+    /// <summary>
+    /// Dezelfde drie kopregels zoals ze heetten voor de hernoeming. De server aanvaardt ze
+    /// nog; de extensie stuurt enkel de nieuwe.
+    ///
+    /// <para><b>Waarom dat moet.</b> De app en de extensie worden NIET samen bijgewerkt. De
+    /// extensie staat uitgepakt in jouw Chrome en komt niet mee in de zip - je laadt ze zelf
+    /// opnieuw. Hernoem je beide kanten tegelijk, dan weigert een nieuwe app een extensie die
+    /// nog niet herladen is, en wordt "de brug meldde zich niet" het enige dat je ziet. Dit
+    /// mag weg zodra er een versie voorbij is waarin iedereen de extensie herladen heeft.</para>
+    /// </summary>
+    public const string OudeExtensionHeader = "X-Zentrix-Brug";
+    public const string OudeSignatureHeader = "X-Zentrix-Sig";
+    public const string OudePreHeader = "X-Zentrix-Voor";
 
     /// <summary>
     /// De handtekening over een verzoek of een antwoord: HMAC-SHA256 met de koppelcode.
@@ -32,7 +46,7 @@ public class BridgeServer
     /// poort eerst bezet kende hem - en kon jouw aangemelde browser pagina's laten ophalen, met
     /// jouw cookies. Nu bewijst elke kant enkel dát hij de code kent.
     /// </summary>
-    public const string SignatureHeader = "X-Zentrix-Sig";
+    public const string SignatureHeader = "X-Vindioo-Sig";
 
     /// <summary>
     /// De handtekening over <b>enkel de nonce</b>, die dus al na te kijken is met de kopregels
@@ -44,7 +58,20 @@ public class BridgeServer
     /// handtekening óver de body kan dat per definitie niet, dus zonder deze tweede kopregel zou
     /// die rem er stilletjes uit zijn.
     /// </summary>
-    public const string PreHeader = "X-Zentrix-Voor";
+    public const string PreHeader = "X-Vindioo-Voor";
+
+    /// <summary>
+    /// De waarde van een kopregel, of null wanneer deze regel het niet is. Kijkt op de naam van
+    /// nu en op de oude naam, zodat een extensie die nog niet herladen is blijft werken.
+    /// </summary>
+    private static string? Kopregel(string regel, string naam, string oud)
+    {
+        foreach (var kandidaat in new[] { naam, oud })
+            if (regel.StartsWith(kandidaat + ":", StringComparison.OrdinalIgnoreCase))
+                return regel[(kandidaat.Length + 1)..].Trim();
+
+        return null;
+    }
 
     /// <summary>Het wegwerpgetal dat per verzoek meegaat. Geen geheim: het mag in het adres.</summary>
     public const string NonceParam = "n";
@@ -138,7 +165,7 @@ public class BridgeServer
     // Tot 22 september 2026 las de brug elke kop en elke body tot het einde, hoe groot ook,
     // en reserveerde ze meteen de grootte die een verzoek aankondigde: "Content-Length:
     // 1500000000" legde 1,5 GB vast nog voor er één byte binnen was, en een verbinding die
-    // zweeg, bleef open tot Zentrix stopte. Elk programma op deze pc kan de brug aanspreken.
+    // zweeg, bleef open tot Vindioo stopte. Elk programma op deze pc kan de brug aanspreken.
 
     /// <summary>
     /// Zo groot mag een levering van de extensie zijn. De grootste in het logboek tot dan was
@@ -233,7 +260,7 @@ public class BridgeServer
         }
         catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
         {
-            // Een ander programma, of een Zentrix van een andere Windows-gebruiker, houdt de
+            // Een ander programma, of een Vindioo van een andere Windows-gebruiker, houdt de
             // poort vast. Vroeger viel de app daardoor al om bij het opbouwen van het
             // hoofdscherm: de snelkoppeling leek dan niets te doen.
             if (!PortBusy) Log.Write($"brug: poort {Port} is bezet; de brug werkt niet tot die vrijkomt");
@@ -400,12 +427,12 @@ public class BridgeServer
                         long.TryParse(line[15..].Trim(), out contentLength);
                     else if (line.StartsWith("Origin:", StringComparison.OrdinalIgnoreCase))
                         origin = line[7..].Trim();
-                    else if (line.StartsWith(ExtensionHeader + ":", StringComparison.OrdinalIgnoreCase))
+                    else if (Kopregel(line, ExtensionHeader, OudeExtensionHeader) is not null)
                         vanExtensie = true;
-                    else if (line.StartsWith(SignatureHeader + ":", StringComparison.OrdinalIgnoreCase))
-                        handtekening = line[(SignatureHeader.Length + 1)..].Trim();
-                    else if (line.StartsWith(PreHeader + ":", StringComparison.OrdinalIgnoreCase))
-                        voorcontrole = line[(PreHeader.Length + 1)..].Trim();
+                    else if (Kopregel(line, SignatureHeader, OudeSignatureHeader) is { } sig)
+                        handtekening = sig;
+                    else if (Kopregel(line, PreHeader, OudePreHeader) is { } voor)
+                        voorcontrole = voor;
                     else if (line.StartsWith("Host:", StringComparison.OrdinalIgnoreCase))
                         gastheer = line[5..].Trim();
                 }
@@ -624,11 +651,11 @@ public class BridgeServer
                 return JsonSerializer.Serialize(new { });
 
             // Van Chrome naar hier, de enige weg die die kant op gaat: je rechtsklikte op een
-            // zoekertje en koos "Zet in favorieten van Zentrix". Zie FavoriteFromUrl voor wat er
+            // zoekertje en koos "Zet in favorieten van Vindioo". Zie FavoriteFromUrl voor wat er
             // allemaal nagekeken wordt voor dat adres opgehaald mag worden.
             case "/favorite":
                 if (FavorietToevoegen is null)
-                    return JsonSerializer.Serialize(new { ok = false, melding = "Zentrix is nog aan het opstarten." });
+                    return JsonSerializer.Serialize(new { ok = false, melding = "Vindioo is nog aan het opstarten." });
 
                 try
                 {
@@ -644,7 +671,7 @@ public class BridgeServer
                 catch (Exception fout)
                 {
                     Log.Write($"brug: favoriet uit Chrome liep vast - {fout.Message}");
-                    return JsonSerializer.Serialize(new { ok = false, melding = "Zentrix kon dit niet verwerken." });
+                    return JsonSerializer.Serialize(new { ok = false, melding = "Vindioo kon dit niet verwerken." });
                 }
 
             // De extensie levert de opgehaalde pagina af.
@@ -774,7 +801,8 @@ public class BridgeServer
 
         var cors = origin is not null && origin.StartsWith("chrome-extension://", StringComparison.OrdinalIgnoreCase)
             ? $"Access-Control-Allow-Origin: {origin}\r\n" +
-              $"Access-Control-Allow-Headers: Content-Type, {ExtensionHeader}, {SignatureHeader}, {PreHeader}\r\n" +
+              $"Access-Control-Allow-Headers: Content-Type, {ExtensionHeader}, {SignatureHeader}, " +
+              $"{PreHeader}, {OudeExtensionHeader}, {OudeSignatureHeader}, {OudePreHeader}\r\n" +
               $"Access-Control-Expose-Headers: {SignatureHeader}\r\n" +
               "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" +
               "Access-Control-Max-Age: 600\r\n" +

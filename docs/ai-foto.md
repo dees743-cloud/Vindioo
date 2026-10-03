@@ -1,6 +1,6 @@
 # AI-controle op een foto, lokaal op de grafische kaart
 
-Onderdeel van de documentatie van Zentrix; de korte versie staat in
+Onderdeel van de documentatie van Vindioo; de korte versie staat in
 [CLAUDE.md](../CLAUDE.md).
 
 ### AI-controle op een foto: wat zie ik hier niet
@@ -157,7 +157,7 @@ beschrijving belandt sindsdien ook in het logboek, en het venster laat dan staan
   elk ander veld, dus gerust met `::replace` erachter om de grote variant te krijgen. Ontbreekt het
   veld, dan blijft het bij de foto van de zoekpagina. Ingevuld op 25 september 2026 voor 2dehands,
   Marktplaats en AlleVeilingen; welke selector en wat er gemeten is, staat in `SITES.md` van
-  `zentrix-sites`.
+  `vindioo-sites`.
 - **De foto die we al hebben staat vooraan.** Die is er zeker, en zo kan de AI-controle beginnen
   ook als de pagina niets extra's geeft.
 - **Dubbels vallen weg**, want een site zet dezelfde foto vaak twee keer op de pagina: klein in het

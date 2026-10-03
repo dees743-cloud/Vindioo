@@ -1,6 +1,6 @@
-using Zentrix.Models;
+using Vindioo.Models;
 
-namespace Zentrix.Models;
+namespace Vindioo.Models;
 
 /// <summary>
 /// De instellingen van één site binnen één zoekopdracht: of hij meezoekt en met

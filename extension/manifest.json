@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Zentrix Brug",
-  "version": "2.1",
-  "description": "Haalt zoekpagina's op in je eigen browser en geeft ze door aan de Zentrix-app op deze computer.",
+  "name": "Vindioo Brug",
+  "version": "2.2",
+  "description": "Haalt zoekpagina's op in je eigen browser en geeft ze door aan de Vindioo-app op deze computer.",
   "permissions": ["tabs", "scripting", "storage", "alarms", "contextMenus", "notifications"],
   "host_permissions": ["http://127.0.0.1/*"],
   "optional_host_permissions": ["https://*/*"],
@@ -16,6 +16,6 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Zentrix Brug"
+    "default_title": "Vindioo Brug"
   }
 }

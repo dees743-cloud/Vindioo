@@ -1,4 +1,4 @@
-namespace Zentrix.Models;
+namespace Vindioo.Models;
 
 /// <summary>
 /// Een zoekterm die eerder gebruikt is. Anders dan een <see cref="SavedSearch"/>

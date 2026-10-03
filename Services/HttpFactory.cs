@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// Hoe de app zich aan een site voorstelt, en hoe een <see cref="HttpClient"/> hier gemaakt

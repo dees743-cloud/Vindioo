@@ -1,15 +1,15 @@
 using System.Reflection;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
-/// Welke versie van Zentrix er draait.
+/// Welke versie van Vindioo er draait.
 ///
 /// Het nummer staat op één plaats - <c>&lt;Version&gt;</c> in het csproj - en wordt hier uit de
 /// assembly gelezen. Zo kan het niet uit de pas lopen met wat er op het bestand staat.
 ///
 /// Waarom het zichtbaar moet zijn: er staan twee exe's op deze pc, een uit Visual Studio
-/// (<c>bin\Debug\...</c>) en een gepubliceerde (bij mij <c>C:\Zentrix</c>), en die delen
+/// (<c>bin\Debug\...</c>) en een gepubliceerde (bij mij <c>C:\Vindioo</c>), en die delen
 /// dezelfde gegevensmap. Aan het scherm was tot 27 september 2026 niet te zien welke van de
 /// twee je voor je had, en na het publiceren van een wijziging is dat precies wat je wil weten.
 /// </summary>
@@ -18,8 +18,8 @@ public static class Versie
     /// <summary>"0.9.0", uit het csproj.</summary>
     public static string Nummer { get; } = Lees();
 
-    /// <summary>"Zentrix 0.9.0", voor in het menu en het logboek.</summary>
-    public static string Volledig => "Zentrix " + Nummer;
+    /// <summary>"Vindioo 0.9.0", voor in het menu en het logboek.</summary>
+    public static string Volledig => "Vindioo " + Nummer;
 
     private static string Lees()
     {

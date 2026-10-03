@@ -1,6 +1,6 @@
-// Zentrix Brug
+// Vindioo Brug
 //
-// Vraagt elke seconde aan de Zentrix-app of er een pagina opgehaald moet
+// Vraagt elke seconde aan de Vindioo-app of er een pagina opgehaald moet
 // worden. Zo ja: opent die op de achtergrond in een tabblad, wacht tot ze
 // geladen is, leest de HTML uit en sluit het tabblad weer.
 //
@@ -12,7 +12,7 @@ const APP_URL = "http://127.0.0.1:8731";
 // webpagina. Een webpagina kan hem niet meesturen: daarvoor moet ze eerst toestemming
 // vragen, en die geeft de app enkel aan de extensie. Zonder deze kopregel kon een
 // webpagina met een verzonnen code de app laten denken dat de koppelcode niet klopte.
-const BRUG_KOP = { "X-Zentrix-Brug": "1" };
+const BRUG_KOP = { "X-Vindioo-Brug": "1" };
 
 // ---------- bewijzen dat je de koppelcode kent, zonder hem te versturen ----------
 //
@@ -25,8 +25,8 @@ const BRUG_KOP = { "X-Zentrix-Brug": "1" };
 //   - wij tekenen wat we sturen, zodat de app weet dat het van ons komt;
 //   - de app tekent wat ze antwoordt, zodat wij weten dat we met de ECHTE app praten.
 // Dat tweede is wat deze extensie beschermt: zij voert uit wat daaruit komt.
-const SIG_KOP = "X-Zentrix-Sig";
-const VOOR_KOP = "X-Zentrix-Voor";
+const SIG_KOP = "X-Vindioo-Sig";
+const VOOR_KOP = "X-Vindioo-Voor";
 
 async function teken(code, data) {
   const enc = new TextEncoder();
@@ -44,7 +44,7 @@ function nonce() {
 }
 
 /// Een verzoek aan de app, getekend. Geeft het antwoord terug, of null wanneer de
-/// handtekening van de app niet klopt - dan praten we niet met Zentrix.
+/// handtekening van de app niet klopt - dan praten we niet met Vindioo.
 async function vraagApp(code, pad, body = null) {
   const n = nonce();
   const inhoud = body === null ? "" : JSON.stringify(body);
@@ -186,7 +186,7 @@ async function mag(adres) {
 /// Onthoudt een host waarvoor we toestemming misten, zodat de popup hem kan aanbieden.
 ///
 /// Dit vult aan wat de app zelf doorgeeft (/hosts kent de sites die via de brug zoeken). Het
-/// vangt de twee gevallen die daar niet in staan: een nieuwe site die je in Zentrix laat
+/// vangt de twee gevallen die daar niet in staan: een nieuwe site die je in Vindioo laat
 /// analyseren, en een site die doorverwijst naar een andere naam (2dehands.be naar
 /// www.2dehands.be).
 async function onthoudNodig(host) {
@@ -203,10 +203,10 @@ async function onthoudNodig(host) {
   }
 }
 
-/// De zin die de app te zien krijgt wanneer een opdracht geweigerd wordt. Die komt in Zentrix
+/// De zin die de app te zien krijgt wanneer een opdracht geweigerd wordt. Die komt in Vindioo
 /// bij de site te staan, dus hij moet zeggen wat je eraan doet.
 function geenToegangTekst(host) {
-  return `de brug mag nog niet aan ${host} - klik op het Zentrix-pictogram in Chrome en geef toegang`;
+  return `de brug mag nog niet aan ${host} - klik op het Vindioo-pictogram in Chrome en geef toegang`;
 }
 
 /// Staat het tabblad op een pagina waar we niet in mogen kijken? Geeft de reden terug, of null.
@@ -231,7 +231,7 @@ async function waaromGeenToegang(tabId) {
   }
 }
 
-console.log("[brug] versie 10 geladen — rechtsklikken op een zoekertje zet het bij je favorieten in Zentrix");
+console.log("[brug] versie 11 geladen — nieuwe naam: Vindioo, en nieuwe kopregels X-Vindioo-*");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -632,7 +632,7 @@ async function sendResult(token, payload) {
 ///
 /// Twee bronnen, en samen dekken ze alles: de app weet welke sites via de brug zoeken (/hosts),
 /// en wij onthouden wat er onderweg geweigerd werd. Dat tweede is er voor een site die nog niet
-/// in Zentrix staat (een nieuwe, die je laat analyseren) en voor een doorverwijzing.
+/// in Vindioo staat (een nieuwe, die je laat analyseren) en voor een doorverwijzing.
 async function hostLijst() {
   const hosts = new Set();
 
@@ -644,7 +644,7 @@ async function hostLijst() {
       if (uit && Array.isArray(uit.hosts)) uit.hosts.forEach((h) => hosts.add(h));
     }
   } catch (e) {
-    // Zentrix draait niet: dan blijft staan wat we zelf onthouden hebben.
+    // Vindioo draait niet: dan blijft staan wat we zelf onthouden hebben.
   }
 
   try {
@@ -663,7 +663,7 @@ async function hostLijst() {
   return uit;
 }
 
-// ---------- van Chrome naar Zentrix: rechtsklikken op een zoekertje ----------
+// ---------- van Chrome naar Vindioo: rechtsklikken op een zoekertje ----------
 //
 // De enige weg die deze kant op gaat. Overal elders geeft de app werk aan ons; hier sturen wij
 // iets dat zij niet gevraagd heeft - vandaar dat FavoriteFromUrl aan de andere kant nakijkt wat
@@ -674,7 +674,7 @@ async function hostLijst() {
 // en of dat via de brug gaat (en dus via jouw toestemming voor die site) hangt af van het
 // sitebestand.
 
-const MENU_ID = "zentrix-favoriet";
+const MENU_ID = "vindioo-favoriet";
 
 function maakMenu() {
   // removeAll eerst: bij elke herstart van het achtergrondscript zou create anders klagen dat
@@ -682,7 +682,7 @@ function maakMenu() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: MENU_ID,
-      title: "Zet in favorieten van Zentrix",
+      title: "Zet in favorieten van Vindioo",
       contexts: ["link", "page"]
     }, () => {
       // Met een terugmelding, want zonder was dit niet na te gaan: staat het item er niet, dan
@@ -714,7 +714,7 @@ function meld(tekst) {
     chrome.notifications.create({
       type: "basic",
       iconUrl: "icon128.png",
-      title: "Zentrix",
+      title: "Vindioo",
       message: tekst
     });
   } catch (e) {
@@ -740,18 +740,18 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
   const token = await getToken();
 
   if (!token) {
-    meld("Vul eerst de koppelcode in: klik op het Zentrix-pictogram in Chrome.");
+    meld("Vul eerst de koppelcode in: klik op het Vindioo-pictogram in Chrome.");
     return;
   }
 
   try {
     const uit = await vraagApp(token, "/favorite", { url: adres });
 
-    if (!uit || uit.nietDeApp) meld("Er zit iets anders op poort 8731; dit is Zentrix niet.");
-    else if (uit.error) meld("Zentrix weigerde de koppelcode. Kopieer ze opnieuw uit de app.");
+    if (!uit || uit.nietDeApp) meld("Er zit iets anders op poort 8731; dit is Vindioo niet.");
+    else if (uit.error) meld("Vindioo weigerde de koppelcode. Kopieer ze opnieuw uit de app.");
     else meld(uit.melding || "Klaar.");
   } catch (e) {
-    meld("Zentrix draait niet op deze computer.");
+    meld("Vindioo draait niet op deze computer.");
   }
 });
 
@@ -777,7 +777,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // Meteen na "Code opslaan": vraagt de app of deze code klopt, zonder een opdracht
-  // aan te nemen. Zo zie je het verschil tussen "klopt", "klopt niet" en "Zentrix
+  // aan te nemen. Zo zie je het verschil tussen "klopt", "klopt niet" en "Vindioo
   // draait niet" op het moment dat je de code plakt, en niet pas bij het zoeken.
   if (message && message.type === "check") {
     vraagApp(message.token, "/ping")

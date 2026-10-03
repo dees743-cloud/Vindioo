@@ -3,10 +3,10 @@ using System.Globalization;
 using System.IO;
 using System.Net.Http;
 using System.Windows.Media.Imaging;
-using Zentrix.Models;
-using Zentrix.Sources;
+using Vindioo.Models;
+using Vindioo.Sources;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// Haalt aan wat niet op de zoekpagina van een site staat: de sluitingsdatum van een veiling

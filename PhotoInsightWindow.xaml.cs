@@ -4,10 +4,10 @@ using System.Net.Http;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using Zentrix.Models;
-using Zentrix.Services;
+using Vindioo.Models;
+using Vindioo.Services;
 
-namespace Zentrix;
+namespace Vindioo;
 
 /// <summary>
 /// Wat er van één foto gelezen is, klaar om te tonen. Het verhaal staat hier niet in: dat is er

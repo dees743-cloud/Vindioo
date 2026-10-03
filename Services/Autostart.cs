@@ -1,7 +1,7 @@
-using System.IO;
+﻿using System.IO;
 using Microsoft.Win32;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// Zet de app mee in de opstart van Windows. Dat gebeurt met een waarde onder
@@ -14,7 +14,18 @@ namespace Zentrix.Services;
 public static class Autostart
 {
     private const string Sleutel = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string Naam = "Zentrix";
+    private const string Naam = "Vindioo";
+
+    /// <summary>
+    /// Hoe deze waarde vroeger heette, nieuwste eerst. <b>Niet weghalen.</b>
+    ///
+    /// Een hernoeming zonder dit zou twee dingen tegelijk fout doen: het vinkje "opstarten met
+    /// Windows" staat ineens uit terwijl de gebruiker het aanzette, én de oude waarde blijft in
+    /// het register staan en wijst naar de oude exe. Windows start die dan elke keer gewoon mee
+    /// op - een app die je dacht hernoemd te hebben, die bij elke aanmelding terugkomt onder
+    /// zijn oude naam en naar een lege gegevensmap kijkt. Zie <see cref="NeemOudeOver"/>.
+    /// </summary>
+    private static readonly string[] OudeNamen = { "Zentrix", "Zoekhulp" };
 
     public static bool IsEnabled
     {
@@ -35,12 +46,14 @@ public static class Autostart
     /// <summary>
     /// Zet het pad in het register gelijk met de exe die nu draait, als opstarten met
     /// Windows aanstaat. Het register bewaart het volledige pad, en sinds de exe
-    /// Zentrix.exe heet in plaats van zoekhulp.exe wees dat naar een bestand dat niet
+    /// Vindioo.exe heet in plaats van Zentrix.exe wees dat naar een bestand dat niet
     /// meer bestaat: Windows start dan stilletjes niets. Hetzelfde gebeurt wanneer je
     /// de app naar een andere map verplaatst.
     /// </summary>
     public static void RefreshPath()
     {
+        NeemOudeOver();
+
         var exe = ExePad();
         if (exe is null) return;
 
@@ -60,10 +73,55 @@ public static class Autostart
     }
 
     /// <summary>
-    /// Het pad van Zentrix.exe. Wordt de app gestart als "dotnet Zentrix.dll" - zo doen
+    /// Stond de app onder een oude naam in de opstart van Windows, neem dat dan over en haal
+    /// de oude waarde weg.
+    ///
+    /// <para>Het weghalen is het belangrijkste deel, en niet het overnemen. Een waarde die
+    /// blijft staan, wijst naar de oude exe: Windows start die bij elke aanmelding mee op,
+    /// naast de nieuwe. Je krijgt dan twee apps die allebei denken dat ze de enige zijn - ze
+    /// hebben immers elk hun eigen slot - waarvan er één naar een gegevensmap kijkt die
+    /// intussen verhuisd is.</para>
+    ///
+    /// Gebeurt bij elke start, niet één keer: wie een oude versie nog eens opent nadat hij al
+    /// overgestapt was, zet die waarde zo weer terug.
+    /// </summary>
+    private static void NeemOudeOver()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(Sleutel, writable: true);
+            if (key is null) return;
+
+            var stondAan = key.GetValue(Naam) is not null;
+
+            foreach (var oud in OudeNamen)
+            {
+                if (key.GetValue(oud) is null) continue;
+
+                key.DeleteValue(oud, throwOnMissingValue: false);
+                Log.Write($"opstarten met Windows: de oude registerwaarde '{oud}' is weggehaald");
+
+                // Enkel wanneer het nog niet onder de nieuwe naam stond. Anders zou een
+                // achtergebleven oude waarde het vinkje weer kunnen aanzetten.
+                if (!stondAan)
+                {
+                    stondAan = true;
+                    Set(true);
+                    Log.Write("opstarten met Windows stond aan onder de oude naam en is overgenomen");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Write("de oude opstartwaarde kon niet nagekeken worden - " + ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Het pad van Vindioo.exe. Wordt de app gestart als "dotnet Vindioo.dll" - zo doen
     /// testprogramma's en scripts het - dan is het proces dotnet.exe, en dan stond er in het
     /// register "dotnet.exe --systeemvak": Windows startte daarmee niets. Dan nemen we de
-    /// Zentrix.exe naast de dll, en als die er niet is, niets (en laten we het register staan).
+    /// Vindioo.exe naast de dll, en als die er niet is, niets (en laten we het register staan).
     /// </summary>
     internal static string? ExePad()
     {
@@ -77,7 +135,7 @@ public static class Autostart
         var naast = string.IsNullOrEmpty(dll) ? null : Path.ChangeExtension(dll, ".exe");
 
         return naast is not null && File.Exists(naast) &&
-               Path.GetFileNameWithoutExtension(naast).Equals("Zentrix", StringComparison.OrdinalIgnoreCase)
+               Path.GetFileNameWithoutExtension(naast).Equals("Vindioo", StringComparison.OrdinalIgnoreCase)
             ? naast
             : null;
     }

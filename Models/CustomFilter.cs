@@ -1,4 +1,4 @@
-namespace Zentrix.Models;
+namespace Vindioo.Models;
 
 /// <summary>Wat voor invoer een sitegebonden filter vraagt.</summary>
 public enum CustomFilterKind

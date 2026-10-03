@@ -1,13 +1,13 @@
 # Sitebestanden: motoren, URL-stijlen, filters en kopregels
 
-Onderdeel van de documentatie van Zentrix; de korte versie staat in
+Onderdeel van de documentatie van Vindioo; de korte versie staat in
 [CLAUDE.md](../CLAUDE.md).
 
 ## Werkende bronnen en hun eigenaardigheden
 
 De eigenaardigheden **per site** - welke selectors, welke parameters, wat er bij het
 inregelen misging - staan niet meer hier maar in `SITES.md` van de aparte repository
-`zentrix-sites` (naast deze map: `..\zentrix-sites`). De app kent geen enkele site bij
+`vindioo-sites` (naast deze map: `..\vindioo-sites`). De app kent geen enkele site bij
 naam; wat hieronder volgt, geldt voor elke site.
 
 **Server-side zoekfilters.** Elke site-beschrijving heeft een `Filters`-mapping:
@@ -289,7 +289,7 @@ te houden.
 Tel niet enkel het totaal dat een API teruggeeft, en kijk of hij je filter echt begreep.
 Bij de `lrp`-API van 2dehands en Marktplaats telde het totaal de zoekterm en niet de
 filter, en werd een verkeerd gevormde filter aanvaard maar genegeerd. Het volledige
-verhaal staat in `SITES.md` van `zentrix-sites`.
+verhaal staat in `SITES.md` van `vindioo-sites`.
 
 ### Eigen kopregels per site
 
@@ -423,7 +423,7 @@ Een sitebestand is bedoeld om door te geven. Dat is de kracht ervan - en de rede
 
 - **De `Id` bepaalde waar er geschreven werd.** Die ging ongefilterd in `Path.Combine`, en dus
   schreef `"Id": "..\\..\\..\\..\\Temp\\ontsnapt"` buiten de sitesmap. Nagemeten met
-  `Path.GetFullPath`: `%APPDATA%\Zentrix\sites` werd
+  `Path.GetFullPath`: `%APPDATA%\Vindioo\sites` werd
   `%USERPROFILE%\Temp\ontsnapt.json`, en met een volledig pad (`C:\Windows\Temp\boos`) werd de
   sitesmap zelfs helemaal genegeerd. De `Id` gaat nu door `MakeSlug` - in `Add`, en nog eens in
   `FilePathFor` waar het pad werkelijk gemaakt wordt. Bestaande sites merken er niets van: hun

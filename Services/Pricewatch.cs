@@ -5,7 +5,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using AngleSharp.Html.Parser;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// De Pricewatch van Tweakers: wat kost dit <b>nieuw</b>, en - als het niet meer te koop is -

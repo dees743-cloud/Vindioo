@@ -1,6 +1,6 @@
-﻿using Zentrix.Models;
+﻿using Vindioo.Models;
 
-namespace Zentrix.Sources;
+namespace Vindioo.Sources;
 
 /// <summary>
 /// Contract waar elke bron aan voldoet. Zolang een nieuwe site dit implementeert,

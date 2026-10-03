@@ -130,8 +130,8 @@ teken = snij_bij(kaal.crop((0, 0, int(kaal.height * 0.78), kaal.height)), marge=
 
 maten = [16, 32, 48, 256]
 vierkant(teken).resize((256, 256), Image.LANCZOS).save(
-    os.path.join(DOEL, "zentrix.ico"), sizes=[(m, m) for m in maten])
-print("zentrix.ico ->", ", ".join(f"{m}x{m}" for m in maten))
+    os.path.join(DOEL, "vindioo.ico"), sizes=[(m, m) for m in maten])
+print("vindioo.ico ->", ", ".join(f"{m}x{m}" for m in maten))
 
 # ---------------------------------------------------------- achtergrond
 acht = Image.open(os.path.join(BRON, "background.png")).convert("RGB")

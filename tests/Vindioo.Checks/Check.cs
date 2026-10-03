@@ -1,4 +1,4 @@
-namespace Zentrix.Checks;
+namespace Vindioo.Checks;
 
 /// <summary>Het afdrukken en tellen van de controles.</summary>
 public static class Check
@@ -34,7 +34,7 @@ public static class Check
         while (map is not null)
         {
             if (System.IO.File.Exists(System.IO.Path.Combine(map.FullName, "CLAUDE.md")) &&
-                System.IO.File.Exists(System.IO.Path.Combine(map.FullName, "Zentrix.csproj")))
+                System.IO.File.Exists(System.IO.Path.Combine(map.FullName, "Vindioo.csproj")))
                 return map.FullName;
 
             map = map.Parent;

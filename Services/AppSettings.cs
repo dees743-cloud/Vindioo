@@ -4,7 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>Waar een melding heen gaat wanneer de planner iets nieuws vindt.</summary>
 public class NotifySettings
@@ -113,7 +113,7 @@ public class AppSettings
     public bool CloseToTray { get; set; } = true;
 
     /// <summary>
-    /// Is de ballon "Zentrix draait verder" al eens getoond? Die legt uit waar de
+    /// Is de ballon "Vindioo draait verder" al eens getoond? Die legt uit waar de
     /// app gebleven is, en dat hoef je maar één keer te lezen. Hij kwam vroeger bij
     /// élke keer sluiten.
     /// </summary>
@@ -279,7 +279,7 @@ public class AppSettings
     // (ProtectedData, voor de huidige gebruiker). Het bestand is dan enkel leesbaar voor
     // jouw Windows-account op deze pc: een kopie in een back-up, op OneDrive of op een
     // andere pc is waardeloos. Een programma dat onder jouw account draait, kan het wel
-    // lezen - daartegen helpt geen enkele bescherming die Zentrix zelf kan openen.
+    // lezen - daartegen helpt geen enkele bescherming die Vindioo zelf kan openen.
     //
     // Daarvoor stond het wachtwoord er als base64 in ("b64:"), en dat is geen bescherming:
     // wie het bestand opende, had het wachtwoord. Het token stond er gewoon leesbaar in.
@@ -290,8 +290,14 @@ public class AppSettings
 
     /// <summary>
     /// Een vast extraatje bij het beschermen. Een ander programma dat DPAPI gebruikt, kan
-    /// onze waarden zo niet per ongeluk openen. Nooit wijzigen: dan is wat al bewaard staat,
-    /// niet meer te lezen.
+    /// onze waarden zo niet per ongeluk openen.
+    ///
+    /// <para><b>Hier staat met opzet de oude naam, en die blijft staan.</b> Deze bytes zijn
+    /// geen tekst die iemand leest maar sleutelmateriaal: ze gingen mee in het versleutelen
+    /// van wat er nu in instellingen.json staat. Wijzig je ze - bijvoorbeeld door de app te
+    /// hernoemen en overal "Zentrix" te vervangen - dan is de bewaarde API-sleutel niet meer
+    /// te openen. Er komt geen foutmelding; er staat gewoon ineens geen sleutel meer. Bij de
+    /// hernoeming naar Vindioo op 3 oktober 2026 is dit daarom bewust blijven staan.</para>
     /// </summary>
     private static readonly byte[] Extra = "Zentrix-instellingen"u8.ToArray();
 

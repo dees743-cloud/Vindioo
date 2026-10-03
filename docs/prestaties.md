@@ -1,12 +1,12 @@
 # Snelheid: waar de tijd heen gaat, en het virtualiserende raster
 
-Onderdeel van de documentatie van Zentrix; de korte versie staat in
+Onderdeel van de documentatie van Vindioo; de korte versie staat in
 [CLAUDE.md](../CLAUDE.md).
 
 ## Hoe snel is het, en waar gaat de tijd heen
 
 Gemeten op **"cd"**, acht sites aangevinkt: **621 resultaten in 35 seconden**.
-De sites zijn de bestanden uit `zentrix-sites`; ze staan hier als meetpunten, want wat
+De sites zijn de bestanden uit `vindioo-sites`; ze staan hier als meetpunten, want wat
 er sneller werd zit in de app. Per bron, met waar het vandaan kwam:
 
 | Bron | Weg | Tijd | Was | Resultaten |
@@ -161,12 +161,12 @@ allereerste.
 Studio gestopt werd terwijl ze zocht) houdt het profiel vast. `BrowserFetcher` sluit die
 af voor hij Chrome start (`SluitAchtergeblevenChrome`), maar enkel een Chrome-proces dat
 aan twee voorwaarden voldoet: zijn opdrachtregel noemt **onze** profielmap, en het is
-ouder dan deze Zentrix. .NET kan de opdrachtregel van een ander proces niet lezen; die
+ouder dan deze Vindioo. .NET kan de opdrachtregel van een ander proces niet lezen; die
 komt van `NtQueryInformationProcess` (klasse 60), waarvoor het beperkte leesrecht volstaat.
 
 Tot september 2026 ging elk Chrome-proces zonder venster dicht dat jonger was dan een
 minuut. Dat trof de gewone Chrome van de gebruiker: een tabblad dat net openging, en de
-extensie van de brug wanneer Zentrix Chrome daarvoor net zelf gestart had. Sinds de
+extensie van de brug wanneer Vindioo Chrome daarvoor net zelf gestart had. Sinds de
 rijstroken start de browserstrook tegelijk met de brug, dus dat viel samen. Nagemeten met
 nep-Chromes (een kopie van `cmd.exe` met de naam `chrome.exe`): de oude met ons profiel
 ging dicht, een oude zonder ons profiel en een jonge met ons profiel bleven, en de 22

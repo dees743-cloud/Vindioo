@@ -2,9 +2,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
-using Zentrix.Models;
+using Vindioo.Models;
 
-namespace Zentrix.Controls;
+namespace Vindioo.Controls;
 
 /// <summary>
 /// Bouwt de invoer voor de filters die maar op één site bestaan, uit hun

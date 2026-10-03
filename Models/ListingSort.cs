@@ -1,6 +1,6 @@
 using System.Collections;
 
-namespace Zentrix.Models;
+namespace Vindioo.Models;
 
 /// <summary>In welke volgorde de resultaten op het scherm staan.</summary>
 public enum ListingSort

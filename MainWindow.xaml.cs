@@ -8,12 +8,12 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
-using Zentrix.Controls;
-using Zentrix.Models;
-using Zentrix.Services;
-using Zentrix.Sources;
+using Vindioo.Controls;
+using Vindioo.Models;
+using Vindioo.Services;
+using Vindioo.Sources;
 
-namespace Zentrix;
+namespace Vindioo;
 
 public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 {
@@ -253,7 +253,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         // Wie het venster opent, heeft de melding gezien: de tekst bij het pictogram in het
         // systeemvak ("3 nieuw bij ...") bleef anders staan tot de app herstartte.
-        Activated += (_, _) => _tray?.SetTooltip("Zentrix");
+        Activated += (_, _) => _tray?.SetTooltip("Vindioo");
 
         PreviewKeyDown += MainWindow_PreviewKeyDown;
 
@@ -299,7 +299,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     /// systeemvak"): het pictogram en de planner, zonder het venster ooit te tonen. Dat wordt
     /// pas gemaakt en getekend wanneer je het opent.
     ///
-    /// Waarom: bij het opstarten van de pc bleef het venster soms spierwit, tot je Zentrix
+    /// Waarom: bij het opstarten van de pc bleef het venster soms spierwit, tot je Vindioo
     /// herstartte (22 september 2026). De app zelf liep gewoon - de planner zocht en stuurde
     /// een melding - enkel het tekenen faalde. Tot dan werd het venster ook bij een start door
     /// Windows eerst getoond en meteen weer verborgen, een minuut na het aanmelden, terwijl
@@ -355,8 +355,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             // Eén keer uitleggen waar de app gebleven is, niet bij elke keer sluiten.
             if (!AppSettings.Current.CloseToTrayExplained)
             {
-                _tray.ShowBalloon("Zentrix zoekt verder",
-                    "Zentrix draait verder op de achtergrond. Je vindt het pictogram rechtsonder bij de klok, " +
+                _tray.ShowBalloon("Vindioo zoekt verder",
+                    "Vindioo draait verder op de achtergrond. Je vindt het pictogram rechtsonder bij de klok, " +
                     "soms achter het pijltje. Afsluiten: rechtsklik op het pictogram > Afsluiten.");
 
                 AppSettings.Current.CloseToTrayExplained = true;
@@ -565,7 +565,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         UpdateEmptyHints();
 
         if (_tray is not null && outcome.New.Count > 0)
-            _tray.SetTooltip($"Zentrix — {outcome.New.Count} nieuw bij '{search.Name}'");
+            _tray.SetTooltip($"Vindioo — {outcome.New.Count} nieuw bij '{search.Name}'");
 
         if (_plannerOpScherm != search.Id) return;
         _plannerOpScherm = null;

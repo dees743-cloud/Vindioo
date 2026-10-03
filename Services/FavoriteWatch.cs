@@ -4,10 +4,10 @@ using System.Net.Http;
 using System.Text.Json;
 using AngleSharp.Dom;
 using AngleSharp.Html.Parser;
-using Zentrix.Models;
-using Zentrix.Sources;
+using Vindioo.Models;
+using Vindioo.Sources;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>Wat een favoriet vandaag doet.</summary>
 public enum FavoriteState
@@ -207,7 +207,7 @@ public static class FavoriteWatch
     /// Eén lezer voor allebei de plaatsen waar het nodig is: het nakijken van een favoriet
     /// (<see cref="CheckAsync"/>) en een favoriet die via rechtsklikken binnenkomt
     /// (<see cref="FavoriteFromUrl"/>). Dat is dezelfde les als bij
-    /// <see cref="Zentrix.Sources.PriceParser"/>: twee lezers groeien uit elkaar, en dan heeft
+    /// <see cref="Vindioo.Sources.PriceParser"/>: twee lezers groeien uit elkaar, en dan heeft
     /// hetzelfde kavel langs de ene weg een prijs en langs de andere niet.
     /// </summary>
     internal static async Task<decimal?> PrijsAsync(SiteDefinition def, string html,

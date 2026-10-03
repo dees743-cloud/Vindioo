@@ -2,7 +2,7 @@
 using System.IO;
 using Microsoft.Win32;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// Start de Chrome van de gebruiker wanneer die dicht staat. De brug werkt via
@@ -137,7 +137,7 @@ public static class ChromeLauncher
 
         if (IsRunning)
         {
-            status?.Report("Wachten tot de Zentrix Brug in Chrome wakker wordt...");
+            status?.Report("Wachten tot de Vindioo Brug in Chrome wakker wordt...");
         }
         else
         {
@@ -174,24 +174,24 @@ public static class ChromeLauncher
     public static string Describe(BridgeStatus status) => status switch
     {
         BridgeStatus.WrongCode =>
-            "de Zentrix Brug in Chrome gebruikt een andere koppelcode. Kies tandwiel > Koppelcode " +
+            "de Vindioo Brug in Chrome gebruikt een andere koppelcode. Kies tandwiel > Koppelcode " +
             "en plak de code opnieuw in de extensie.",
         BridgeStatus.OldExtension =>
-            "de Zentrix Brug in Chrome is een oudere versie. Herlaad ze: chrome://extensions, en " +
-            "klik op het pijltje bij 'Zentrix Brug'. Met de koppelcode is niets mis.",
+            "de Vindioo Brug in Chrome is een oudere versie. Herlaad ze: chrome://extensions, en " +
+            "klik op het pijltje bij 'Vindioo Brug'. Met de koppelcode is niets mis.",
         // Heeft de extensie zich sinds de start nooit gemeld, dan is ze misschien niet
         // geïnstalleerd, en nergens in de app stond hoe dat moet.
         BridgeStatus.NoExtension when !BridgeServer.Instance.ExtensionConnected =>
-            "Chrome draait, maar de Zentrix Brug meldt zich niet. Nog niet geïnstalleerd? In Chrome: " +
+            "Chrome draait, maar de Vindioo Brug meldt zich niet. Nog niet geïnstalleerd? In Chrome: " +
             "chrome://extensions > Ontwikkelaarsmodus aan > Uitgepakte extensie laden > de map 'extension' " +
-            "van Zentrix. Staat ze er al, zet ze dan aan en plak de koppelcode (tandwiel > Koppelcode).",
+            "van Vindioo. Staat ze er al, zet ze dan aan en plak de koppelcode (tandwiel > Koppelcode).",
         BridgeStatus.NoExtension =>
-            "Chrome draait, maar de Zentrix Brug meldt zich niet. Staat de extensie aan in chrome://extensions?",
+            "Chrome draait, maar de Vindioo Brug meldt zich niet. Staat de extensie aan in chrome://extensions?",
         BridgeStatus.ChromeNotFound =>
             "Google Chrome is niet gevonden. Sites via de brug hebben Chrome nodig.",
         BridgeStatus.PortInUse =>
             $"de brug kan niet starten: poort {BridgeServer.Port} is in gebruik door een ander programma " +
-            "(of door Zentrix van een andere Windows-gebruiker).",
+            "(of door Vindioo van een andere Windows-gebruiker).",
         _ => ""
     };
 }

@@ -1,6 +1,6 @@
 # Wat je te zien krijgt: volgorde, plaats, veilingtijd en timers
 
-Onderdeel van de documentatie van Zentrix; de korte versie staat in
+Onderdeel van de documentatie van Vindioo; de korte versie staat in
 [CLAUDE.md](../CLAUDE.md).
 
 ## Wat je te zien krijgt

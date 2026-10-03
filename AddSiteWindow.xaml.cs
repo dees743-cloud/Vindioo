@@ -1,11 +1,11 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
-using Zentrix.Models;
-using Zentrix.Services;
-using Zentrix.Sources;
+using Vindioo.Models;
+using Vindioo.Services;
+using Vindioo.Sources;
 
-namespace Zentrix;
+namespace Vindioo;
 
 public partial class AddSiteWindow : Wpf.Ui.Controls.FluentWindow
 {
@@ -356,7 +356,7 @@ public partial class AddSiteWindow : Wpf.Ui.Controls.FluentWindow
             await browser.OpenForLoginAsync(openUrl);
 
             // Of je echt aangemeld was, kan de app niet zien: enkel dat het venster dicht is.
-            StatusText.Text = "Browser gesloten. Als je aangemeld was, onthoudt Zentrix dat. Klik nu op Analyseren met AI.";
+            StatusText.Text = "Browser gesloten. Als je aangemeld was, onthoudt Vindioo dat. Klik nu op Analyseren met AI.";
         }
         catch (Exception ex)
         {

@@ -1,8 +1,8 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Zentrix.Sources;
+using Vindioo.Sources;
 
-namespace Zentrix.Models;
+namespace Vindioo.Models;
 
 /// <summary>
 /// Eén regel in het instellingenscherm van een zoekopdracht: een site met zijn

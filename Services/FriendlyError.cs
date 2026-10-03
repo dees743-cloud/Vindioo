@@ -3,7 +3,7 @@ using System.Net.Http;
 using System.Net.Sockets;
 using System.Text.Json;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>
 /// Zet een fout om in een zin die de gebruiker iets zegt. Wat hier uitkomt, staat op de tab
@@ -55,10 +55,10 @@ public static class FriendlyError
 
             case Microsoft.Playwright.PlaywrightException pw when pw.Message.Contains("user data directory is already in use") ||
                                                               pw.Message.Contains("ProcessSingleton"):
-                return "kon de browser van Zentrix niet starten: het profiel is nog in gebruik. Probeer het zo meteen opnieuw.";
+                return "kon de browser van Vindioo niet starten: het profiel is nog in gebruik. Probeer het zo meteen opnieuw.";
 
             case Microsoft.Playwright.PlaywrightException:
-                return "de browser van Zentrix gaf een fout. Details staan in het logboek.";
+                return "de browser van Vindioo gaf een fout. Details staan in het logboek.";
 
             case SocketException { SocketErrorCode: SocketError.AddressAlreadyInUse }:
                 return $"de brug kan niet starten: poort {BridgeServer.Port} is in gebruik door een ander programma.";

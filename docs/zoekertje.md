@@ -1,6 +1,6 @@
 # Het detailvenster van één zoekertje, en de foto's erbij
 
-Onderdeel van de documentatie van Zentrix; de korte versie staat in
+Onderdeel van de documentatie van Vindioo; de korte versie staat in
 [CLAUDE.md](../CLAUDE.md).
 
 ### Dubbelklikken: alles van één zoekertje
@@ -126,7 +126,7 @@ onthouden op het adres van de pagina.
 
 **Ingevuld voor alle dertien de sites** (26 september 2026; Vinted, Tweakers V&A en Delcampe
 op 27 september). Welke selector en wat er gemeten is,
-staat in `SITES.md` van `zentrix-sites`. Catawiki geeft 5 foto's van 1800 px waar de zoekpagina er
+staat in `SITES.md` van `vindioo-sites`. Catawiki geeft 5 foto's van 1800 px waar de zoekpagina er
 één gaf, eBay 5 van 1600 px, allebei in ongeveer 4,5 s via de brug; van allebei komt ook de
 verkoper mee, en van Catawiki de volledige beschrijving.
 
@@ -238,7 +238,7 @@ selector uit te halen.
 
 **Sinds 26 september 2026 haalt `DetailsAsync` een pagina ook via de browser op**, naast de brug en
 het gewone verzoek. Dat was nodig voor Facebook: zijn advertentiepagina is enkel met een aangemeld
-profiel te openen, en dat profiel heeft `BrowserFetcher` al - het is hetzelfde waarmee Zentrix daar
+profiel te openen, en dat profiel heeft `BrowserFetcher` al - het is hetzelfde waarmee Vindioo daar
 zoekt. Het kost meer dan de andere twee wegen (seconden in plaats van tienden), en dat is te
 verantwoorden omdat het pas gebeurt wanneer je zélf dubbelklikt.
 

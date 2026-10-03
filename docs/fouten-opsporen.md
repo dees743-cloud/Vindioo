@@ -1,11 +1,11 @@
 # Fouten opsporen: logboek, controles en hulpmiddelen
 
-Onderdeel van de documentatie van Zentrix; de korte versie staat in
+Onderdeel van de documentatie van Vindioo; de korte versie staat in
 [CLAUDE.md](../CLAUDE.md).
 
 ## Fouten opsporen
 
-De app schrijft een logboek naar `%APPDATA%\Zentrix\zentrix-log.txt`
+De app schrijft een logboek naar `%APPDATA%\Vindioo\vindioo-log.txt`
 (`Services/Log.cs`): per zoekopdracht welke bron start, de opdrachten van de
 brug, elke tussentijdse levering met grootte, hoeveel resultaten daaruit
 gelezen zijn, en de tijd per bron. Dat is de snelste weg naar de oorzaak bij
@@ -26,7 +26,7 @@ logboek is de enige plaats waar zoiets kan staan.
 
 **Een app die vanuit een verpakte app start, ziet een andere gegevensmap.** Een terminal
 of script binnen de Claude-desktopapp (een MSIX-pakket) leest en schrijft `%APPDATA%` via
-een omgeleide kopie (`%LOCALAPPDATA%\Packages\Claude_...\LocalCache\Roaming`). Een Zentrix
+een omgeleide kopie (`%LOCALAPPDATA%\Packages\Claude_...\LocalCache\Roaming`). Een Vindioo
 die van daaruit gestart wordt, gebruikt dus andere sites, een andere databank, een andere
 koppelcode en een ander browserprofiel dan dezelfde exe vanuit Visual Studio - en ook wat
 zo'n script "in de gegevensmap" leest, komt uit die kopie. Zo stonden in september 2026
@@ -35,26 +35,26 @@ echte map wil lezen of de app met echte gegevens wil starten, doet dat buiten di
 (bv. via `Win32_Process.Create`) of start ze gewoon vanuit Visual Studio.
 
 **Het register wordt net zo omgeleid** (`HKCU`). Op 18 september 2026 toonde een terminal in de
-Claude-app bij "opstarten met Windows" een Zentrix-regel naar `bin\Debug\...\Zentrix.exe`, terwijl
-het echte register er geen had - die regel was ooit geschreven door een Zentrix die vanuit de
-Claude-app gestart was. Wie wil weten of Zentrix echt mee opstart, leest het register buiten de
+Claude-app bij "opstarten met Windows" een Vindioo-regel naar `bin\Debug\...\Vindioo.exe`, terwijl
+het echte register er geen had - die regel was ooit geschreven door een Vindioo die vanuit de
+Claude-app gestart was. Wie wil weten of Vindioo echt mee opstart, leest het register buiten de
 omleiding, met hetzelfde `Win32_Process.Create`.
 
-**Controles.** `tests\Zentrix.Checks` is een gewoon consoleprogramma dat de logica nameet,
+**Controles.** `tests\Vindioo.Checks` is een gewoon consoleprogramma dat de logica nameet,
 zonder testframework en zonder netwerk:
 
 ```bash
-dotnet run --project tests\Zentrix.Checks -- --snel
+dotnet run --project tests\Vindioo.Checks -- --snel
 ```
 
 Zonder `--snel` komt er één controle bij die 30 seconden op een time-out wacht. Het drukt per
 controle OK of FOUT af en eindigt met "ALLES OK" en het aantal, of met het aantal fouten. Met
 `--snel` waren dat er op 27 september 2026 **399** met alles dicht (gemeten); met Chrome erbij
-397, en met Zentrix er ook nog bij 376. Op 30 september kwamen er 22 bij voor het opvolgen van
-favorieten, en toen is het opnieuw gemeten: **419** met Zentrix dicht en Chrome open (de twee
-koppelcode-controles vallen dan weg, zoals hieronder beschreven), en 398 met Zentrix er ook bij. Twee dingen op deze pc laten controles wegvallen, en allebei zeggen ze dat ook:
+397, en met Vindioo er ook nog bij 376. Op 30 september kwamen er 22 bij voor het opvolgen van
+favorieten, en toen is het opnieuw gemeten: **419** met Vindioo dicht en Chrome open (de twee
+koppelcode-controles vallen dan weg, zoals hieronder beschreven), en 398 met Vindioo er ook bij. Twee dingen op deze pc laten controles wegvallen, en allebei zeggen ze dat ook:
 
-- **Draait Zentrix zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (23).
+- **Draait Vindioo zelf**, dan is de poort van de brug bezet en valt de hele brug-groep weg (23).
 - **Draait Chrome met de brug-extensie**, dan klopt die elke 250 ms aan met de échte koppelcode.
   Het controleproject heeft een eigen gegevensmap en dus een andere code, dus voor zijn brug is
   dat een verkeerde - en dan staat `WrongCodeRecently` altijd aan. De twee controles die juist
@@ -64,7 +64,7 @@ koppelcode-controles vallen dan weg, zoals hieronder beschreven), en 398 met Zen
 Een controle die enkel draait wanneer iemand eraan denkt, is geen controle - dat was het punt in
 de codeanalyse van 30 september. De workflow doet precies wat je hier zelf zou doen: de app
 bouwen in Release (de XAML-compiler vangt wat de controles niet zien) en dan
-`dotnet run --project tests/Zentrix.Checks -- --snel`. `Check.Einde` geeft exitcode 1 zodra er
+`dotnet run --project tests/Vindioo.Checks -- --snel`. `Check.Einde` geeft exitcode 1 zodra er
 iets FOUT is, dus GitHub ziet het vanzelf.
 
 **En de twee node-metingen van de extensie** (`tools/meet-brug-handtekening.mjs` en
@@ -77,7 +77,7 @@ Op `windows-latest`, want het is een WPF-project en een deel van de controles le
 opdrachtregel van een proces uit via een Windows-API. Twee dingen zijn daar anders dan thuis, en
 allebei zijn ze goed:
 
-- **Er draait geen Zentrix en geen Chrome**, dus de brug-groep en de twee koppelcode-controles
+- **Er draait geen Vindioo en geen Chrome**, dus de brug-groep en de twee koppelcode-controles
   draaien er juist allemaal mee - thuis vallen er dan 23 weg.
 - **De tijdzone is UTC**, en die kent geen zomertijd. De controle op de overgang naar de
   wintertijd merkt dat zelf (ze vergelijkt de verschuiving van de twee momenten) en slaat het
@@ -87,10 +87,10 @@ allebei zijn ze goed:
 Drie regels waar het aan vastzit:
 
 - **Het compileert de broncode zelf mee** (`Models`, `Sources`, `Services`, zonder
-  `TrayIcon.cs`) en verwijst niet naar `Zentrix.csproj`. Het heeft dus zijn eigen `bin` en
-  `obj`, en botst niet met Visual Studio. Daarom staat in `Zentrix.csproj`
+  `TrayIcon.cs`) en verwijst niet naar `Vindioo.csproj`. Het heeft dus zijn eigen `bin` en
+  `obj`, en botst niet met Visual Studio. Daarom staat in `Vindioo.csproj`
   `<Compile Remove="tests\**" />`: anders neemt de app die bestanden mee.
-- **Nooit aan de echte gegevens.** `ZENTRIX_DATA` wijst naar een nieuwe map in `%TEMP%`, gezet
+- **Nooit aan de echte gegevens.** `VINDIOO_DATA` wijst naar een nieuwe map in `%TEMP%`, gezet
   voor iets anders `AppPaths` aanraakt, en nagekeken.
 - **Geen echte sites.** Een site is een lokale proefsite op 127.0.0.1 (`Proefsite.cs`), de
   extensie is nagebootst (`NepExtensie`), en een Facebook-kaart is zelfgeschreven HTML. Een
@@ -140,7 +140,7 @@ laat het venster zichzelf in een bitmap tekenen (PrintWindow), zodat je het
 uiterlijk kan nakijken terwijl er met iets anders gewerkt wordt:
 
 ```bash
-python tools/vensterfoto.py Zentrix venster.png
+python tools/vensterfoto.py Vindioo venster.png
 ```
 
 `vensterfoto.py` kiest het **grootste** venster met die titel. Zonder die keuze
@@ -167,7 +167,7 @@ boom is compleet (na te gaan met UI Automation), en het venster laat zich netjes
 naar een `RenderTargetBitmap` tekenen. Het komt voor na een slaapstand of een
 reset van het stuurprogramma. Herstarten van de pc lost het op.
 
-Bij het **opstarten van de pc** kwam het ook voor, en dan loste een herstart van Zentrix het
+Bij het **opstarten van de pc** kwam het ook voor, en dan loste een herstart van Vindioo het
 op; daarom toont een start door Windows het venster niet meer (zie "In het systeemvak blijven
 draaien"). Het logboek zegt sinds 22 september 2026 wat er gebeurt (`DisplayDiagnostics`):
 
@@ -186,7 +186,7 @@ het groter of kleiner trekken, dan was het het tekenvlak.
 Als noodrem kan alles op de processor getekend worden:
 
 ```bash
-set ZENTRIX_SOFTWARE_RENDER=1
+set VINDIOO_SOFTWARE_RENDER=1
 ```
 
 Dat staat standaard uit, want het kost vloeiendheid bij het schuiven door lange
@@ -204,4 +204,4 @@ om hem opnieuw te laten inlezen kost de gebruiker zijn tabbladen.
 Zo zie je welke versie draait: bovenaan `background.js` staat een `console.log` met
 een versienummer. Staat die regel niet in de console van de service worker, dan
 draait Chrome nog de oude. Het huidige stempel is **versie 6** (de kopregel
-`X-Zentrix-Brug`, zodat enkel de extensie een verkeerde koppelcode kan melden).
+`X-Vindioo-Brug`, zodat enkel de extensie een verkeerde koppelcode kan melden).

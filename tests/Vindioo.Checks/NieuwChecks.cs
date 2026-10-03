@@ -1,8 +1,8 @@
 using Microsoft.Data.Sqlite;
-using Zentrix.Models;
-using Zentrix.Services;
+using Vindioo.Models;
+using Vindioo.Services;
 
-namespace Zentrix.Checks;
+namespace Vindioo.Checks;
 
 /// <summary>
 /// "Nieuw" is wat je nog niet bekeek, niet wat de laatste beurt nieuw vond. Tot september

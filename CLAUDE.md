@@ -1,4 +1,4 @@
-# Zentrix
+# Vindioo
 
 Een Windows-desktopapp die meerdere tweedehands- en veilingsites tegelijk doorzoekt. Doel: het
 dagelijkse zoekwerk dat anders een voormiddag kost, terugbrengen tot één minuut. De app is bedoeld
@@ -21,7 +21,7 @@ uitzien.
 
 ## Stack
 
-C# / .NET 10 (`net10.0-windows`), `Nullable` en `ImplicitUsings` aan, namespace `Zentrix`.
+C# / .NET 10 (`net10.0-windows`), `Nullable` en `ImplicitUsings` aan, namespace `Vindioo`.
 
 | | |
 |---|---|
@@ -112,45 +112,45 @@ Vensters (root):
   Vensters.cs           hoe een venster boven een ander opengaat, en wie daarna vooraan komt
 extension/   de brug: een Chrome-extensie die pagina's ophaalt in je eigen browser
 tools/       hulpmiddelen om buiten de app om na te meten (zie docs/fouten-opsporen.md)
-tests/Zentrix.Checks/   controles zonder testframework
+tests/Vindioo.Checks/   controles zonder testframework
 docs/        de uitgebreide documentatie, zie onderaan
 ```
 
 ## Gegevens, bouwen en nameten
 
-Gebruikersgegevens staan in **`%APPDATA%\Zentrix`**: de map `sites\` (één JSON-bestand per site),
-`zentrix.db`, `brug-code.txt`, `instellingen.json` en `browser-profiel\`. Met de
-omgevingsvariabele `ZENTRIX_DATA` wijs je een andere map aan — zo boots je een lege eerste start
+Gebruikersgegevens staan in **`%APPDATA%\Vindioo`**: de map `sites\` (één JSON-bestand per site),
+`vindioo.db`, `brug-code.txt`, `instellingen.json` en `browser-profiel\`. Met de
+omgevingsvariabele `VINDIOO_DATA` wijs je een andere map aan — zo boots je een lege eerste start
 na zonder aan de echte gegevens te komen.
 
 ```bash
-dotnet build Zentrix.csproj
-dotnet run --project tests\Zentrix.Checks -- --snel
-dotnet publish Zentrix.csproj -c Release -r win-x64 --self-contained true -o C:\Zentrix
+dotnet build Vindioo.csproj
+dotnet run --project tests\Vindioo.Checks -- --snel
+dotnet publish Vindioo.csproj -c Release -r win-x64 --self-contained true -o C:\Vindioo
 ```
 
 De controles drukken per stuk OK of FOUT af en eindigen met "ALLES OK" en het aantal. Draait
-Zentrix of Chrome-met-de-brug, dan vallen er controles weg en zeggen ze dat zelf (651 met Zentrix
-dicht en Chrome open, 606 met Zentrix erbij — gemeten 3 oktober 2026). Publiceren kan enkel met
-Zentrix dicht.
+Vindioo of Chrome-met-de-brug, dan vallen er controles weg en zeggen ze dat zelf (661 met Vindioo
+dicht en Chrome open, 616 met Vindioo erbij — gemeten 3 oktober 2026). Publiceren kan enkel met
+Vindioo dicht.
 
 ## Regels die schade voorkomen
 
-- **Kom niet aan de sitebestanden in `%APPDATA%\Zentrix\sites`.** De eigenaar beheert die zelf en
-  importeert ze uit `zentrix-sites`. Lezen of kopiëren mag; schrijven niet.
-- **`zentrix-sites` blijft privé**, `Zentrix` is openbaar (`dees743-cloud`, MIT). Die bestanden
+- **Kom niet aan de sitebestanden in `%APPDATA%\Vindioo\sites`.** De eigenaar beheert die zelf en
+  importeert ze uit `vindioo-sites`. Lezen of kopiëren mag; schrijven niet.
+- **`vindioo-sites` blijft privé**, `Vindioo` is openbaar (`dees743-cloud`, MIT). Die bestanden
   beschrijven per site hoe je zijn robotbeveiliging omzeilt, en `facebook.json` houdt een
   regionummer dat bij benadering een woonplaats is.
-- **Er draait maar één Zentrix tegelijk** (een benoemde `Mutex`). Een proef met `ZENTRIX_DATA` kan
-  dus enkel terwijl de gewone Zentrix dicht staat.
+- **Er draait maar één Vindioo tegelijk** (een benoemde `Mutex`). Een proef met `VINDIOO_DATA` kan
+  dus enkel terwijl de gewone Vindioo dicht staat.
 - **Maakt een wegwerpprojectje een `App` aan, sla dan `App.OnStartup` over**: zet het private
   statische veld `Application._isShuttingDown` op `true`, pomp de dispatcher één keer, en zet het
-  terug. Anders vindt die opstart het slot "Zentrix draait al" en stopt je proef.
+  terug. Anders vindt die opstart het slot "Vindioo draait al" en stopt je proef.
 - **Een shell binnen de Claude-desktopapp ziet een omgeleide `%APPDATA%` en `HKCU`.** Wie de echte
   map of het echte register wil lezen, doet dat buiten die omleiding (`Win32_Process.Create`).
 - **De controles mogen geen netwerk en geen echte gegevens gebruiken**: een lokale proefsite op
-  127.0.0.1 (`Proefsite.cs`), een nagebootste extensie, en `ZENTRIX_DATA` naar `%TEMP%`.
-- **Het versienummer staat op één plaats**: `<Version>` in `Zentrix.csproj`. Wie een versie tagt,
+  127.0.0.1 (`Proefsite.cs`), een nagebootste extensie, en `VINDIOO_DATA` naar `%TEMP%`.
+- **Het versienummer staat op één plaats**: `<Version>` in `Vindioo.csproj`. Wie een versie tagt,
   brengt die ook uit, of nummert opnieuw.
 - **Commits gaan naar GitHub na elke commit**, met het afgeschermde noreply-adres als afzender.
 

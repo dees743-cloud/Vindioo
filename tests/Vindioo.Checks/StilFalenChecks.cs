@@ -4,11 +4,11 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Text.Json;
-using Zentrix.Models;
-using Zentrix.Services;
-using Zentrix.Sources;
+using Vindioo.Models;
+using Vindioo.Services;
+using Vindioo.Sources;
 
-namespace Zentrix.Checks;
+namespace Vindioo.Checks;
 
 /// <summary>
 /// Stil falen: een site die stukgaat maar eruitziet als "niets gevonden", een verdwenen of
@@ -265,7 +265,7 @@ public static class StilFalenChecks
                 Source = "eBay", Title = $"Marantz CD6006 & afstandsbediening {i}", Price = 100 + i, Url = lang + i
             }).ToList();
 
-            const string kop = "Zentrix: 15 nieuwe resultaten voor 'Cd speler'";
+            const string kop = "Vindioo: 15 nieuwe resultaten voor 'Cd speler'";
             var bericht = Notifier.TelegramBericht(kop, Notifier.TelegramTekst(lijst, Notifier.TelegramBerichtMaximum - kop.Length - 2));
             var links = parser.ParseDocument(bericht).QuerySelectorAll("a").Select(a => a.GetAttribute("href")).ToList();
 
@@ -360,12 +360,12 @@ public static class StilFalenChecks
                 "een oud bestand (b64: en leesbaar) wordt gewoon gelezen");
             Check.Dat(!Leesbaar(inhoud) && Beschermd(inhoud) == 2, "... en meteen herschreven, beschermd");
 
-            // Een oudere Zentrix las de beschermde vorm als wachtwoord en pakte ze in als b64:.
+            // Een oudere Vindioo las de beschermde vorm als wachtwoord en pakte ze in als b64:.
             var beschermd = System.Text.Json.Nodes.JsonNode.Parse(inhoud)!["Notify"]!["SmtpPassword"]!.GetValue<string>();
             Zet("SmtpPassword", "b64:" + B64(beschermd));
             AppSettings.Load();
             Check.Dat(AppSettings.Current.Notify.SmtpPassword == wachtwoord && Beschermd(File.ReadAllText(pad)) == 2,
-                "door een oudere Zentrix nog eens ingepakt: toch het juiste wachtwoord, en weer beschermd");
+                "door een oudere Vindioo nog eens ingepakt: toch het juiste wachtwoord, en weer beschermd");
 
             // Beschermd voor een ander account of een andere pc: niet te openen. Hier nagebootst
             // met iets wat DPAPI niet herkent; Windows antwoordt daar op dezelfde manier op.
@@ -553,6 +553,85 @@ public static class StilFalenChecks
             Check.Dat(aantal == 2 && mislukt.Count == 1 && mislukt[0].StartsWith("kapot.json")
                       && vervangen.SequenceEqual(new[] { "Proefsite" }),
                 $"2 geïmporteerd, Proefsite vervangen, kapot.json mislukt ({aantal}; {string.Join(",", vervangen)}; {string.Join(",", mislukt)})");
+        }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("De gegevensmap verhuist mee bij een hernoeming");
+        {
+            // De stilste fout die deze app kan maken: de app hernoemen, de gegevensmap niet
+            // meenemen, en leeg opstarten. Geen foutmelding - gewoon geen sites, geen
+            // zoekopdrachten, geen favorieten, terwijl alles nog op schijf staat.
+            //
+            // Dit is twee keer gebeurd in de geschiedenis van deze app (Zoekhulp -> Zentrix ->
+            // Vindioo) en was tot 3 oktober 2026 NOOIT nagemeten: AppPaths las %APPDATA%
+            // rechtstreeks, en de controles zetten VINDIOO_DATA, waardoor ze juist langs de
+            // verhuizing heen liepen. Daarom neemt Kies() de wortel als invoer.
+            string Wortel(params string[] mappen)
+            {
+                var wortel = Path.Combine(AppPaths.Folder, "verhuis", Guid.NewGuid().ToString("N")[..8]);
+
+                foreach (var naam in mappen)
+                {
+                    Directory.CreateDirectory(Path.Combine(wortel, naam, "sites"));
+                    File.WriteAllText(Path.Combine(wortel, naam, "sites", "x.json"), "{}");
+                }
+
+                return wortel;
+            }
+
+            // Alleen de map van de vorige naam: die verhuist.
+            var vanZentrix = Wortel("Zentrix");
+            var uit = AppPaths.Kies(vanZentrix, out var verslag);
+
+            Check.Dat(uit == Path.Combine(vanZentrix, "Vindioo") && Directory.Exists(uit),
+                $"een map van de vorige naam verhuist mee ({Path.GetFileName(uit)})");
+
+            Check.Dat(File.Exists(Path.Combine(uit, "sites", "x.json")),
+                "en alles wat erin stond, staat er nog");
+
+            Check.Dat(!Directory.Exists(Path.Combine(vanZentrix, "Zentrix")),
+                "de oude map blijft niet als lege dubbel achter");
+
+            Check.Dat(verslag.Contains("verhuisd"), $"en het wordt gemeld ({verslag})");
+
+            // Twee hernoemingen overgeslagen: de oudste map telt óók nog mee.
+            var vanZoekhulp = Wortel("Zoekhulp");
+            Check.Dat(AppPaths.Kies(vanZoekhulp, out _) == Path.Combine(vanZoekhulp, "Vindioo") &&
+                      File.Exists(Path.Combine(vanZoekhulp, "Vindioo", "sites", "x.json")),
+                "wie twee hernoemingen oversloeg, vindt zijn gegevens evengoed terug");
+
+            // Staan ze er allebei, dan wint de NIEUWSTE. Een map "Zoekhulp" is dan een leeg
+            // restant; die van Zentrix draagt de verse gegevens.
+            var allebei = Wortel("Zentrix", "Zoekhulp");
+            File.WriteAllText(Path.Combine(allebei, "Zentrix", "wie.txt"), "zentrix");
+            File.WriteAllText(Path.Combine(allebei, "Zoekhulp", "wie.txt"), "zoekhulp");
+
+            AppPaths.Kies(allebei, out _);
+
+            Check.Dat(File.ReadAllText(Path.Combine(allebei, "Vindioo", "wie.txt")) == "zentrix",
+                "staan er twee oude mappen, dan verhuist de nieuwste");
+
+            Check.Dat(Directory.Exists(Path.Combine(allebei, "Zoekhulp")),
+                "en de oudste blijft onaangeroerd staan in plaats van overschreven te worden");
+
+            // Al verhuisd: niets doen. Zonder deze regel zou een achtergebleven oude map bij
+            // een volgende start over de nieuwe heen gaan.
+            var alKlaar = Wortel("Vindioo", "Zentrix");
+            File.WriteAllText(Path.Combine(alKlaar, "Vindioo", "wie.txt"), "nieuw");
+            File.WriteAllText(Path.Combine(alKlaar, "Zentrix", "wie.txt"), "oud");
+
+            AppPaths.Kies(alKlaar, out var stil);
+
+            Check.Dat(File.ReadAllText(Path.Combine(alKlaar, "Vindioo", "wie.txt")) == "nieuw",
+                "een bestaande nieuwe map wordt NIET overschreven door een oude");
+
+            Check.Dat(stil.Length == 0, $"en dan valt er niets te melden ('{stil}')");
+
+            // Een verse installatie: gewoon aanmaken, zonder verhaal.
+            var vers = Wortel();
+            Check.Dat(AppPaths.Kies(vers, out var geenVerslag) == Path.Combine(vers, "Vindioo") &&
+                      geenVerslag.Length == 0,
+                "een nieuwe installatie krijgt gewoon een lege map");
         }
     }
 }

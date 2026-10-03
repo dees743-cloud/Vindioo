@@ -4,7 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Windows.Media.Imaging;
 
-namespace Zentrix.Services;
+namespace Vindioo.Services;
 
 /// <summary>Wat de AI van één foto maakte.</summary>
 /// <param name="Beschrijving">Eén alinea in gewone taal, over wat er te zien is.</param>

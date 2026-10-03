@@ -91,7 +91,7 @@ def foto(hwnd, pad):
 
 
 if __name__ == "__main__":
-    titel = sys.argv[1] if len(sys.argv) > 1 else "Zentrix"
+    titel = sys.argv[1] if len(sys.argv) > 1 else "Vindioo"
     pad = sys.argv[2] if len(sys.argv) > 2 else "venster.png"
 
     hwnd = vind_venster(titel)
