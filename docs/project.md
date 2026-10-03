@@ -187,7 +187,7 @@ verandert en dat is precies de kapotte, **0 van de 178** zoekresultaten hadden d
 `docs/favorieten.md` bij "Een titel die dubbel gecodeerd is" - ook voor de misstap onderweg, want
 mijn eerste oplossing zat op de verkeerde plaats.
 
-**Na 0.17.2, nog niet uitgebracht.** Een zoekopdracht die niet over auto's gaat, liet
+**0.17.3** sinds 3 oktober 2026. Een zoekopdracht die niet over auto's gaat, liet
 **AutoScout24 kapot lijken**. Die site heeft geen vrije tekstzoekfunctie - het zoekwoord is het
 merk - en elk ander woord geeft daar een 404. Dat telde als mislukking, dus een bewaarde
 zoekopdracht naar "cd speler" met die site erbij mislukte élke beurt, stuurde na twee beurten een
