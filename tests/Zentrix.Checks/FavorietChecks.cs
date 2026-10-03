@@ -140,18 +140,70 @@ public static class FavorietChecks
             Check.Dat(FavoriteWatch.TitelUitPagina("<html><head><title>Radio &#039;s</title></head></html>")
                 == "Radio 's", "net als in de titel van de pagina");
 
-            // DE ANDERE KANT, en die is even belangrijk: de INHOUD van een script mag niet
-            // ontleed worden. JSON zit vol tekens die in HTML iets betekenen, en als een parser
-            // &amp; daar tot & zou maken, verandert de titel van een zoekertje stilletjes.
-            // De HTML-norm noemt de inhoud van <script> "raw text" - geen karakterverwijzingen.
+            // DE ANDERE KANT, en die is even belangrijk: de ONTLEDER mag de inhoud van een
+            // script niet aanraken. JSON zit vol tekens die in HTML iets betekenen, en zou een
+            // parser &quot; daar tot " maken, dan staat er ineens een aanhalingsteken MIDDEN in
+            // een JSON-tekst - en is het blok onleesbaar. De HTML-norm noemt de inhoud van
+            // <script> "raw text", juist daarom. Deze ene controle laat allebei de kanten zien:
+            // het blok blijft leesbaar (dus de ontleder bleef eraf), en de titel komt er toch
+            // schoon uit (dus er wordt achteraf bewust gedecodeerd - zie Ontdubbel).
             Check.Dat(FavoriteWatch.TitelUitPagina(
-                    """<script type="application/ld+json">{"@type":"Product","name":"Bang &amp; Olufsen","offers":{"price":5}}</script>""")
-                == "Bang &amp; Olufsen",
-                "wat IN het blok staat blijft onaangeroerd: de JSON bepaalt zelf wat het betekent");
+                    """<script type="application/ld+json">{"@type":"Product","name":"hij zei &quot;ja&quot;","offers":{"price":5}}</script>""")
+                == "hij zei \"ja\"",
+                "een blok met &quot; erin blijft leesbaar, en de titel komt er schoon uit");
 
             // Een pagina die niet te ontleden valt, mag niets laten omvallen.
             Check.Dat(FavoriteWatch.PrijsUitPagina("<<<>>> geen html") is null, "onzin geeft niets");
             Check.Dat(FavoriteWatch.TitelUitPagina("") == "", "en een lege pagina ook niet");
+        }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Favoriet opvolgen: een site die zijn titel dubbel codeert");
+        {
+            // Het echte geval, letterlijk zoals kleinanzeigen het op 3 oktober 2026 in zijn bron
+            // zette. De advertentie heet Segelyacht Compromis 777 "Fiete"; in de bewaarde tekst
+            // van die site staan die aanhalingstekens al als &#034;, en bij het bouwen van de
+            // pagina wordt dat netjes NOG EENS gecodeerd. De ontleder haalt er één slag af.
+            const string duits = """
+                <html><head>
+                <meta property="og:title" content="Segelyacht Compromis 777 &amp;#034;Fiete&amp;#034; &#8211; Bj. 2000">
+                </head><body></body></html>
+                """;
+
+            Check.Dat(FavoriteWatch.TitelUitPagina(duits) == "Segelyacht Compromis 777 \"Fiete\" – Bj. 2000",
+                $"&amp;#034; wordt een aanhalingsteken ({FavoriteWatch.TitelUitPagina(duits)})");
+
+            // Niet élke site doet dat, en bij de meeste is één slag genoeg. Dan mag er niets
+            // veranderen: hier codeert de site gewoon correct.
+            Check.Dat(FavoriteWatch.TitelUitPagina(
+                    """<html><head><meta property="og:title" content="Theo Piratenkönig - Poznanski &amp; Koch"></head></html>""")
+                == "Theo Piratenkönig - Poznanski & Koch",
+                "een site die wél correct codeert, houdt gewoon zijn ampersand");
+
+            // Er wordt ÉÉN slag extra gedecodeerd. Blijven decoderen tot er niets meer verandert,
+            // is precies hoe je een titel stukmaakt die zelf over HTML gaat - en zo'n zoekertje
+            // bestaat: iemand die een boek over webontwikkeling verkoopt. Hier staat er in de
+            // bron &amp;amp;amp;: de ontleder maakt daar &amp;amp; van, en wij &amp;.
+            Check.Dat(FavoriteWatch.TitelUitPagina(
+                    """<html><head><meta property="og:title" content="Boek: schrijf &amp;amp;amp; in HTML"></head></html>""")
+                == "Boek: schrijf &amp; in HTML",
+                "één slag extra, niet tot het stabiel is");
+
+            // En het geldt voor alle drie de wegen naar een titel, niet enkel og:title: het is
+            // de titel die opgeschoond wordt, niet de plaats waar hij vandaan komt.
+            Check.Dat(FavoriteWatch.TitelUitPagina(
+                    "<html><head><title>Fiets &amp;#034;Gazelle&amp;#034;</title></head></html>")
+                == "Fiets \"Gazelle\"", "ook de titel van de pagina zelf");
+
+            Check.Dat(FavoriteWatch.TitelUitPagina(
+                    """<script type="application/ld+json">{"name":"Fiets &#034;Gazelle&#034;","offers":{"price":5}}</script>""")
+                == "Fiets \"Gazelle\"", "en een naam uit het datablok");
+
+            // Gewone tekst blijft gewoon. Een ampersand die geen entiteit is, verandert niet.
+            Check.Dat(FavoriteWatch.TitelUitPagina(
+                    """<script type="application/ld+json">{"name":"Bang & Olufsen Beogram","offers":{"price":5}}</script>""")
+                == "Bang & Olufsen Beogram",
+                "een losse ampersand blijft staan");
         }
 
         // ---------------------------------------------------------------------------

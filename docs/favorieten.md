@@ -134,6 +134,38 @@ bij AlleVeilingen komt van `DetailPriceSelector`, niet hiervan. Wat weg is, is e
 fouten - het soort dat pas opvalt wanneer er een site bijkomt die haar HTML net iets anders
 opschrijft, en dat dan stil misgaat in plaats van met een foutmelding.
 
+### Een titel die dubbel gecodeerd is
+
+Een advertentie bij kleinanzeigen heet *Segelyacht Compromis 777 "Fiete"*, maar kwam als favoriet
+binnen met `&#034;` in plaats van de aanhalingstekens. In de bron staat:
+
+```
+<meta property="og:title" content="Segelyacht Compromis 777 &amp;#034;Fiete&amp;#034; – Bj. 2000">
+```
+
+**De site doet niets fout.** In de tekst die kleinanzeigen bewaart, staan die aanhalingstekens al
+als `&#034;`; bij het bouwen van de pagina codeert de site die tekst netjes nóg eens, en dan staat
+er `&amp;#034;`. De ontleder haalt daar één slag af en houdt `&#034;` over. Daarom gaat er één
+slag bovenop, op de titel en nergens anders (`Ontdubbel` in `FavoriteWatch`).
+
+**Waar het precies vandaan kwam, is de helft van het werk geweest.** Mijn eerste oplossing zat op
+de verkeerde plaats: ik nam aan dat de titel uit het `ld+json`-blok kwam en decodeerde dáár. Op de
+echte pagina gemeten bleek dat blok alleen `@type WebSite` met de naam "Kleinanzeigen" te bevatten,
+zonder prijs - dus die weg wordt niet eens gebruikt, en de titel komt van `og:title`. De controles
+bleven groen terwijl de echte pagina onveranderd vuil bleef. Een nagebootste pagina bewijst niets
+over waar iets vandaan komt.
+
+| | |
+|---|---|
+| wat de meting gaf | **1 van de 38** advertentietitels verandert, en dat is precies de kapotte. 37 blijven letterlijk gelijk, 0 worden leeg |
+| en de zoekresultaten? | **0 van de 178** hadden dit. De gewone motor leest HTML met een ontleder, en daar is niets dubbel - dus geen schoonmaakbeurt over alles heen |
+| de tegenproef | zonder die slag vallen vijf controles om |
+
+**Eén slag, niet tot het stabiel is.** Blijven decoderen tot er niets meer verandert, is hoe je
+een titel stukmaakt die zélf over HTML gaat - een zoekertje voor een boek over webontwikkeling.
+Dat is de prijs van deze keuze en hij is bewust gemaakt: één dubbel gecodeerde titel is gemeten,
+zo'n boektitel niet.
+
 **Elk antwoord "staat er nog" heeft bewijs nodig**: een prijs, of foto's van de
 advertentiepagina. Komt de pagina binnen zonder een van beide, dan is het "niet na te gaan" en
 niet "staat er nog" - anders meldt de app dat iets te koop staat terwijl niemand dat weet. Een

@@ -331,7 +331,10 @@ public static class FavoriteWatch
     /// selector voor de einddatum en de foto's van een advertentiepagina, maar niet voor haar
     /// titel - die stond nooit ergens anders dan in het zoekresultaat.
     /// </summary>
-    internal static string TitelUitPagina(string html)
+    internal static string TitelUitPagina(string html) => Ontdubbel(RuweTitel(html));
+
+    /// <summary>De titel zoals de pagina hem aanlevert, nog zonder opschoning.</summary>
+    private static string RuweTitel(string html)
     {
         foreach (var blok in LdJsonBlokken(html))
         {
@@ -348,8 +351,7 @@ public static class FavoriteWatch
 
         // Ook deze twee langs de ontlede pagina, en om dezelfde reden als het blok hierboven:
         // een regex kent de volgorde van attributen niet. "content" vóór "property" kwam de
-        // oude uitdrukking al niet door, en ze las de tekst bovendien ruw - met &amp; en &#039;
-        // er nog in, die er daarna met de hand uit moesten.
+        // oude uitdrukking al niet door.
         var document = Ontleed(html);
         if (document is null) return "";
 
@@ -359,6 +361,31 @@ public static class FavoriteWatch
         var titel = document.QuerySelector("title")?.TextContent;
         return string.IsNullOrWhiteSpace(titel) ? "" : titel.Trim();
     }
+
+    /// <summary>
+    /// Eén slag HTML-codering uit de titel halen, bovenop wat de ontleder al deed.
+    ///
+    /// <para><b>Waarom er een tweede slag nodig is.</b> Een advertentie bij kleinanzeigen heet
+    /// <c>Segelyacht Compromis 777 "Fiete"</c>, maar in de bewaarde tekst van die site staan die
+    /// aanhalingstekens al als <c>&amp;#034;</c>. Bij het bouwen van de pagina codeert
+    /// kleinanzeigen die tekst netjes nog eens, en dan staat er in de bron
+    /// <c>content="... &amp;amp;#034;Fiete&amp;amp;#034; ..."</c>. De ontleder haalt daar één
+    /// slag af en houdt <c>&amp;#034;</c> over - precies de rommel die anders op de kaart van je
+    /// favoriet belandt. De site codeert dus correct; het is de brontekst zelf die al gecodeerd
+    /// was.</para>
+    ///
+    /// <para><b>Waarom enkel de titel, en niet alles.</b> Op 3 oktober 2026 nagemeten over de
+    /// acht sites die rechtstreeks antwoorden: van <b>178 zoekresultaten</b> had er <b>geen
+    /// enkel</b> entiteittekst in titel, omschrijving of plaats - de gewone motor leest HTML met
+    /// een ontleder, en daar is niets dubbel. Van <b>38 advertentiepagina's</b> had er <b>één</b>
+    /// het. Eén plaats dus, en geen schoonmaakbeurt over alles heen.</para>
+    ///
+    /// <para><b>Eén slag, niet tot het stabiel is.</b> Blijven decoderen tot er niets meer
+    /// verandert, is hoe je een titel stukmaakt die zélf over HTML gaat - een zoekertje voor een
+    /// boek over webontwikkeling. Dat is de prijs van deze keuze, en hij is bewust: één dubbel
+    /// gecodeerde titel is gemeten, zo'n boektitel niet.</para>
+    /// </summary>
+    private static string Ontdubbel(string titel) => WebUtility.HtmlDecode(titel);
 
     /// <summary>
     /// De <c>name</c> van een object dat ook een prijs draagt. Die voorwaarde is nodig: een

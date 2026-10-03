@@ -179,6 +179,14 @@ prijs en titel. Wat weg is, is een klasse fouten die pas opvalt wanneer er een s
 `docs/favorieten.md` bij "Geen regexen meer op de pagina", met de tegenproef waarin vier controles
 omvallen zodra de oude uitdrukkingen terugkomen.
 
+**Na 0.17.1, nog niet uitgebracht.** Een advertentie bij kleinanzeigen die *Segelyacht Compromis
+777 "Fiete"* heet, kwam als favoriet binnen met `&#034;` in plaats van de aanhalingstekens. De
+site codeert tekst die zelf al gecodeerd was, en de ontleder haalt daar maar één slag af; nu gaat
+er één slag bovenop, op de titel en nergens anders. Gemeten: **1 van de 38** advertentietitels
+verandert en dat is precies de kapotte, **0 van de 178** zoekresultaten hadden dit probleem. Zie
+`docs/favorieten.md` bij "Een titel die dubbel gecodeerd is" - ook voor de misstap onderweg, want
+mijn eerste oplossing zat op de verkeerde plaats.
+
 **0.16.0** sinds 2 oktober 2026. Twee dingen aan de vensters. Een **vergrote foto** heeft nu
 bladerpijlen bovenaan met een teller ertussen ("2 van 4"), en de pijltjestoetsen doen hetzelfde;
 de volgende foto kostte er drie klikken. Bij de eerste foto staat er geen pijl naar links en bij
