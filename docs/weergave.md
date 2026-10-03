@@ -261,22 +261,41 @@ het sluiten van een venster een geminimaliseerde Vindioo uit het systeemvak trek
 
 ## Het pictogram van de app
 
-`Assets/vindioo.ico`, gemaakt uit `Assets/logo.png` met `tools/maak-icoon.py`.
+Alles komt uit **één bron**: `Assets/logo-bron.png`, de aangeleverde tekening van 1774x887 met
+drie blokken naast elkaar - het beeldmerk (x 54-392), het woord "Vindioo" (x 406-1151) en een
+kant-en-klare tegel met afgeronde hoeken (x 1216-1695). Daaruit maakt
+`tools/maak-beeldmateriaal.py` de banner `Assets/logo.png`, het pictogram `Assets/vindioo.ico`
+en de drie `extension/icon*.png`. Eén bron en één script, zodat ze niet uit elkaar kunnen
+groeien.
 
-**Op 2 oktober 2026 bleek het bijna onzichtbaar**: in de taakbalk stond een leeg wit kadertje. De
-oorzaak was de bron. `logo.png` is een **banner** van 1158x513 - het beeldmerk én het woord
-ernaast - en maar 10% van zijn punten is dekkend; de rest is gloed. Dat hele ding in een
-vierkantje persen gaf een veeg: gemeten gemiddelde dekking **33 van 255**, bij elk formaat.
+**Het woord was onleesbaar op de achtergrond van de app**, en dat is gemeten in plaats van
+aangenomen. In de bron staat het in `rgb(3, 7, 38)`, bijna zwart. De kop van de app verloopt van
+`#3B3470` naar `#1D193A`:
 
-> **Let op, dit staat nog open.** Het woord in die banner is nog altijd "Zentrix". Een
-> afbeelding is niet mee te hernoemen met een zoek-en-vervang, en grep vindt ze niet. Zolang
-> `logo.png` niet opnieuw getekend is, toont de app bovenaan de oude naam. Hetzelfde geldt voor
-> `extension/icon{16,48,128}.png` en `docs/schermafbeelding.png`. Het **pictogram** heeft er
-> geen last van: dat snijdt enkel het beeldmerk uit, zonder het woord.
+| | contrast |
+|---|---|
+| zoals getekend, tegen `#3B3470` | **1,81:1** |
+| zoals getekend, tegen `#1D193A` | **1,18:1** |
+| de ondergrens om grote letters te lezen | 3:1 |
+| na het omkleuren naar `#F1EFF7` | **9,64:1** en **14,72:1** |
 
-Nu wordt enkel het **beeldmerk** uitgesneden (het vergrootglas met het atoom, links in de banner),
-en dat staat op een eigen tegel met afgeronde hoeken in de kleuren uit `App.xaml`
-(`BackgroundTopColor` naar `BackgroundBottomColor`). Gemiddelde dekking: **245 van 255**.
+`#F1EFF7` is niet zelf gekozen maar `TextPrimaryColor` uit `App.xaml` - dezelfde kleur als alle
+andere tekst in de app.
+
+**De drempel is ook gemeten.** Alleen de letters mochten lichter worden, niet de blauwe "oo". In
+het woord liggen 33 241 punten onder helderheid 60 en 17 447 punten boven 220, met daartussen
+bijna niets: 60-79 telt er 319, en 80-199 samen 146. Een grens op 150 raakt dus alle letters en
+geen enkel accent. Het **beeldmerk** blijft helemaal met rust - dat heeft zelf donkere delen (de
+lens), en die horen donker te blijven.
+
+En de verhoudingen blijven zoals ze getekend zijn. Merk en woord worden in één uitsnede genomen,
+niet apart uitgesneden en met een zelfgekozen tussenruimte weer samengezet: gemeten staat er 13
+punten tussen, en dat is een keuze van wie het getekend heeft.
+
+**Het pictogram komt nu van de meegeleverde tegel** in plaats van uit een zelf opgebouwde. Dat
+scheelt een stap, en het is dezelfde tegel die de ontwerper bedoeld heeft. Gemiddelde dekking:
+**241 van 255** - ter vergelijking, het icoon dat op 2 oktober 2026 een leeg wit kadertje gaf,
+zat op **33 van 255**.
 
 **Waarom een tegel en niet doorzichtig.** Het beeldmerk is neonkunst: lichtgevende lijnen op
 niets. Op een donkere taakbalk leest dat, op een lichte wast het uit tot precies dat vage kadertje
@@ -284,7 +303,7 @@ niets. Op een donkere taakbalk leest dat, op een lichte wast het uit tot precies
 
 Formaten: 16, 20, 24, 32, 40, 48, 64, 128 en 256 - met 20 en 40 erbij omdat Windows die bij 125%
 en 150% schaling gebruikt. BMP tot 128 en PNG voor 256, zoals Windows het zelf schrijft; het .ico
-wordt daarom met de hand opgebouwd in `tools/maak-icoon.py` en niet door Pillow. Het zit via
+wordt daarom met de hand opgebouwd in `tools/maak-beeldmateriaal.py` en niet door Pillow. Het zit via
 `<ApplicationIcon>` in de exe en daarnaast als `Resource`, want `NotifyIcon` in het systeemvak
 heeft het bestand zelf nodig.
 
