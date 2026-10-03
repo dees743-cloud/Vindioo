@@ -208,6 +208,18 @@ verandert en dat is precies de kapotte, **0 van de 178** zoekresultaten hadden d
 `docs/favorieten.md` bij "Een titel die dubbel gecodeerd is" - ook voor de misstap onderweg, want
 mijn eerste oplossing zat op de verkeerde plaats.
 
+**0.18.0** sinds 3 oktober 2026. **Zentrix heet voortaan Vindioo** - *Alles gevonden. Op één
+plek.* De naam bleek in meerdere vormen al te bestaan. Aan wat de app doet verandert niets; wat
+er wel verandert, staat bovenaan dit bestand bij "De naam, de gegevensmap en GitHub", inclusief
+de zeven plaatsen waar de oude naam met opzet blijft staan. De gegevensmap verhuist bij de eerste
+start vanzelf, en dat is nu ook nagemeten.
+
+**0.18.1** sinds 3 oktober 2026, en dat is enkel het uiterlijk. Het woordmerk was wit gemaakt
+omdat het zwart van de tekening op de kopbalk onleesbaar was, maar wit stond los van het
+beeldmerk ernaast. Nu krijgt het hele woord het verloop van de twee laatste letters, met een
+donker randje in de kleur van de ring rond de V, en staat het logo op hoogte 56 in plaats van 76.
+Zie `docs/weergave.md`, ook voor wat die keuze aan contrast kost.
+
 **0.17.3** sinds 3 oktober 2026. Een zoekopdracht die niet over auto's gaat, liet
 **AutoScout24 kapot lijken**. Die site heeft geen vrije tekstzoekfunctie - het zoekwoord is het
 merk - en elk ander woord geeft daar een 404. Dat telde als mislukking, dus een bewaarde
