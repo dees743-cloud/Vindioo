@@ -568,7 +568,7 @@
                      doorzichtigheid, zodat enkel de neon en zijn gloed overblijven.
                      Niet aanklikbaar, anders vangt het de muis af boven de
                      zoekbalk. -->
-                <Image x:Name="Logo" Source="/Assets/logo.png" Height="76" Margin="0,6,0,4"
+                <Image x:Name="Logo" Source="/Assets/logo.png" Height="56" Margin="0,6,0,4"
                        HorizontalAlignment="Center" VerticalAlignment="Center"
                        RenderOptions.BitmapScalingMode="HighQuality"
                        IsHitTestVisible="False" />

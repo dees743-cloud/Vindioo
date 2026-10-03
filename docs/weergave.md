@@ -269,24 +269,38 @@ en de drie `extension/icon*.png`. Eén bron en één script, zodat ze niet uit e
 groeien.
 
 **Het woord was onleesbaar op de achtergrond van de app**, en dat is gemeten in plaats van
-aangenomen. In de bron staat het in `rgb(3, 7, 38)`, bijna zwart. De kop van de app verloopt van
-`#3B3470` naar `#1D193A`:
+aangenomen. In de bron staat "Vindi" in `rgb(3, 7, 38)` - bijna zwart - en enkel de "oo" in
+kleur. Tegen de kopbalk gaf dat **1,18:1**, waar 3:1 de ondergrens is om grote letters nog te
+lezen.
 
-| | contrast |
-|---|---|
-| zoals getekend, tegen `#3B3470` | **1,81:1** |
-| zoals getekend, tegen `#1D193A` | **1,18:1** |
-| de ondergrens om grote letters te lezen | 3:1 |
-| na het omkleuren naar `#F1EFF7` | **9,64:1** en **14,72:1** |
+De eerste oplossing was het hele woord wit maken (`#F1EFF7`, `TextPrimaryColor` uit `App.xaml`):
+dat gaf **9,64:1** en las uitstekend. Op 3 oktober 2026 is het toch anders geworden, op vraag van
+de eigenaar: wit stond los van het beeldmerk ernaast. Nu krijgt het **hele woord het verloop van
+de twee laatste letters**, met een **donker randje** eromheen.
 
-`#F1EFF7` is niet zelf gekozen maar `TextPrimaryColor` uit `App.xaml` - dezelfde kleur als alle
-andere tekst in de app.
+Alle drie de kleuren komen uit de bron zelf, kolom per kolom gemeten - niet uit iemands hoofd:
 
-**De drempel is ook gemeten.** Alleen de letters mochten lichter worden, niet de blauwe "oo". In
-het woord liggen 33 241 punten onder helderheid 60 en 17 447 punten boven 220, met daartussen
-bijna niets: 60-79 telt er 319, en 80-199 samen 146. Een grens op 150 raakt dus alle letters en
-geen enkel accent. Het **beeldmerk** blijft helemaal met rust - dat heeft zelf donkere delen (de
-lens), en die horen donker te blijven.
+| | kleur | waar het vandaan komt |
+|---|---|---|
+| begin | `rgb(14, 139, 248)` | de eerste "o" |
+| eind | `rgb(97, 36, 251)` | de tweede "o" |
+| randje | `rgb(2, 12, 59)` | de ring die in het beeldmerk rond de V staat |
+
+**Wat die keuze kost**, en het is eerlijker dat te weten dan het niet te weten. Tegen de kopbalk
+haalt het blauwe begin **3,37:1** en het paarse eind **1,75:1** - tegenover 10,23:1 voor wit. Het
+randje is wat dat paarse eind leesbaar houdt: het zet de letters los van de achtergrond waar hun
+eigen kleur dat niet doet (`5,43:1` tegen het blauw, `2,82:1` tegen het paars). Een logo is geen
+lopende tekst, dus 3:1 is hier een richtlijn en geen eis.
+
+**Die kopbalkkleur is `rgb(40, 51, 113)`, en die komt uit een schermafbeelding** en niet uit
+`App.xaml`. Op het verloop daar ligt nog een doorzichtige laag; rekenen met `#3B3470` alleen zou
+een te mooi getal geven.
+
+Het **beeldmerk** blijft helemaal met rust - dat heeft zelf donkere delen (de lens), en die horen
+donker te blijven.
+
+**En het logo staat kleiner**: `Height="56"` in plaats van 76 (`MainWindow.xaml`, zoek op
+`x:Name="Logo"`). Het vulde de kopbalk te veel naast de zoekbalk en het tandwiel.
 
 En de verhoudingen blijven zoals ze getekend zijn. Merk en woord worden in één uitsnede genomen,
 niet apart uitgesneden en met een zelfgekozen tussenruimte weer samengezet: gemeten staat er 13

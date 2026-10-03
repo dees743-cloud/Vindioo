@@ -12,18 +12,24 @@ Daaruit komt:
     Assets/vindioo.ico          het pictogram van de exe
     extension/icon{16,48,128}.png  de pictogrammen van de brug-extensie
 
-DE ENE AANPASSING DIE HIER GEBEURT, en waarom. Het woord is in de bron getekend in
-rgb(3, 7, 38) - bijna zwart. De kop van de app heeft een verloop van #3B3470 naar #1D193A, en
-daar is dat niet donker maar ONZICHTBAAR: gemeten contrast 1,18:1 tot 1,81:1, waar 3:1 de
-ondergrens is om grote letters nog te kunnen lezen en wit 10,99:1 zou geven. Daarom worden de
-donkere letters omgekleurd naar #F1EFF7, de tekstkleur van de app zelf (TextPrimaryColor in
-App.xaml) - geen zelfverzonnen wit.
+DE ENE AANPASSING DIE HIER GEBEURT, en waarom. In de bron staat "Vindi" in rgb(3, 7, 38) -
+bijna zwart - en enkel de "oo" in kleur. Op de kopbalk van de app is dat zwart niet donker maar
+ONZICHTBAAR: gemeten 1,18:1, waar 3:1 de ondergrens is om grote letters nog te lezen. Het hele
+woord krijgt daarom het verloop van die twee laatste letters, met een donker randje eromheen.
 
-DE DREMPEL IS GEMETEN, niet gekozen. In het woord liggen 33 241 punten onder helderheid 60 (de
-letters) en 17 447 punten boven 220 (de blauwe "oo"), met daartussen een gat waar nauwelijks
-iets in zit: 60-79 telt 319 punten, 80-199 samen 146. Een grens op 150 raakt dus alle letters
-en geen enkel accent. Het beeldmerk wordt met rust gelaten - dat heeft zelf donkere delen (de
-lens), en die horen donker te blijven.
+ALLE DRIE DE KLEUREN KOMEN UIT DE BRON, niet uit iemands hoofd: BLAUW en PAARS zijn de uiteinden
+van de "oo", kolom per kolom gemeten, en DONKER is de ring die in het beeldmerk rond de V staat.
+Zo hoort het woord bij het beeldmerk in plaats van ernaast te staan.
+
+WAT DAT KOST, en het is eerlijker dat te weten dan het niet te weten. Tegen de echte kopbalk -
+rgb(40, 51, 113), gemeten uit een schermafbeelding en niet uit App.xaml, want daar ligt nog een
+doorzichtige laag overheen - haalt het blauwe begin 3,37:1 en het paarse eind 1,75:1. Wit haalde
+10,23:1. Het randje is wat het paarse eind leesbaar houdt: dat zet de letters los van de
+achtergrond waar hun eigen kleur dat niet doet. Een logo is geen lopende tekst, dus 3:1 is hier
+een richtlijn en geen eis.
+
+Het beeldmerk wordt met rust gelaten - dat heeft zelf donkere delen (de lens), en die horen
+donker te blijven.
 
 Draaien: python tools/maak-beeldmateriaal.py
 """
@@ -31,7 +37,7 @@ import io
 import os
 import struct
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFilter
 
 HIER = os.path.dirname(os.path.abspath(__file__))
 WORTEL = os.path.normpath(os.path.join(HIER, ".."))
@@ -42,11 +48,18 @@ MERK = (54, 393)
 WOORD = (406, 1152)
 TEGEL = (1216, 1696)
 
-# De tekstkleur van de app (TextPrimaryColor in App.xaml).
-LICHT = (241, 239, 247)
+# Het woord krijgt het verloop van de twee laatste letters, met een donker randje eromheen.
+# Alle drie de kleuren komen UIT DE BRON zelf, niet uit iemands hoofd:
+#   BLAUW en PAARS zijn de uiteinden van de "oo", per kolom gemeten;
+#   DONKER is de ring die in het beeldmerk rond de V staat.
+BLAUW = (14, 139, 248)
+PAARS = (97, 36, 251)
+DONKER = (2, 12, 59)
 
-# Alles donkerder dan dit in het woord wordt omgekleurd.
-DREMPEL = 150
+# Hoe dik dat randje is, gemeten op de bron. 4 punten is op de hoogte waarop de app het logo
+# toont ongeveer een enkel beeldpunt - genoeg om de letters van de achtergrond te scheiden,
+# weinig genoeg om ze niet zwaar te maken.
+RAND = 4
 
 MATEN = [16, 20, 24, 32, 40, 48, 64, 128, 256]
 
@@ -62,32 +75,68 @@ def uitsnede(beeld, kolommen):
     return deel.crop(doos)
 
 
+def woordmerk():
+    """Het woord in het verloop van de "oo", met een donker randje eromheen.
+
+    In de bron staat "Vindi" in bijna zwart en enkel de "oo" in kleur. Op de kop van de app is
+    dat zwart onleesbaar (gemeten 1,18:1), en de eerste oplossing was het hele woord wit te
+    maken. Dat leest wel, maar het staat los van het beeldmerk ernaast.
+
+    Nu krijgt het HELE woord het verloop van die twee laatste letters, en dat scheelt leesbaar-
+    heid: tegen de echte kopbalk (rgb(40, 51, 113), uit een schermafbeelding gemeten) haalt het
+    blauwe begin 3,37:1 en het paarse eind 1,75:1. Daarom het randje: dat zet de letters los van
+    de achtergrond waar hun eigen kleur dat niet doet. Een logo is geen lopende tekst, dus 3:1
+    is hier een richtlijn en geen eis - maar het is beter dat getal te kennen dan het niet te
+    kennen.
+    """
+    woord = uitsnede(bron(), WOORD)
+    masker = woord.getchannel("A")
+
+    # Het verloop over de volle breedte van het woord, en daarna het masker eroverheen: zo
+    # krijgen ook de letters die eerst zwart waren hun plaats in het verloop.
+    verloop = Image.new("RGBA", woord.size)
+    tekenaar = ImageDraw.Draw(verloop)
+
+    for x in range(woord.width):
+        deel = x / max(1, woord.width - 1)
+        kleur = tuple(round(BLAUW[i] + (PAARS[i] - BLAUW[i]) * deel) for i in range(3))
+        tekenaar.line([(x, 0), (x, woord.height)], fill=kleur + (255,))
+
+    verloop.putalpha(masker)
+
+    # Het randje: hetzelfde masker, uitgezet met een maximumfilter, in het donker van de ring
+    # rond de V. De ruimte eromheen moet mee groeien, anders valt het randje van het doek af.
+    ruimte = RAND * 2
+    groot = Image.new("L", (woord.width + ruimte * 2, woord.height + ruimte * 2), 0)
+    groot.paste(masker, (ruimte, ruimte))
+    dik = groot.filter(ImageFilter.MaxFilter(RAND * 2 + 1))
+
+    doek = Image.new("RGBA", groot.size, (0, 0, 0, 0))
+    doek.paste(Image.new("RGBA", groot.size, DONKER + (255,)), (0, 0), dik)
+    doek.alpha_composite(verloop, (ruimte, ruimte))
+
+    return doek
+
+
 def banner():
-    """Het beeldmerk met het woord ernaast, en het woord in de kleur van de app."""
-    beeld = bron()
+    """Het beeldmerk met het woord ernaast."""
+    merk = uitsnede(bron(), MERK)
+    woord = woordmerk()
 
-    # Het woord omkleuren vóór het uitsnijden, zodat de kolomgrenzen van de bron gelden.
-    punten = beeld.load()
+    # De tussenruimte komt uit de bron: daar staat 13 punten tussen het beeldmerk en het woord.
+    # Zelf een getal kiezen lag voor de hand, maar dan verzin je de verhoudingen van een
+    # tekening die iemand anders gemaakt heeft.
+    tussen = WOORD[0] - MERK[1] + 13
 
-    omgekleurd = 0
-    for x in range(WOORD[0], WOORD[1]):
-        for y in range(beeld.height):
-            r, g, b, a = punten[x, y]
+    hoogte = max(merk.height, woord.height)
+    doek = Image.new("RGBA", (merk.width + tussen + woord.width, hoogte), (0, 0, 0, 0))
 
-            # Ook de halfdoorzichtige randjes: die zijn even donker, en zonder dit houd je
-            # een donkere waas rond lichte letters over. De alfawaarde blijft staan, dus de
-            # zachte rand blijft zacht.
-            if a > 0 and max(r, g, b) < DREMPEL:
-                punten[x, y] = LICHT + (a,)
-                omgekleurd += 1
+    doek.alpha_composite(merk, (0, (hoogte - merk.height) // 2))
+    doek.alpha_composite(woord, (merk.width + tussen, (hoogte - woord.height) // 2))
 
-    print(f"  woord: {omgekleurd} punten omgekleurd naar rgb{LICHT}")
+    print(f"  woord: verloop rgb{BLAUW} -> rgb{PAARS}, randje {RAND} in rgb{DONKER}")
 
-    # Beeldmerk en woord blijven staan zoals ze getekend zijn: één uitsnede over allebei, strak
-    # rond wat niet doorzichtig is. Ze apart uitsnijden en met een zelfgekozen tussenruimte
-    # weer samenzetten lag voor de hand, maar dan verzin je de verhoudingen van een tekening
-    # die iemand anders gemaakt heeft - gemeten staat er 13 punten tussen, en dat is een keuze.
-    return uitsnede(beeld, (MERK[0], WOORD[1]))
+    return doek
 
 
 def tegel(zijde):
@@ -182,5 +231,12 @@ def verhouding(a, b):
     return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
 
 
-print(f"  woord rgb{LICHT} tegen #3B3470: {verhouding(LICHT, BOVEN):5.2f}:1")
-print(f"  woord rgb{LICHT} tegen #1D193A: {verhouding(LICHT, ONDER):5.2f}:1")
+# De echte kopbalk, gemeten uit een schermafbeelding: op het verloop uit App.xaml ligt nog een
+# doorzichtige laag, dus rekenen met #3B3470 alleen zou een te mooi getal geven.
+KOPBALK = (40, 51, 113)
+
+for naam, kleur in (("begin (blauw)", BLAUW), ("eind (paars) ", PAARS), ("randje       ", DONKER)):
+    print(f"  {naam} rgb{str(kleur):<16} tegen de kopbalk: {verhouding(kleur, KOPBALK):5.2f}:1")
+
+print(f"  en het randje tegen de letters: {verhouding(DONKER, BLAUW):5.2f}:1 (blauw), "
+      f"{verhouding(DONKER, PAARS):5.2f}:1 (paars)")
