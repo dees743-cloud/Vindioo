@@ -247,7 +247,8 @@ en waarom de sites niet meegaan, staat bij "Volgende stappen" punt 8. Twee besta
 bijgekomen en horen bij een openbare repository: `README.md` (de voordeur: wat het is, hoe je het
 bouwt, en dat de app zonder sites komt) en `LICENSE`.
 
-**In de README staat een schermafbeelding** (`docs/schermafbeelding.png`, 29 september 2026), en
+**In de README staat een schermafbeelding** (`docs/schermafbeelding.png`, opnieuw gemaakt op
+3 oktober 2026 bij de hernoeming naar Vindioo - de vorige toonde nog de oude naam in de kop), en
 die is met opzet niet van de eigen Vindioo gemaakt. Ze toont een **lege gegevensmap**
 (`VINDIOO_DATA` naar een verse map) met vier rechtstreekse sites, zodat er geen bewaarde
 zoekopdrachten, favorieten, postcode of straal in beeld staan. Facebook blijft er bewust uit: die
