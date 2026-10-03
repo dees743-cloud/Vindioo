@@ -181,6 +181,69 @@ public static class PlannerChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("Een site die dit zoekwoord niet kent, is geen mislukking");
+        {
+            // AutoScout24 heeft geen vrije tekstzoekfunctie: het zoekwoord ís het merk, en
+            // alles wat geen merk is geeft daar een 404. Gemeten op 3 oktober 2026:
+            // "volkswagen", "bmw/x5", "land-rover" en een lege zoekterm geven 200; "cd",
+            // "cd speler" en "commodore" geven 404.
+            //
+            // Dat telde tot dan als mislukking, en dat heeft gevolgen die niemand wil: een
+            // bewaarde zoekopdracht naar "cd speler" met die site erbij zou bij ELKE beurt
+            // opnieuw mislukken, na twee beurten een melding sturen, en daarna voor altijd
+            // rood blijven staan. Terwijl er niets stuk is.
+            using var merken = new Proefsite { PerPagina = { [1] = 5 } };
+            merken.Status["/s"] = 404;
+
+            var merkensite = merken.Site("Merkensite");
+            merkensite.AllowsEmptyQuery = true;
+            store.Add(merkensite);
+
+            var zoek = Zoekopdracht("cd speler", "Snel", "Merkensite");
+            var uit = await runner.RunAsync(zoek);
+
+            Check.Dat(uit.QueryNotSupported.Count == 1 && uit.QueryNotSupported[0] == "Merkensite",
+                $"de site staat apart genoteerd ({string.Join(", ", uit.QueryNotSupported)})");
+
+            Check.Dat(uit.SiteErrors.GetValueOrDefault("Merkensite")?.Contains("kent dit zoekwoord niet") == true,
+                $"de reden staat wél op haar tab ('{uit.SiteErrors.GetValueOrDefault("Merkensite")}')");
+
+            Check.Dat(uit.SiteErrors.GetValueOrDefault("Merkensite")?.Contains("laat de zoekbalk leeg") == true,
+                "met de uitweg erbij, want die site kan wél op filters alleen zoeken");
+
+            Check.Dat(SearchRunner.EchteFouten(uit).Count == 0,
+                $"maar het telt niet als mislukking ({SearchRunner.EchteFouten(uit).Count})");
+
+            Check.Dat(uit.Errors.Count == 0, "en het komt niet in de foutenlijst van de beurt");
+
+            Check.Dat(uit.All.Count == 5, $"de andere site zoekt gewoon door ({uit.All.Count})");
+
+            Check.Dat(zoek.FailureStreaks.GetValueOrDefault("Merkensite") == 0,
+                "er wordt geen mislukte beurt geteld");
+
+            Check.Dat(!zoek.LastErrors.ContainsKey("Merkensite") && !zoek.HasErrors,
+                "en de zoekopdracht komt niet in fout te staan");
+
+            // DE TWEEDE BEURT is waar het om ging: dáár kwam vroeger de melding.
+            var tweede = await runner.RunAsync(zoek);
+
+            Check.Dat(tweede.JustBroken.Count == 0,
+                $"ook na een tweede beurt geen melding ({string.Join(", ", tweede.JustBroken)})");
+
+            Check.Dat(!zoek.HasErrors, "en ze blijft dus niet voor altijd rood staan");
+
+            // Een site die écht mislukt, moet wél gewoon blijven tellen - anders heeft deze
+            // uitzondering het vangnet opengescheurd.
+            var kapot = Zoekopdracht("cd speler", "Dood");
+            await runner.RunAsync(kapot);
+            var tweedeKapot = await runner.RunAsync(kapot);
+
+            Check.Dat(kapot.FailureStreaks.GetValueOrDefault("Dood") == 2 &&
+                      tweedeKapot.JustBroken.Contains("Dood"),
+                "een site die echt mislukt, geeft na twee beurten nog altijd een melding");
+        }
+
+        // ---------------------------------------------------------------------------
         Check.Groep("Zoeken zonder bewaarde zoekopdracht");
         {
             // De tweede stap naar één zoeklus: het zoekscherm zoekt ook los, met enkel wat er op

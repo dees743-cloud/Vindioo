@@ -425,10 +425,16 @@ public class GenericSource : ISearchSource
         // site dit woord niet kent. AutoScout24 doet dat bij elk woord dat geen
         // automerk is, en "Response status code does not indicate success: 404
         // (Not Found)" zegt de gebruiker daar niets over.
+        //
+        // Een eigen soort uitzondering, en niet zomaar een HttpRequestException met een
+        // vriendelijke tekst: de zoeklus moet dit kunnen ONDERSCHEIDEN van een echte
+        // mislukking. Anders zou een bewaarde zoekopdracht naar "cd speler" met deze site
+        // erbij elke beurt opnieuw "mislukken", na twee beurten een melding sturen en daarna
+        // voor altijd rood blijven staan. Zie UnsupportedQueryException.
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
             // Zonder de sitenaam: de aanroeper zet die er al voor.
-            throw new HttpRequestException(
+            throw new UnsupportedQueryException(
                 "kent dit zoekwoord niet."
                 + (_def.AllowsEmptyQuery
                     ? " Deze site zoekt op een vaste lijst; laat de zoekbalk leeg en gebruik de filters."

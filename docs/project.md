@@ -187,6 +187,14 @@ verandert en dat is precies de kapotte, **0 van de 178** zoekresultaten hadden d
 `docs/favorieten.md` bij "Een titel die dubbel gecodeerd is" - ook voor de misstap onderweg, want
 mijn eerste oplossing zat op de verkeerde plaats.
 
+**Na 0.17.2, nog niet uitgebracht.** Een zoekopdracht die niet over auto's gaat, liet
+**AutoScout24 kapot lijken**. Die site heeft geen vrije tekstzoekfunctie - het zoekwoord is het
+merk - en elk ander woord geeft daar een 404. Dat telde als mislukking, dus een bewaarde
+zoekopdracht naar "cd speler" met die site erbij mislukte élke beurt, stuurde na twee beurten een
+melding dat de site stuk was, en bleef daarna voor altijd rood staan. Nu is het een eigen soort
+antwoord: je leest op de tab van die site waarom er niets kwam, maar het telt nergens als fout.
+Zie `docs/zoeken.md` bij "niet alles wat geen resultaat geeft, is een mislukking".
+
 **0.16.0** sinds 2 oktober 2026. Twee dingen aan de vensters. Een **vergrote foto** heeft nu
 bladerpijlen bovenaan met een teller ertussen ("2 van 4"), en de pijltjestoetsen doen hetzelfde;
 de volgende foto kostte er drie klikken. Bij de eerste foto staat er geen pijl naar links en bij

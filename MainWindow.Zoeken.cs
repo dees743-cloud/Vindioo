@@ -670,9 +670,11 @@ public partial class MainWindow
                 ? new List<SiteTab>()
                 : searching.Where(t => t.Def!.UseBridge).ToList();
 
-            // Wat er overblijft aan echte fouten: de brugsites en de verdwenen sites staan ook
-            // in SiteErrors, maar die krijgen hieronder hun eigen zin.
-            var mislukt = outcome.SiteErrors.Count - brugOvergeslagen.Count - verdwenen.Count;
+            // Wat er overblijft aan echte fouten: de brugsites, de verdwenen sites en de sites
+            // die dit zoekwoord niet kennen staan ook in SiteErrors, maar die krijgen hieronder
+            // elk hun eigen zin.
+            var mislukt = outcome.SiteErrors.Count - brugOvergeslagen.Count - verdwenen.Count
+                          - outcome.QueryNotSupported.Count;
 
             var message = $"{_results.Count} resultaten van {searching.Count} site(s)";
 
@@ -686,6 +688,13 @@ public partial class MainWindow
             if (verdwenen.Count > 0)
                 message += $" {string.Join(" en ", verdwenen)} " +
                            $"{(verdwenen.Count == 1 ? "bestaat" : "bestaan")} niet meer in Sites beheren.";
+
+            // Geen mislukking maar een antwoord: AutoScout24 zoekt op automerk, dus "cd speler"
+            // bestaat daar niet. Zonder deze zin stond er "1 site mislukte" bij elke zoekopdracht
+            // die niet over auto's gaat.
+            if (outcome.QueryNotSupported.Count > 0)
+                message += $" {string.Join(" en ", outcome.QueryNotSupported)} " +
+                           $"{(outcome.QueryNotSupported.Count == 1 ? "kent" : "kennen")} dit zoekwoord niet.";
 
             if (mislukt > 0)
                 message += mislukt == 1

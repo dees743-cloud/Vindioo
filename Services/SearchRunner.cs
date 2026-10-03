@@ -28,6 +28,17 @@ public class SearchOutcome
     /// </summary>
     public List<string> JustBroken { get; } = new();
 
+    /// <summary>
+    /// De sites die dit zoekwoord niet kennen - AutoScout24 bij elk woord dat geen automerk
+    /// is. Zie <see cref="Zentrix.Sources.UnsupportedQueryException"/>.
+    ///
+    /// Ze staan ook in <see cref="SiteErrors"/>, zodat je op hun tab leest waarom er niets
+    /// kwam, maar ze tellen <b>niet</b> als mislukking: niet in de regel onderaan, en niet in
+    /// <see cref="SavedSearch.RecordRun"/>. Dezelfde aanpak als bij een brugsite die
+    /// overgeslagen werd en bij een site die niet meer bestaat.
+    /// </summary>
+    public List<string> QueryNotSupported { get; } = new();
+
     /// <summary>Hoe het klaarzetten van de brug afliep; Ready wanneer er geen brugsite meedeed.</summary>
     public BridgeStatus Bridge { get; set; } = BridgeStatus.Ready;
 
@@ -424,6 +435,19 @@ public class SearchRunner
                 {
                     throw;
                 }
+                // Deze site kan met dit zoekwoord niets aanvangen. Dat is een antwoord en geen
+                // mislukking, dus het komt wel op haar tab maar telt nergens als fout mee.
+                catch (UnsupportedQueryException nvt)
+                {
+                    lock (outcome)
+                    {
+                        outcome.SiteErrors[setting.Site] = nvt.Message;
+                        outcome.QueryNotSupported.Add(setting.Site);
+                    }
+
+                    Log.Write($"{logNaam}: {setting.Site} {nvt.Message}");
+                    siteKlaar?.Invoke(new SiteKlaar(setting.Site, 0, DateTime.Now - start, nvt.Message));
+                }
                 catch (Exception ex)
                 {
                     var melding = FriendlyError.Describe(ex);
@@ -492,16 +516,24 @@ public class SearchRunner
 
                 // Wat er misliep bij de zoekopdracht zelf bijhouden: de lijst toont het,
                 // en na twee mislukte beurten op rij komt er een melding (zie SearchScheduler).
+                //
+                // Zonder de sites die dit zoekwoord niet kennen. Die horen hier niet thuis:
+                // ze zouden bij elke beurt opnieuw "mislukken", na twee beurten een melding
+                // uitlokken en de zoekopdracht daarna voor altijd rood laten staan - terwijl
+                // er niets stuk is.
                 outcome.JustBroken.AddRange(
                     search.RecordRun(werk.Select(p => p.Setting.Site).Concat(verdwenen),
-                                     outcome.SiteErrors, outcome.SiteCounts));
+                                     EchteFouten(outcome), outcome.SiteCounts));
 
                 _history.Update(search);
             }
 
             Log.Write($"{logNaam}: '{search.Name}' klaar — {outcome.All.Count} resultaten, " +
                       $"{outcome.New.Count} nieuw, {outcome.All.Count(l => l.IsNew)} nog niet bekeken, " +
-                      $"{outcome.SiteErrors.Count} site(s) mislukt");
+                      $"{EchteFouten(outcome).Count} site(s) mislukt" +
+                      (outcome.QueryNotSupported.Count > 0
+                          ? $", {outcome.QueryNotSupported.Count} site(s) kennen dit zoekwoord niet"
+                          : ""));
 
             return outcome;
         }
@@ -512,6 +544,16 @@ public class SearchRunner
             if (!slotGenomen) Gate.Release();
         }
     }
+
+    /// <summary>
+    /// De fouten waar de gebruiker iets aan moet doen, dus zonder de sites die dit zoekwoord
+    /// gewoon niet kennen. Die staan wél in <see cref="SearchOutcome.SiteErrors"/> - daar leest
+    /// de tab van die site uit waarom er niets kwam - maar ze tellen nergens als mislukking.
+    /// </summary>
+    internal static Dictionary<string, string> EchteFouten(SearchOutcome outcome) =>
+        outcome.SiteErrors
+            .Where(p => !outcome.QueryNotSupported.Contains(p.Key, StringComparer.OrdinalIgnoreCase))
+            .ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Valt dit zoekertje binnen de prijsgrenzen van zíjn eigen site? Zonder

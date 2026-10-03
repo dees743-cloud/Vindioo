@@ -290,6 +290,35 @@ de selector vindt niets, en de beurt "lukt". Daarom drie vangnetten, sinds septe
 - **Een aangevinkte site die niet meer bestaat** (verwijderd, of een bestand met een andere
   naam) is een fout van die site. Vroeger viel ze stil weg.
 
+**En de andere kant: niet alles wat geen resultaat geeft, is een mislukking.** AutoScout24 heeft
+**geen vrije tekstzoekfunctie** - het zoekwoord ís het merk, en het staat in het pad van de
+zoek-URL. Gemeten op 3 oktober 2026: `volkswagen`, `bmw/x5`, `land-rover` en een lege zoekterm
+geven 200; `cd`, `cd speler` en `commodore` geven alle drie een **404**.
+
+Dat telde als mislukking, en daar kwam dit van: een bewaarde zoekopdracht naar "cd speler" met
+AutoScout24 aangevinkt mislukte bij **elke** beurt, stuurde na twee beurten een melding dat die
+site stuk was, en bleef daarna voor altijd rood staan. Terwijl er niets stuk is - die site gaat
+gewoon niet over cd-spelers. Een waarschuwing die nooit meer weggaat, leert je waarschuwingen
+negeren, en dan werken de drie vangnetten hierboven ook niet meer.
+
+Sinds 3 oktober 2026 gooit de motor daarvoor een **eigen soort** uitzondering
+(`UnsupportedQueryException`) in plaats van een gewone fout. Die komt in
+`outcome.QueryNotSupported` terecht, en dan geldt:
+
+| | |
+|---|---|
+| op de tab van die site | **wel** - je leest waarom er niets kwam, met de uitweg erbij ("laat de zoekbalk leeg en gebruik de filters") |
+| in de regel onderaan | **wel**, maar als eigen zin: "AutoScout24 kent dit zoekwoord niet", niet "1 site mislukte" |
+| als mislukte beurt (`RecordRun`) | **niet** - geen streak, geen melding, geen rode zoekopdracht |
+| in `outcome.Errors` | **niet** |
+
+Met de echte site nagemeten over twee beurten na elkaar: 1816 resultaten van 2dehands, geen
+enkele fout, geen melding, en de zoekopdracht blijft groen. De tegenproef - de oude soort
+uitzondering terugzetten - laat zeven controles omvallen, waaronder die ene die telt: *"ook na
+een tweede beurt geen melding"*. Een site die **écht** mislukt, geeft nog altijd na twee beurten
+een melding; daar staat een aparte controle op, want anders had deze uitzondering het vangnet
+opengescheurd.
+
 **Een melding zegt of ze vertrok.** `Notifier` telt welke kanalen lukten. Lukte er geen, dan
 staat er in het logboek "melding NIET verstuurd" en zegt de statusregel het; vroeger stond er
 altijd "melding verstuurd", ook met een ingetrokken Telegram-token. Een ballon zonder pictogram

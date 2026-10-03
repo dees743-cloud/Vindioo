@@ -120,13 +120,19 @@ public class SearchScheduler
             }
 
             // "Niets nieuws" terwijl er sites mislukten, zou misleiden: dan staat niet
-            // vast dat er niets nieuws is.
-            var mislukt = outcome.SiteErrors.Count switch
+            // vast dat er niets nieuws is. Een site die dit zoekwoord niet kent, hoort daar
+            // niet bij: die heeft geantwoord, en haar antwoord is "dit gaat niet over mij".
+            var mislukt = SearchRunner.EchteFouten(outcome).Count switch
             {
                 0 => "",
                 1 => " 1 site mislukte; zie de zoekopdracht.",
                 var n => $" {n} sites mislukten; zie de zoekopdracht."
             };
+
+            var nietVanToepassing = outcome.QueryNotSupported.Count == 0
+                ? ""
+                : $" {string.Join(" en ", outcome.QueryNotSupported)} " +
+                  $"{(outcome.QueryNotSupported.Count == 1 ? "kent" : "kennen")} dit zoekwoord niet.";
 
             // Nieuw bij deze beurt, en daarnaast wat vorige beurten vonden en je nog niet
             // bekeek. Zonder dat tweede stond er "niets nieuws" terwijl de teller 48 zei.
@@ -136,7 +142,7 @@ public class SearchScheduler
             Status?.Invoke((outcome.New.Count > 0
                 ? $"'{search.Name}': {outcome.New.Count} nieuw van {outcome.All.Count}."
                 : $"'{search.Name}': niets nieuws sinds de vorige beurt ({outcome.All.Count} resultaten).") +
-                ookNog + mislukt +
+                ookNog + mislukt + nietVanToepassing +
                 (meldingOk ? "" : " De melding kon nergens verstuurd worden; zie Meldingen en achtergrond."));
         }
         catch (Exception ex)

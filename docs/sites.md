@@ -270,6 +270,11 @@ met `/lst/bmw/x5`, en versleuteld wordt dat `/lst/bmw%2Fx5` waarop de site met
 404 antwoordt. Alle andere sites zetten hun zoekterm in de querystring, en daar
 wordt alles gewoon versleuteld. Zie `EncodeQuery`.
 
+Een zoekterm in het **pad** heeft nog een gevolg: dan is het geen vrije tekst meer maar een
+vaste waarde die de site moet kennen. Bij AutoScout24 is dat het merk, en elk ander woord geeft
+daar een 404. Dat is géén mislukking van die site - zie "niet alles wat geen resultaat geeft, is
+een mislukking" in `docs/zoeken.md`.
+
 **Staat `{query}` tussen aanhalingstekens** (`"query":"{query}"`), dan zit hij in een JSON-blok
 in de URL, zoals bij de GraphQL-API van Discogs. Dan wordt hij eerst als JSON-tekst ontsnapt en
 pas daarna als URL. Anders maakte een aanhalingsteken in de zoekterm - `12"` is gewoon op
