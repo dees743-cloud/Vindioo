@@ -15,11 +15,27 @@ en overal waar een oude naam blijft staan, staat hij er met opzet:
 | Waar | Wat er staat | Waarom het blijft |
 |---|---|---|
 | `AppPaths.LegacyNames` | `Zentrix`, `Zoekhulp` | anders vindt de app de gegevensmap van een bestaande installatie niet |
-| `AppPaths.OudeDataVariabelen` | `ZENTRIX_DATA` | een proefopstelling die daar nog op leunt, zou anders op de échte gegevens draaien |
+| `AppPaths.DatabaseNames` | `zentrix.db`, `zoekhulp.db` | de databank hernoemt mee binnen die map; zonder dit start de app met een lege lijst zoekopdrachten terwijl alles nog op schijf staat |
+| `AppPaths.LogNames` | `zentrix-log.txt`, `zoekhulp-log.txt` | idem voor het logboek, zodat de geschiedenis niet over twee bestanden uiteenvalt |
+| `AppPaths.OudeDataVariabelen` | `ZENTRIX_DATA`, `ZOEKHULP_DATA` | een proefopstelling die daar nog op leunt, zou anders op de échte gegevens draaien |
 | `Autostart.OudeNamen` | `Zentrix`, `Zoekhulp` | anders blijft Windows de oude exe mee opstarten |
 | `App.OudeSloten` | `Local\Zentrix-een-exemplaar` | anders draaien een oude en een nieuwe versie tegelijk, en loopt de tweede vast op poort 8731 |
-| `BridgeServer.Oude*Header` | `X-Zentrix-Brug` en twee andere | de extensie wordt apart herladen; zonder dit weigert de nieuwe app een extensie die nog niet bij is |
+| `App.xaml.cs`, het sein | `Local\Zentrix-toon-venster` | zonder dit haalt een tweede dubbelklik een draaiende oude versie niet meer naar voren |
+| `App.xaml.cs`, de noodrem | `ZENTRIX_SOFTWARE_RENDER` | wie die ooit zette omdat zijn venster wit bleef, kijkt er anders weer naar - en niets zegt waarom |
+| `BridgeServer.Oude*Header` | `X-Zentrix-Brug`, `-Sig`, `-Voor` | de extensie wordt apart herladen, dus ze kan achterlopen op de app |
 | `AppSettings.Extra` | `Zentrix-instellingen` | **sleutelmateriaal**, geen tekst: wijzig je dit, dan is de bewaarde API-sleutel onleesbaar |
+
+**Tien plaatsen, vijftien waarden** (gemeten 4 oktober 2026). Die telling staat er niet voor
+de sier: deze tabel is wat een volgende lezer gebruikt om te beslissen wat weg mag, en wat er
+niet in staat, wordt opgeruimd. Tot 4 oktober had de tabel zes rijen en sprak de tekst van
+zeven, terwijl `DatabaseNames`, `LogNames`, het sein en de noodrem er alle vier in ontbraken.
+`DocsChecks` meet de lijst nu na: komt er een waarde bij of valt er een weg, dan valt de
+controle om met de naam erbij.
+
+> **De rij van de brug klopt nog niet helemaal.** De server aanvaardt die drie oude kopregels
+> wel in een verzoek, maar tekent zijn antwoord enkel onder de nieuwe naam - een extensie die
+> nog niet bij is, komt er dus wél in maar herkent het antwoord niet. Zie `docs/brug.md`; dat
+> moet nog opgelost worden, of de drie namen mogen weg.
 
 Verder heet alles Vindioo: de namespace, het project `Vindioo.csproj`, de exe `Vindioo.exe`,
 de gegevensmap `%APPDATA%\Vindioo` met `vindioo.db` en `vindioo-log.txt`, en de extensie
@@ -219,7 +235,7 @@ als Vinted meezoekt.
 **0.18.0** sinds 3 oktober 2026. **Zentrix heet voortaan Vindioo** - *Alles gevonden. Op één
 plek.* De naam bleek in meerdere vormen al te bestaan. Aan wat de app doet verandert niets; wat
 er wel verandert, staat bovenaan dit bestand bij "De naam, de gegevensmap en GitHub", inclusief
-de zeven plaatsen waar de oude naam met opzet blijft staan. De gegevensmap verhuist bij de eerste
+de tien plaatsen waar de oude naam met opzet blijft staan. De gegevensmap verhuist bij de eerste
 start vanzelf, en dat is nu ook nagemeten.
 
 **0.18.1** sinds 3 oktober 2026, en dat is enkel het uiterlijk. Het woordmerk was wit gemaakt
