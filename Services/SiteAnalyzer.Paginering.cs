@@ -138,7 +138,7 @@ public partial class SiteAnalyzer
             var melding = $"De grote foto {reden}, dus die selector is eruit gehaald; de app toont de " +
                           "miniatuur. Vaak staat het formaat in een parameter die verplicht is.";
 
-            Log.Write("analyse: " + melding + $" ({adres})");
+            Log.Write("analyse: " + melding + $" ({Log.Url(adres)})");
             return melding;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

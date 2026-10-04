@@ -145,9 +145,11 @@ public class GenericSource : ISearchSource
         {
             var url = SearchUrlBuilder.Build(_def, query, filters, page);
 
-            // De volledige zoek-URL in het logboek: dat is de snelste manier om
-            // na te gaan of de filters er wel echt in terechtkomen.
-            Services.Log.Write($"{_def.Name}: pagina {page} -> {url}");
+            // De zoek-URL in het logboek: dat is de snelste manier om na te gaan of de
+            // filters er wel echt in terechtkomen. Zonder de waarden die een plaats
+            // verraden: de app verwijst de gebruiker bij een fout zélf naar dit logboek,
+            // en dit is een openbare repo die issues uitnodigt (zie Log.Url).
+            Services.Log.Write($"{_def.Name}: pagina {page} -> {Services.Log.Url(url, _def.SearchUrlTemplate)}");
 
             var content = await FetchAsync(url, browser, maxResults, progress, vervolgpagina: page > 1, ct);
             var listings = await ParseAsync(content, maxResults, ct);
@@ -277,7 +279,7 @@ public class GenericSource : ISearchSource
         for (var page = van; page <= tot; page++)
         {
             var url = SearchUrlBuilder.Build(_def, query, filters, page);
-            Services.Log.Write($"{_def.Name}: pagina {page} -> {url}");
+            Services.Log.Write($"{_def.Name}: pagina {page} -> {Services.Log.Url(url, _def.SearchUrlTemplate)}");
 
             taken.Add(HaalEenPaginaAsync(url, ct));
         }

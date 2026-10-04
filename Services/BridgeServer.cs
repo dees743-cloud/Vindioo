@@ -325,7 +325,7 @@ public class BridgeServer
             onPartial, headers, rawText, waitSelector, itemTimeoutMs);
 
         _waiting.Enqueue(job);
-        Log.Write($"brug: opdracht {job.Id[..8]} in wachtrij -> {url}");
+        Log.Write($"brug: opdracht {job.Id[..8]} in wachtrij -> {Log.Url(url)}");
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(TimeSpan.FromSeconds(90));

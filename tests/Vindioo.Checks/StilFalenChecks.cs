@@ -633,6 +633,66 @@ public static class StilFalenChecks
                       geenVerslag.Length == 0,
                 "een nieuwe installatie krijgt gewoon een lege map");
         }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("De postcode van de gebruiker hoort niet in het logboek");
+        {
+            // Stil in een andere betekenis: hier gaat er niets stuk, er lekt iets. De app
+            // schrijft de volledige zoek-URL weg, verwijst bij een fout zélf naar het
+            // logboek, en Vindioo is een openbare repo die issues uitnodigt. De eerste die
+            // zijn logboek in een issue plakt, geeft bij benadering zijn woonplaats weg.
+            //
+            // Gemeten op 4 oktober 2026 in een echt logboek van 12 105 regels: negen regels
+            // droegen een postcode of een Duitse zip.
+            const string tweedehands =
+                "https://www.2dehands.be/lrp/api/search?query=matras&postcode=9999&distanceMeters=25000&limit=30";
+
+            var schoon = Log.Url(tweedehands);
+
+            Check.Dat(!schoon.Contains("9999") && !schoon.Contains("25000"),
+                $"de postcode en de straal gaan eruit ('{schoon}')");
+
+            Check.Dat(schoon.Contains("postcode=") && schoon.Contains("distanceMeters="),
+                "maar de NAMEN blijven staan - dat er een postcode in stond, is zelf nuttig");
+
+            Check.Dat(schoon.Contains("query=matras") && schoon.Contains("limit=30"),
+                "en de rest van de URL blijft ongemoeid, anders is hij niet meer na te spelen");
+
+            var duits = Log.Url("https://www.kleinanzeigen.de/s-suche?keyword=matratze&zip=10115&zipr=50");
+
+            Check.Dat(!duits.Contains("10115") && !duits.Contains("zipr=50"),
+                $"ook de Duitse zip en zijn straal ('{duits}')");
+
+            // GEEN algemene cijferregel: van de 22 URL's met een lang getal in hun pad waren
+            // het er 22 een zoekertje-id. Die maskeren sloopt juist wat je nodig hebt om een
+            // fout na te spelen.
+            const string zoekertje = "https://benl.ebay.be/itm/128096739486";
+
+            Check.Dat(Log.Url(zoekertje) == zoekertje,
+                "een zoekertje-id blijft volledig staan");
+
+            Check.Dat(Log.Url("https://www.catawiki.com/nl/l/104894297-teac-lenco-hifi-set")
+                      == "https://www.catawiki.com/nl/l/104894297-teac-lenco-hifi-set",
+                "en een kavelnummer in een link ook");
+
+            // WEL als het getal uit het SJABLOON van de site komt. Het nummer hieronder is
+            // met opzet onmogelijk (enkel negens): dit bestand staat in de openbare repo: dan is het een instelling
+            // en geen zoekertje. Facebook draagt zijn regionummer in het pad, en dat benadert
+            // een woonplaats - het is de reden dat vindioo-sites privé staat.
+            const string sjabloon = "https://www.facebook.com/marketplace/999999999999999/search/?query={query}";
+            var fb = Log.Url("https://www.facebook.com/marketplace/999999999999999/search/?query=matras", sjabloon);
+
+            Check.Dat(!fb.Contains("999999999999999"),
+                $"een regionummer uit het sjabloon gaat eruit ('{fb}')");
+
+            Check.Dat(fb.Contains("query=matras"), "en de zoekterm blijft wel staan");
+
+            Check.Dat(Log.Url(zoekertje, sjabloon) == zoekertje,
+                "maar een zoekertje-id dat NIET in het sjabloon staat, blijft - ook mét sjabloon");
+
+            Check.Dat(Log.Url("") == "" && Log.Url("geen url") == "geen url",
+                "en een lege of rare waarde geeft gewoon zichzelf terug");
+        }
     }
 }
 

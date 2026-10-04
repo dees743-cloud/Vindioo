@@ -195,7 +195,7 @@ public static class FavoriteFromUrl
             var (adres, pagina) = treffer.Value;
             var uitkomst = await VanPaginaAsync(adres, site, pagina, history, ct, Zoekterm(pagina));
 
-            Log.Write($"favoriet uit Chrome: '{zoekterm}' teruggevonden op {site.Name} ({adres})");
+            Log.Write($"favoriet uit Chrome: '{zoekterm}' teruggevonden op {site.Name} ({Log.Url(adres)})");
 
             return uitkomst.Ok
                 ? uitkomst with { Melding = uitkomst.Melding + $" (gevonden via {site.Name})" }

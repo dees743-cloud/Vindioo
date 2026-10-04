@@ -17,6 +17,28 @@ vergrootglas klikt, `planner:` bij een geplande beurt. Het is dezelfde code (`Se
 zie "Het scherm zoekt niet meer zelf"), dus zonder dat onderscheid is in het logboek niet meer
 te zien wie er zocht.
 
+**De zoek-URL staat erin, maar zonder je postcode** (`Log.Url`, sinds 4 oktober 2026). Die
+volledige URL is het nuttigste wat er in het logboek staat - je ziet precies welke pagina
+gevraagd werd en je kan ze in een browser plakken. Maar de filters zitten erin, en daar hoort
+een postcode bij. Dit logboek is net waar de app je bij een fout naartoe stuurt, en Vindioo is
+een openbare repo die issues uitnodigt: de eerste die zijn logboek in een issue plakt, geeft
+bij benadering zijn woonplaats weg. Dat is hetzelfde gegeven waarvoor `vindioo-sites` privé
+staat.
+
+Nagemeten in een logboek van 12 105 regels: negen regels droegen zoiets - drie van 2dehands
+(`postcode`, `distanceMeters`) en zes van AutoScout24 (`zip`, `zipr`). Enkel de **waarde** gaat
+weg; de naam van de parameter blijft staan, want dát de URL een postcode droeg, wil je net
+weten. De lijst namen staat in `Log.PlaatsFilter` en dekt ook een paar die nog geen enkel
+sitebestand gebruikt - een maskeerder die pas werkt nadat er iets gelekt is, komt te laat.
+
+**Lange getallen blijven wél staan, op één uitzondering na.** Een algemene cijferregel zou
+juist het bruikbare slopen: van de 22 URL's met een lang getal in hun pad waren het er 22 een
+zoekertje-id (`/itm/128096739486`), en zonder dat nummer is zo'n regel niet meer na te spelen.
+De uitzondering is een getal dat in het **sjabloon** van de site staat (`SearchUrlTemplate`):
+dat is een instelling en geen zoekertje. Facebook draagt zijn regionummer in het pad van zijn
+zoek-URL, en dat benadert een woonplaats. Van de dertien sitebestanden is Facebook het enige
+met zo'n getal in zijn sjabloon, dus die regel raakt verder niets.
+
 `App.OnStartup` hangt zich aan `DispatcherUnhandledException`,
 `AppDomain.UnhandledException` en `TaskScheduler.UnobservedTaskException`, en
 schrijft die naar hetzelfde logboek. Zonder dat verdwijnt een fout in de
