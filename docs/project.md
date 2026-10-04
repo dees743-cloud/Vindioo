@@ -224,6 +224,40 @@ verandert en dat is precies de kapotte, **0 van de 178** zoekresultaten hadden d
 `docs/favorieten.md` bij "Een titel die dubbel gecodeerd is" - ook voor de misstap onderweg, want
 mijn eerste oplossing zat op de verkeerde plaats.
 
+**0.20.0** sinds 4 oktober 2026, en daar zit geen nieuwe knop in. Twee leesrondes over alles
+wat er sinds 0.17.3 veranderde - de hernoeming naar Vindioo en de titelzeef - leverden vijf
+punten op, en die zijn alle vijf opgelost. Het zijn stuk voor stuk dingen die **stil** misgingen:
+geen foutmelding, geen waarschuwingsteken, alleen een app die iets anders deed dan ze beweerde.
+
+- **De titelzeef ging verloren zodra je een zoekopdracht vastzette.** De knop bleef branden,
+  maar de bewaarde zoekopdracht zeefde niet meer - en de geplande beurt 's nachts dus evenmin.
+  De tegenproef wees uit waarom het nu pas kon: `PhotosOnly` ontbrak op dezelfde plaats en is al
+  maanden onschadelijk, want die vlag heeft geen knop op het scherm. Er waren vijf plaatsen waar
+  knop en zeef uiteenliepen; die regel staat nu op één plaats (`NeemZeefOver`, aangeroepen
+  door `PasToe`).
+- **Een 404 van een site die daarnet nog leverde, telt weer als fout.** Sinds 0.17.3 was elke
+  404 "die site kent dit zoekwoord niet", wat klopt voor AutoScout24. Maar een 404 komt er ook
+  als het pad in een sitebestand breekt, en dan viel die site stil uit elke bewaarde
+  zoekopdracht. Het onderscheid gebruikt dezelfde drempel als een lege lijst: gaf ze de vorige
+  beurt tien of meer, dan is ze haar zoekwoord niet ineens vergeten. Zie `docs/zoeken.md`.
+- **Je postcode gaat uit het logboek.** De volledige zoek-URL wordt weggeschreven, de app
+  verwijst je bij een fout zélf naar dat logboek, en dit is een openbare repo die issues
+  uitnodigt. Gemeten in een logboek van 12 105 regels: negen regels droegen een postcode of een
+  Duitse zip. Enkel de waarde gaat weg, de parameternaam blijft. Zie `docs/fouten-opsporen.md`.
+- **De brug tekent zijn antwoord nu ook onder de oude naam.** De overgangshulp voor een extensie
+  die nog niet herladen is, werkte maar half: het verzoek werd aanvaard, maar het antwoord enkel
+  onder `X-Vindioo-Sig`. Zo'n extensie kwam er wél in en nam toch geen enkele opdracht aan,
+  terwijl de app "brug klaar" meldde en 90 seconden per site wachtte. Zie `docs/brug.md`.
+- **De tabel met resten van de oude naam klopte niet** en wordt nu nagemeten. Zes rijen, een
+  tekst die van zeven sprak, tien plaatsen in de code. Die tabel bepaalt wat een volgende sessie
+  opruimt, en vier van de ontbrekende kan je niet ongestraft weghalen. Zie bovenaan dit bestand.
+
+De controles gingen van 674 naar **700** (met Vindioo dicht en Chrome open; 652 met Vindioo
+erbij). Elke wijziging heeft een tegenproef: de fout terugzetten en nakijken dat de controle
+omvalt. Twee dingen kwamen pas bij dat nameten boven en stonden in geen van beide adviezen - de
+rem van `VerdachtLeeg` werkte niet mee in de nieuwe 404-tak, en een ander zoekwoord maakte het
+ijkpunt waardeloos. Allebei zouden ze valse meldingen hebben gegeven.
+
 **0.19.0** sinds 3 oktober 2026. Een schakelaar **Enkel in de titel** boven de resultaten: die
 houdt enkel over wat alle woorden van je zoekterm in zijn **titel** draagt. Zoek je "matras
 140x200", dan geven de sites ook alles terug waar die woorden in de beschrijving staan; gemeten
