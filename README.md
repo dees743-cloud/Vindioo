@@ -105,7 +105,7 @@ dotnet run --project tests\Vindioo.Checks -- --snel
 
 ## Status
 
-**Versie 0.22.0.** De app wordt dagelijks gebruikt en doet wat ze moet doen, maar er staan nog
+**Versie 0.22.1.** De app wordt dagelijks gebruikt en doet wat ze moet doen, maar er staan nog
 stukken open — zie [docs/volgende-stappen.md](docs/volgende-stappen.md). Vandaar de nul vooraan.
 
 ## Licentie

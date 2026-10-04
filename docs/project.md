@@ -224,6 +224,17 @@ verandert en dat is precies de kapotte, **0 van de 178** zoekresultaten hadden d
 `docs/favorieten.md` bij "Een titel die dubbel gecodeerd is" - ook voor de misstap onderweg, want
 mijn eerste oplossing zat op de verkeerde plaats.
 
+**0.22.1** sinds 4 oktober 2026, en dat is enkel het tandwielmenu. *Site toevoegen* en *Sites
+importeren uit map* stonden daar naast *Sites beheren*, terwijl ze allebei in dat scherm zelf
+staan - één klik verderop. Ze zijn eruit; bij nul sites staan ze nog wél als knoppen midden in
+het scherm, want dán is Sites beheren niet te openen.
+
+Die twee waren niet hetzelfde, en dat was bijna een stil verlies: *Site toevoegen* stond er
+inderdaad dubbel in, maar het menu-item importeerde een hele **map** in één keer terwijl Sites
+beheren alleen *Importeren uit bestand* had - één `.json` per keer. Dertien sitebestanden één
+voor één aanwijzen is geen werk, dus de mapimport is meeverhuisd naar Sites beheren in plaats van
+te verdwijnen.
+
 **0.22.0** sinds 4 oktober 2026. Twee dingen: een favoriet kan nu ook bericht geven wanneer zijn
 **prijs verandert**, en het raster vult zich volledig.
 
