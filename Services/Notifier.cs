@@ -172,6 +172,32 @@ public static class Notifier
                 $"<p>Loopt af over {Escape(hoelang)}.</p>"));
     }
 
+    /// <summary>
+    /// De prijs van een bewaarde favoriet is veranderd. Bij een veiling is dat een bod dat
+    /// omhoog ging; bij een gewone advertentie meestal een vraagprijs die zakte - en dat laatste
+    /// is net het bericht waarop je zat te wachten.
+    /// </summary>
+    public static async Task<bool> NotifyPriceChangeAsync(Listing favoriet, decimal? oud, decimal nu,
+                                                          AlertChannels kanalen)
+    {
+        var settings = AppSettings.Current.Notify;
+        var beperkt = settings.Alleen(kanalen);
+
+        var richting = oud is { } vorige && nu > vorige ? "omhoog" : "omlaag";
+        var titel = $"Vindioo: prijs {richting} — €{nu:0.##}";
+
+        var van = oud is { } o ? $"€{o:0.##} → " : "";
+        var regel = $"{favoriet.Title} — {van}€{nu:0.##}";
+
+        return await Verstuur($"'{Kort(favoriet.Title)}' van €{oud:0.##} naar €{nu:0.##}", beperkt,
+            () => ShowTray(titel, regel),
+            () => SendTelegramAsync(beperkt, titel,
+                $"<a href=\"{Escape(favoriet.Url)}\">{Escape(favoriet.Title)}</a> — {Escape(van)}€{nu:0.##}"),
+            () => SendEmailAsync(beperkt, titel,
+                $"<p><a href=\"{Escape(favoriet.Url)}\">{Escape(favoriet.Title)}</a></p>" +
+                $"<p>{Escape(van)}<b>€{nu:0.##}</b></p>"));
+    }
+
     private static string Kort(string tekst) => tekst.Length <= 60 ? tekst : tekst[..57] + "...";
 
     // ---------- opmaak van het bericht ----------

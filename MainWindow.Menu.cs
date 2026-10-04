@@ -250,17 +250,24 @@ public partial class MainWindow
 
         if (venster.ShowDialog() != true) return;
 
-        _history.SetFavoriteAlert(listing.Key, venster.Momenten, venster.Kanalen);
+        _history.SetFavoriteAlert(listing.Key, venster.Momenten, venster.Kanalen, venster.Prijs);
 
         // Ook in het geheugen, want de kaart op het scherm is hetzelfde object dat AuctionWatch
         // straks uit de databank leest - zonder dit lopen die twee een herstart lang uiteen.
         listing.AlertLeads = venster.Momenten;
         listing.AlertChannels = venster.Kanalen;
+        listing.AlertPrice = venster.Prijs;
 
-        StatusText.Text = venster.Momenten.Count == 0
-            ? $"'{Kort(listing.Title)}' meldt niets meer over het einde van zijn veiling."
-            : $"'{Kort(listing.Title)}' waarschuwt {venster.Momenten.Count} keer: " +
-              string.Join(", ", venster.Momenten.Select(AlertMoments.Noem)) + ".";
+        var stukken = new List<string>();
+
+        if (venster.Momenten.Count > 0)
+            stukken.Add(string.Join(", ", venster.Momenten.Select(AlertMoments.Noem)));
+
+        if (venster.Prijs) stukken.Add("en bij een prijswijziging");
+
+        StatusText.Text = stukken.Count == 0
+            ? $"'{Kort(listing.Title)}' meldt niets."
+            : $"'{Kort(listing.Title)}' waarschuwt {string.Join(" ", stukken)}.";
     }
 
     private static string Kort(string tekst) => tekst.Length <= 40 ? tekst : tekst[..37] + "...";

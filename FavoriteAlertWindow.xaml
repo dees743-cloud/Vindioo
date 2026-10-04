@@ -87,6 +87,22 @@
                     </StackPanel>
                 </Border>
 
+                <!-- ==================== de prijs verandert ==================== -->
+                <Border Style="{StaticResource Section}">
+                    <StackPanel>
+                        <TextBlock Text="Waarschuw me als de prijs verandert" Style="{StaticResource SectionTitle}" />
+                        <TextBlock Style="{StaticResource Uitleg}"
+                                   Text="Bij een veiling is dat een bod dat omhoog gaat; bij een gewone advertentie meestal een vraagprijs die zakt." />
+
+                        <CheckBox x:Name="PrijsBox" Content="Aan" Margin="0,0,0,8" />
+
+                        <!-- Dit is het enige dat de app uit zichzelf het net op stuurt, dus het
+                             hoort erbij te staan in plaats van stil te gebeuren. -->
+                        <TextBlock Style="{StaticResource Uitleg}" Margin="0"
+                                   Text="Hiervoor haalt de app de pagina van dit zoekertje op, ook wanneer je er niet bij bent: elke 6 uur, en elk uur zodra een veiling binnen de dag sluit. Al de rest van Vindioo wacht op een knop." />
+                    </StackPanel>
+                </Border>
+
                 <!-- ==================== waarheen ==================== -->
                 <Border Style="{StaticResource Section}">
                     <StackPanel>

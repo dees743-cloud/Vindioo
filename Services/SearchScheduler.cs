@@ -191,7 +191,20 @@ public class SearchScheduler
             Log.Write($"planner: de veilingwaarschuwing liep vast - {ex.Message}");
         }
 
+        // De prijswacht WEL achter de rem hieronder, en dat is het verschil met hierboven: deze
+        // doet verzoeken. Hem naast een lopende zoekopdracht laten werken zou dezelfde site
+        // tegelijk van twee kanten aanspreken, en dat is precies het patroon waar een site op
+        // let. Hij wacht dus gewoon tot de volgende tik; die komt na een halve minuut.
         if (_busy) return;
+
+        try
+        {
+            await PriceAlert.TickAsync(_history, _runner.Sites, nu);
+        }
+        catch (Exception ex)
+        {
+            Log.Write($"planner: de prijswacht liep vast - {ex.Message}");
+        }
 
         var aanDeBeurt = _searches.FirstOrDefault(s =>
             !s.IsRunning &&

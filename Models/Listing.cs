@@ -363,6 +363,22 @@ public class Listing : ObservableObject
     /// </summary>
     public AlertChannels AlertChannels { get; set; }
 
+    /// <summary>
+    /// Wil deze favoriet bericht wanneer zijn prijs verandert? Dit is het enige vinkje dat de
+    /// app uit zichzelf het net op stuurt; zie <see cref="Services.PriceAlert"/>.
+    /// </summary>
+    public bool AlertPrice { get; set; }
+
+    /// <summary>
+    /// De prijs waarover het laatst bericht is gestuurd. Vergelijken gebeurt hiertegen en niet
+    /// tegen <see cref="Price"/>: die blijft met opzet staan op wat het kostte toen je de
+    /// favoriet bewaarde, want daar slaat "was € 5, nu € 24" op de kaart op.
+    /// </summary>
+    public decimal? NotifiedPrice { get; set; }
+
+    /// <summary>Wanneer de prijswacht hier het laatst naar keek. Bepaalt wanneer hij weer mag.</summary>
+    public DateTime? PriceCheckedAt { get; set; }
+
     /// <summary>Sleutel voor de "al gezien"-tabel in SQLite.</summary>
     public string Key => $"{Source}:{ExternalId}";
 

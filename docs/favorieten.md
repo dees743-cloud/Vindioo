@@ -329,6 +329,54 @@ Drie dingen die daar nog aan hangen:
   opnieuw gewaarschuwd wordt. Hetzelfde einde nog eens wegschrijven doet dat **niet**, anders
   stuurde elke ronde *Nakijken* je de waarschuwingen opnieuw.
 
+## De prijs van een favoriet verandert
+
+Erbij op 4 oktober 2026, in `Services/PriceAlert.cs`, als tweede vinkje in hetzelfde venster:
+*Waarschuw me als de prijs verandert*. Bij een veiling is dat een bod dat omhoog gaat; bij een
+gewone advertentie meestal een vraagprijs die zakt - en dat laatste is net het bericht waarop je
+zat te wachten.
+
+**Dit is het enige stuk van de app dat uit zichzelf het net op gaat**, en dat is geen detail.
+Overal elders gebeurt er pas iets wanneer je op een knop duwt of een zoekopdracht gepland staat.
+De waarschuwing hierboven kost met opzet geen enkel verzoek, omdat ze aan een sluitingstijd hangt
+die al bekend is. Een prijs weet je alleen door te gaan kijken, en daar is geen omweg voor.
+
+Daarom zit de rem in de code en niet in een instelling die iemand per ongeluk op "elke minuut"
+zet:
+
+| | |
+|---|---|
+| gewoon ritme | **elke 6 uur** - vier keer per dag is genoeg om een prijsdaling op te merken |
+| sluit binnen 24 uur | **elk uur** - daar gaat het bod in de laatste uren omhoog, en dat is net wat je wil weten |
+| per tik | hoogstens **3** favorieten, want twintig verzoeken in één seconde is het patroon waar een site op let |
+| wanneer | enkel voor favorieten waarvoor je het zélf aanzette, én die een kanaal hebben |
+
+Die drempels staan als constanten in `PriceAlert` en worden nagemeten in `PrijswachtChecks` - met
+een tegenproef die de rem weghaalt en vier controles laat omvallen.
+
+**Hij wacht tot de planner vrij is.** `AuctionWatch` draait vóór de rem van `SearchScheduler`,
+want die doet geen verzoeken. De prijswacht staat er **achter**: hem naast een lopende
+zoekopdracht laten werken zou dezelfde site tegelijk van twee kanten aanspreken.
+
+**Vergeleken wordt er met de prijs waarover je het laatst bericht kreeg** (`notifiedPrice`), niet
+met de prijs op de kaart. Die kaart toont met opzet nog de prijs van de dag dat je de favoriet
+bewaarde - dat is waar "was € 5, nu € 24" op slaat. Zou de waarschuwing daartegen vergelijken, dan
+kreeg je bij elke ronde opnieuw bericht over dezelfde wijziging.
+
+**Het aanzetten ijkt meteen.** Zodra je het vinkje zet, wordt `notifiedPrice` op de prijs van
+vandaag gezet, en `priceCheckedAt` gewist. Zonder het eerste zou de allereerste ronde "de prijs is
+veranderd" melden terwijl er sinds jouw keuze niets gebeurd is; zonder het tweede zou je zes uur
+op de eerste meting wachten.
+
+**Eerst opschrijven, dan doen** - twee keer. `priceCheckedAt` gaat de databank in vóór het
+ophalen, zodat een site die blijft hangen niet elke halve minuut opnieuw geprobeerd wordt. En
+`notifiedPrice` gaat erin vóór het versturen, zodat een melding die halverwege vastloopt niet bij
+de volgende ronde opnieuw vertrekt.
+
+**Het einde reist mee.** De pagina is toch gelezen, dus staat er een nieuwe sluitingstijd in, dan
+gaat die meteen de databank in. Dat houdt de waarschuwing hierboven scherp, ook bij een veiling
+die verlengd werd - zonder één extra verzoek.
+
 **Wat dit niet doet.** Het controleert niet zelf of de veiling nog loopt, dus een kavel dat
 ingetrokken werd of waarvan de sluitingstijd veranderde zonder dat je *Nakijken* draaide, kan een
 waarschuwing geven die niet meer klopt. En een favoriet waarvan de app nooit een einddatum zag

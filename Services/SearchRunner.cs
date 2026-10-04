@@ -100,6 +100,12 @@ public class SearchRunner
     private readonly SiteStore _store;
     private readonly HistoryStore _history;
 
+    /// <summary>
+    /// De sites waarmee deze lus werkt. De planner heeft ze nodig voor <see cref="PriceAlert"/>:
+    /// die leest de pagina van een favoriet, en dat gaat via het sitebestand.
+    /// </summary>
+    internal IReadOnlyList<SiteDefinition> Sites => _store.Sites;
+
     public SearchRunner(SiteStore store, HistoryStore history)
     {
         _store = store;

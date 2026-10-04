@@ -121,6 +121,12 @@ public class HistoryStore
         AddColumn(connection, "favorites", "alertLeads", "TEXT NOT NULL DEFAULT ''");
         AddColumn(connection, "favorites", "alertChannels", "INTEGER NOT NULL DEFAULT 0");
 
+        // De prijswacht, erbij op 4 oktober 2026. notifiedPrice is het ijkpunt waartegen
+        // vergeleken wordt; priceCheckedAt houdt de rem op het aantal verzoeken.
+        AddColumn(connection, "favorites", "alertPrice", "INTEGER NOT NULL DEFAULT 0");
+        AddColumn(connection, "favorites", "notifiedPrice", "REAL");
+        AddColumn(connection, "favorites", "priceCheckedAt", "TEXT");
+
         // Wanneer je de zoekopdracht laatst opende; zie SavedSearch.LastViewed.
         return AddColumn(connection, "searches", "lastViewed", "TEXT");
     }
@@ -787,7 +793,8 @@ public class HistoryStore
         using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT source, externalId, title, price, priceLabel, location, url, image, largeImage,
-                   endsAt, alertedLead, alertLeads, alertChannels
+                   endsAt, alertedLead, alertLeads, alertChannels,
+                   alertPrice, notifiedPrice, priceCheckedAt
             FROM favorites ORDER BY addedAt DESC
             """;
 
@@ -808,6 +815,9 @@ public class HistoryStore
                 AlertedLead = reader.IsDBNull(10) ? null : reader.GetInt32(10),
                 AlertLeads = AlertMoments.Lees(reader.IsDBNull(11) ? "" : reader.GetString(11)),
                 AlertChannels = reader.IsDBNull(12) ? AlertChannels.Geen : (AlertChannels)reader.GetInt32(12),
+                AlertPrice = !reader.IsDBNull(13) && reader.GetInt32(13) != 0,
+                NotifiedPrice = reader.IsDBNull(14) ? null : (decimal)reader.GetDouble(14),
+                PriceCheckedAt = reader.IsDBNull(15) ? null : DateTime.Parse(reader.GetString(15)),
                 IsFavorite = true
             };
 
@@ -887,24 +897,61 @@ public class HistoryStore
     /// dat fijner is dan wat er al gemeld was, dan zou dat anders nooit meer afgaan - en dat is
     /// precies wat je net kwam instellen.
     /// </summary>
-    public void SetFavoriteAlert(string key, IEnumerable<int> momenten, AlertChannels kanalen)
+    public void SetFavoriteAlert(string key, IEnumerable<int> momenten, AlertChannels kanalen,
+                                 bool prijs = false)
     {
         var tekst = AlertMoments.Schrijf(momenten);
 
         using var connection = Open();
         using var command = connection.CreateCommand();
 
+        // notifiedPrice wordt geijkt op de prijs van vandaag zodra de prijswacht aangezet wordt
+        // en er nog geen ijkpunt is. Zonder dat zou de eerste ronde meteen "de prijs is
+        // veranderd" melden, terwijl er sinds jouw keuze niets gebeurd is.
+        //
+        // En priceCheckedAt gaat leeg wanneer je de prijswacht AANzet, zodat de eerste meting
+        // niet zes uur op zich laat wachten.
         command.CommandText = """
             UPDATE favorites
-               SET alertedLead  = CASE WHEN alertLeads IS NOT $leads THEN NULL ELSE alertedLead END,
-                   alertLeads   = $leads,
-                   alertChannels = $kanalen
+               SET alertedLead   = CASE WHEN alertLeads IS NOT $leads THEN NULL ELSE alertedLead END,
+                   alertLeads    = $leads,
+                   alertChannels = $kanalen,
+                   notifiedPrice = CASE WHEN $prijs = 1 AND notifiedPrice IS NULL
+                                        THEN price ELSE notifiedPrice END,
+                   priceCheckedAt = CASE WHEN $prijs = 1 AND alertPrice = 0
+                                         THEN NULL ELSE priceCheckedAt END,
+                   alertPrice    = $prijs
              WHERE key = $key
             """;
 
         command.Parameters.AddWithValue("$key", key);
         command.Parameters.AddWithValue("$leads", tekst);
         command.Parameters.AddWithValue("$kanalen", (int)kanalen);
+        command.Parameters.AddWithValue("$prijs", prijs ? 1 : 0);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Wanneer de prijswacht hier het laatst naar keek; zie <see cref="PriceAlert"/>.</summary>
+    public void SetFavoriteChecked(string key, DateTime wanneer)
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+
+        command.CommandText = "UPDATE favorites SET priceCheckedAt = $wanneer WHERE key = $key";
+        command.Parameters.AddWithValue("$key", key);
+        command.Parameters.AddWithValue("$wanneer", wanneer.ToString("o"));
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>De prijs waarover het laatst bericht is gestuurd - het ijkpunt voor de volgende ronde.</summary>
+    public void SetFavoriteNotifiedPrice(string key, decimal? prijs)
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+
+        command.CommandText = "UPDATE favorites SET notifiedPrice = $prijs WHERE key = $key";
+        command.Parameters.AddWithValue("$key", key);
+        command.Parameters.AddWithValue("$prijs", (object?)prijs ?? DBNull.Value);
         command.ExecuteNonQuery();
     }
 

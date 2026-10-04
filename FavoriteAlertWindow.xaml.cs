@@ -28,6 +28,9 @@ public partial class FavoriteAlertWindow
     /// <summary>De gekozen kanalen zoals ze bij Bewaren uit de vinkjes komen.</summary>
     public AlertChannels Kanalen { get; private set; }
 
+    /// <summary>Of deze favoriet bericht wil bij een prijswijziging.</summary>
+    public bool Prijs { get; private set; }
+
     /// <param name="favoriet">De favoriet waar dit over gaat.</param>
     /// <param name="isVeiling">
     /// Komt deze favoriet van een veilingsite (<see cref="SiteDefinition.IsAuction"/>)? Dat is
@@ -46,6 +49,8 @@ public partial class FavoriteAlertWindow
 
         if (isVeiling) VulMomenten();
         else ToonGeenVeiling();
+
+        PrijsBox.IsChecked = favoriet.AlertPrice;
 
         VulKanalen();
     }
@@ -193,13 +198,14 @@ public partial class FavoriteAlertWindow
         if (MailBox.IsChecked == true) Kanalen |= AlertChannels.Mail;
 
         Momenten = _isVeiling ? LeesMomenten() : new List<int>();
+        Prijs = PrijsBox.IsChecked == true;
 
-        // Momenten zonder kanaal is een val: je stelt iets in, het ziet er goed uit, en er komt
-        // nooit iets. Liever hier tegengehouden dan stil nergens aankomen.
-        if (Momenten.Count > 0 && Kanalen == AlertChannels.Geen)
+        // Iets aangezet zonder kanaal is een val: je stelt het in, het ziet er goed uit, en er
+        // komt nooit iets. Liever hier tegengehouden dan stil nergens aankomen.
+        if ((Momenten.Count > 0 || Prijs) && Kanalen == AlertChannels.Geen)
         {
             KanaalWaarschuwing.Text =
-                "Kies minstens één kanaal, anders komt deze waarschuwing nergens aan.";
+                "Kies minstens één kanaal, anders komt er nergens iets aan.";
             KanaalWaarschuwing.Visibility = Visibility.Visible;
             return;
         }
