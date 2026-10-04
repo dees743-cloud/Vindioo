@@ -36,6 +36,10 @@ public class SearchOutcome
     /// kwam, maar ze tellen <b>niet</b> als mislukking: niet in de regel onderaan, en niet in
     /// <see cref="SavedSearch.RecordRun"/>. Dezelfde aanpak als bij een brugsite die
     /// overgeslagen werd en bij een site die niet meer bestaat.
+    ///
+    /// Op één geval na: een site die de vorige beurt nog tien of meer gaf en nu 404
+    /// antwoordt, is haar zoekwoord niet ineens vergeten. Die telt wél als mislukking, want
+    /// dan is er waarschijnlijk iets stuk aan haar zoek-URL (zie <see cref="SavedSearch.VerdachtLeeg"/>).
     /// </summary>
     public List<string> QueryNotSupported { get; } = new();
 
@@ -437,16 +441,46 @@ public class SearchRunner
                 }
                 // Deze site kan met dit zoekwoord niets aanvangen. Dat is een antwoord en geen
                 // mislukking, dus het komt wel op haar tab maar telt nergens als fout mee.
+                //
+                // TENZIJ diezelfde site de vorige beurt nog tien of meer gaf. Een 404 komt er
+                // namelijk ook als het pad in haar sitebestand niet meer klopt: de site haalt
+                // een stuk uit haar zoek-URL weg, en vanaf dan "kent ze het zoekwoord niet".
+                // Zonder deze toets valt ze stil uit elke bewaarde zoekopdracht - geen fout,
+                // geen waarschuwingsteken op de kaart, nooit een melding, enkel een zinnetje
+                // op haar eigen tab waar je niet kijkt als je niets mist. Dat is precies het
+                // stille falen waar VerdachtLeeg ooit voor gebouwd is, langs een nieuwe deur.
                 catch (UnsupportedQueryException nvt)
                 {
-                    lock (outcome)
+                    // Het oordeel komt uit VerdachtLeeg, zodat de drempel op één plaats staat.
+                    // De tekst is hier wel een andere: "vond niets" dekt een 404 niet.
+                    if (search.VerdachtLeeg(setting.Site, 0) is not null)
                     {
-                        outcome.SiteErrors[setting.Site] = nvt.Message;
-                        outcome.QueryNotSupported.Add(setting.Site);
-                    }
+                        var melding = $"{nvt.Message} Dat is verdacht: de vorige beurt gaf er " +
+                                      $"{search.LastCounts.GetValueOrDefault(setting.Site)}. " +
+                                      "Waarschijnlijk klopt haar zoek-URL niet meer; probeer ze " +
+                                      "in Sites beheren met Testen.";
 
-                    Log.Write($"{logNaam}: {setting.Site} {nvt.Message}");
-                    siteKlaar?.Invoke(new SiteKlaar(setting.Site, 0, DateTime.Now - start, nvt.Message));
+                        Fout(setting.Site, melding);
+                        Log.Write($"{logNaam}: {setting.Site} {melding}");
+                        siteKlaar?.Invoke(new SiteKlaar(setting.Site, 0, DateTime.Now - start, melding));
+                    }
+                    else
+                    {
+                        lock (outcome)
+                        {
+                            outcome.SiteErrors[setting.Site] = nvt.Message;
+                            outcome.QueryNotSupported.Add(setting.Site);
+
+                            // Nul wordt het nieuwe ijkpunt, net als bij een lege lijst. Dat is
+                            // de rem: na drie verdachte beurten wordt "niets" aanvaard, en
+                            // zonder deze regel zou de waarschuwing eeuwig blijven wippen
+                            // tussen verdacht en aanvaard.
+                            outcome.SiteCounts[setting.Site] = 0;
+                        }
+
+                        Log.Write($"{logNaam}: {setting.Site} {nvt.Message}");
+                        siteKlaar?.Invoke(new SiteKlaar(setting.Site, 0, DateTime.Now - start, nvt.Message));
+                    }
                 }
                 catch (Exception ex)
                 {

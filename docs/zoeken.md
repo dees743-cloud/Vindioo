@@ -319,6 +319,25 @@ een tweede beurt geen melding"*. Een site die **écht** mislukt, geeft nog altij
 een melding; daar staat een aparte controle op, want anders had deze uitzondering het vangnet
 opengescheurd.
 
+**Met een uitzondering op de uitzondering, sinds 4 oktober 2026: een 404 van een site die
+daarnet nog leverde.** Zo'n 404 komt er namelijk ook wanneer het pad in een sitebestand breekt -
+de site haalt een stuk uit haar zoek-URL weg, of maakt een parameter verplicht. Zonder
+onderscheid viel die site daarna stil uit elke bewaarde zoekopdracht: "kent dit zoekwoord niet",
+geen fout, geen waarschuwingsteken op de kaart, nooit een melding, en enkel een zinnetje op haar
+eigen tab waar je niet kijkt als je niets mist. Dat is precies het stille falen waar `VerdachtLeeg`
+voor gebouwd is, langs een nieuwe deur.
+
+Het onderscheid gebruikt dezelfde vraag als bij een lege lijst, en dus dezelfde drempel: **gaf
+die site de vorige beurt tien of meer, dan is ze haar zoekwoord niet ineens vergeten.** Dan telt
+het wél als mislukking, met het getal in de melding ("de vorige beurt gaf er 12") zodat je ziet
+waarom. En met dezelfde rem: na drie verdachte beurten wordt nul het nieuwe ijkpunt en is het
+weer gewoon "kent dit zoekwoord niet", zodat de zoekopdracht niet voor altijd rood blijft staan.
+
+Daar hoort één ding bij dat niet vanzelf spreekt: **een ander zoekwoord wist het ijkpunt**
+(`SavedSearch.Query`). Dat een site er vorige keer 240 gaf voor "matras", zegt niets over
+"fiets" - zonder dat wissen zou een site die je nieuwe woord gewoon niet kent, meteen als stuk
+gelden zodra je de zoekterm van een bewaarde zoekopdracht aanpast.
+
 **Een melding zegt of ze vertrok.** `Notifier` telt welke kanalen lukten. Lukte er geen, dan
 staat er in het logboek "melding NIET verstuurd" en zegt de statusregel het; vroeger stond er
 altijd "melding verstuurd", ook met een ingetrokken Telegram-token. Een ballon zonder pictogram

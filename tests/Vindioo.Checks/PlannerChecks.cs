@@ -244,6 +244,73 @@ public static class PlannerChecks
         }
 
         // ---------------------------------------------------------------------------
+        Check.Groep("Maar een 404 van een site die daarnet nog leverde, is wel stuk");
+        {
+            // De keerzijde van de groep hierboven, en de reden dat die uitzondering niet
+            // zomaar voor ELKE 404 mag gelden. Een 404 komt er ook wanneer het pad in een
+            // sitebestand breekt: de site haalt een stuk uit haar zoek-URL weg. Zonder dit
+            // onderscheid valt zo'n site stil uit elke bewaarde zoekopdracht - "kent dit
+            // zoekwoord niet", geen fout, geen melding, en niemand die het merkt.
+            using var wisselt = new Proefsite { PerPagina = { [1] = 12 } };
+            store.Add(wisselt.Site("Wisselsite"));
+
+            var zoek = Zoekopdracht("cd speler", "Wisselsite");
+
+            await runner.RunAsync(zoek);
+
+            Check.Dat(zoek.LastCounts.GetValueOrDefault("Wisselsite") == 12,
+                $"eerste beurt: 12 resultaten, en dat wordt het ijkpunt " +
+                $"({zoek.LastCounts.GetValueOrDefault("Wisselsite")})");
+
+            // En nu breekt haar zoek-URL.
+            wisselt.Status["/s"] = 404;
+
+            var tweede = await runner.RunAsync(zoek);
+
+            Check.Dat(tweede.QueryNotSupported.Count == 0,
+                "dit telt niet meer als 'kent dit zoekwoord niet'");
+
+            Check.Dat(SearchRunner.EchteFouten(tweede).Count == 1,
+                $"maar als een echte mislukking ({SearchRunner.EchteFouten(tweede).Count})");
+
+            Check.Dat(tweede.SiteErrors.GetValueOrDefault("Wisselsite")?.Contains("de vorige beurt gaf er 12") == true,
+                $"met het getal erbij, zodat je ziet waarom ('{tweede.SiteErrors.GetValueOrDefault("Wisselsite")}')");
+
+            Check.Dat(zoek.FailureStreaks.GetValueOrDefault("Wisselsite") == 1,
+                "en de teller van mislukte beurten loopt");
+
+            // DE REM. Na drie verdachte beurten wordt "niets" aanvaard, anders blijft die
+            // waarschuwing voor altijd staan (LeegAanvaardNa). Beurt 3 en 4 maken de teller vol.
+            await runner.RunAsync(zoek);
+            await runner.RunAsync(zoek);
+
+            var vijfde = await runner.RunAsync(zoek);
+
+            Check.Dat(vijfde.QueryNotSupported.Contains("Wisselsite"),
+                "na drie verdachte beurten geldt het weer als 'kent dit zoekwoord niet'");
+
+            Check.Dat(SearchRunner.EchteFouten(vijfde).Count == 0,
+                "en blijft de zoekopdracht dus niet voor altijd rood staan");
+
+            // En het blijft stil: het ijkpunt staat nu op 0, dus er valt niets meer te
+            // vergelijken. Zonder die stap wipte de waarschuwing elke beurt terug.
+            var zesde = await runner.RunAsync(zoek);
+
+            Check.Dat(SearchRunner.EchteFouten(zesde).Count == 0 &&
+                      zoek.LastCounts.GetValueOrDefault("Wisselsite") == 0,
+                "en ook de beurt daarna, want het ijkpunt staat op 0");
+
+            // EEN ANDER ZOEKWOORD maakt het ijkpunt waardeloos. Anders zou een site die het
+            // nieuwe woord niet kent, als stuk gelden zodra je de zoekterm aanpast.
+            var anders = Zoekopdracht("cd speler", "Wisselsite");
+            anders.LastCounts["Wisselsite"] = 12;
+            anders.Query = "fiets";
+
+            Check.Dat(anders.LastCounts.Count == 0,
+                "een ander zoekwoord wist het ijkpunt van de vorige beurten");
+        }
+
+        // ---------------------------------------------------------------------------
         Check.Groep("Zoeken zonder bewaarde zoekopdracht");
         {
             // De tweede stap naar één zoeklus: het zoekscherm zoekt ook los, met enkel wat er op

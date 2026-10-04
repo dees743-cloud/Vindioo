@@ -27,7 +27,19 @@ public class SavedSearch : ObservableObject
         get => _query;
         set
         {
-            if (SetProperty(ref _query, value)) OnPropertyChanged(nameof(Name));
+            if (!SetProperty(ref _query, value)) return;
+
+            OnPropertyChanged(nameof(Name));
+
+            // Een ander zoekwoord maakt het ijkpunt waardeloos: dat een site er vorige beurt
+            // 240 gaf voor "matras", zegt niets over "fiets". Zonder dit zou een site die het
+            // nieuwe woord gewoon niet kent, meteen als stuk gelden - zie VerdachtLeeg, dat
+            // sinds 4 oktober 2026 ook een 404 beoordeelt. Het ijkpunt wordt vanzelf opnieuw
+            // gezet bij de eerste beurt die wél lukt.
+            //
+            // Veilig bij het inlezen uit de databank: daar wordt Query gezet op een vers
+            // object en pas daarna LastCounts gevuld (HistoryStore.ReadConfig).
+            LastCounts.Clear();
         }
     }
 
