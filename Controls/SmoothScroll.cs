@@ -67,6 +67,21 @@ public static class SmoothScroll
         e.Handled = true;
     }
 
+    /// <summary>
+    /// Meteen naar boven, en een lopende glijbeweging afbreken.
+    ///
+    /// Dat afbreken is de helft die telt: <see cref="Doelen"/> onthoudt waar een lijst naartoe
+    /// onderweg is, en zonder dit zou <see cref="Frame"/> het schuifvak bij het volgende beeld
+    /// gewoon weer naar die oude positie trekken. Zie <c>GaNaarPagina</c>.
+    /// </summary>
+    public static void NaarBoven(DependencyObject wortel)
+    {
+        if (ZoekSchuifvak(wortel) is not { } vak) return;
+
+        Doelen.Remove(vak);
+        vak.ScrollToVerticalOffset(0);
+    }
+
     private static double Begrens(ScrollViewer vak, double y) =>
         Math.Max(0, Math.Min(y, Math.Max(0, vak.ExtentHeight - vak.ViewportHeight)));
 

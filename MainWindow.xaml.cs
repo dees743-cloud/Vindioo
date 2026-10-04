@@ -158,6 +158,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         _resultsView = CollectionViewSource.GetDefaultView(_results);
         _resultsView.Filter = ZichtbaarInHuidigeTab;
 
+        // Het raster laat weten hoeveel kaarten er naast elkaar passen. Daar hangt de
+        // paginagrootte van af, zodat de laatste rij vol staat; zie PaginaGrootte.
+        ResultsList.AddHandler(Controls.VirtualizingWrapPanel.KolommenGewijzigdEvent,
+                               new RoutedEventHandler(Kolommen_Gewijzigd));
+
         _store.Load();
         BuildSiteTabs();
 

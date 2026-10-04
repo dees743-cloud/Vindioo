@@ -132,6 +132,32 @@ public static class PaginaChecks
                       SearchUrlBuilder.Build(metSjabloon, "cd", null, 2).EndsWith("&offset=24"),
                 "ook in PageTemplate: pagina 1 zonder, pagina 2 vanaf 24");
         }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Pagina's op het scherm: de laatste rij staat vol");
+        {
+            // Een vaste paginagrootte geeft een halve laatste rij, en die leest als "dit is
+            // alles" terwijl er nog pagina's volgen. Gemeten op een schermafbeelding van
+            // 4 oktober 2026: 8 kolommen, 100 per pagina, dus 12 volle rijen en een laatste rij
+            // met 4 kaarten - met de pager op pagina 6 van meer dan negen.
+            var raster = PageLayout.VolleRijen;
+
+            Check.Dat(raster(100, 8) == 104, $"100 bij 8 kolommen wordt 104 ({raster(100, 8)})");
+            Check.Dat(raster(100, 8) % 8 == 0, "en dat is een heel aantal rijen");
+
+            Check.Dat(raster(100, 7) == 98, $"naar beneden mag ook: 100 bij 7 wordt 98 ({raster(100, 7)})");
+            Check.Dat(raster(100, 10) == 100, "past het al rond, dan verandert er niets");
+
+            // De lijstweergave heeft één kaart per rij; daar valt niets af te ronden.
+            Check.Dat(raster(100, 1) == 100, "lijstweergave: de gevraagde grootte blijft staan");
+            Check.Dat(raster(100, 0) == 100, "en een onzinnig aantal kolommen verandert er ook niets aan");
+
+            // Een smal venster mag de pagina niet stil halveren tot niets.
+            Check.Dat(raster(10, 12) == 12, $"minder gevraagd dan er op een rij passen: één volle rij ({raster(10, 12)})");
+
+            Check.Dat(raster(50, 8) == 48 && raster(54, 8) == 56,
+                "en het blijft het dichtstbijzijnde hele aantal rijen, omhoog of omlaag");
+        }
     }
 }
 

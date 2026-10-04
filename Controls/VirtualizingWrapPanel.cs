@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace Vindioo.Controls;
 
@@ -26,6 +27,24 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
 {
     private Size _kaart = Size.Empty;   // maat van één kaart, inclusief marge
     private int _kolommen = 1;
+
+    /// <summary>Hoeveel kaarten er nu naast elkaar passen.</summary>
+    public int Kolommen => _kolommen;
+
+    /// <summary>
+    /// Gaat af wanneer dat aantal verandert, bijvoorbeeld doordat het venster versleept wordt.
+    /// Borrelt omhoog, zodat het hoofdscherm één keer kan luisteren op de lijst zelf in plaats
+    /// van naar dit paneel te moeten zoeken in de visuele boom.
+    /// </summary>
+    public static readonly RoutedEvent KolommenGewijzigdEvent =
+        EventManager.RegisterRoutedEvent(nameof(KolommenGewijzigd), RoutingStrategy.Bubble,
+                                         typeof(RoutedEventHandler), typeof(VirtualizingWrapPanel));
+
+    public event RoutedEventHandler KolommenGewijzigd
+    {
+        add => AddHandler(KolommenGewijzigdEvent, value);
+        remove => RemoveHandler(KolommenGewijzigdEvent, value);
+    }
     private Size _bereik;               // hoe groot het geheel is
     private Size _kijkvenster;          // hoeveel daarvan te zien is
     private Point _positie;             // waar we staan in dat geheel
@@ -58,7 +77,18 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
 
         _herkansingen = 0;
 
+        var vorigeKolommen = _kolommen;
         _kolommen = Math.Max(1, (int)(beschikbaar.Width / _kaart.Width));
+
+        // Het scherm bepaalt hoeveel er naast elkaar passen, en dus ook hoeveel er op een
+        // pagina horen: anders blijft de laatste rij half leeg terwijl er nog pagina's volgen.
+        // Niet hier meteen melden - we zitten midden in een meting, en wie daarop reageert zou
+        // die meting opnieuw aftrappen. Vandaar via de dispatcher.
+        if (_kolommen != vorigeKolommen)
+            Dispatcher.BeginInvoke(
+                () => RaiseEvent(new RoutedEventArgs(KolommenGewijzigdEvent, this)),
+                DispatcherPriority.Background);
+
         var rijen = (int)Math.Ceiling(aantal / (double)_kolommen);
 
         _kijkvenster = beschikbaar;

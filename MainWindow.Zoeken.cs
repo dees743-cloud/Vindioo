@@ -7,6 +7,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using System.Windows.Shapes;
 using Vindioo.Controls;
 using Vindioo.Models;
@@ -150,7 +151,48 @@ public partial class MainWindow
     // ==================== resultaten over pagina's verdelen ====================
 
     /// <summary>Hoeveel zoekertjes er op één pagina passen.</summary>
-    private int PaginaGrootte => Math.Max(10, AppSettings.Current.PageSize);
+    /// <summary>Hoeveel kaarten er nu naast elkaar passen; 1 in de lijstweergave.</summary>
+    private int _kolommen = 1;
+
+    /// <summary>
+    /// Hoeveel zoekertjes er op één pagina staan.
+    ///
+    /// <para>Afgerond op een <b>heel aantal rijen</b>, want anders blijft de laatste rij half
+    /// leeg terwijl er nog pagina's volgen - en dan denk je dat de resultaten op zijn. Met het
+    /// venster uit de schermafbeelding van 4 oktober 2026 waren dat 8 kolommen bij een
+    /// paginagrootte van 100: 12 volle rijen en een laatste rij met 4. Nu wordt het 104.</para>
+    ///
+    /// <para>De gevraagde grootte uit de instellingen blijft het richtgetal; er wordt naar het
+    /// dichtstbijzijnde hele aantal rijen gegaan, omhoog of omlaag. Versleep je het venster, dan
+    /// verandert het aantal kolommen en dus ook dit getal - zie
+    /// <see cref="Kolommen_Gewijzigd"/>.</para>
+    /// </summary>
+    private int PaginaGrootte
+    {
+        get
+        {
+            var gevraagd = Math.Max(10, AppSettings.Current.PageSize);
+
+            return PageLayout.VolleRijen(gevraagd, _kolommen);
+        }
+    }
+
+    /// <summary>
+    /// Het raster meldt dat er een andere hoeveelheid kaarten naast elkaar past. De
+    /// paginagrootte hangt daarvan af, dus de indeling klopt niet meer.
+    /// </summary>
+    private void Kolommen_Gewijzigd(object sender, RoutedEventArgs e)
+    {
+        if (e.OriginalSource is not Controls.VirtualizingWrapPanel paneel) return;
+        if (paneel.Kolommen == _kolommen) return;
+
+        _kolommen = paneel.Kolommen;
+
+        // Opnieuw indelen. ToonPagina begrenst zelf het paginanummer, dus wie op de laatste
+        // pagina stond en het venster breder maakt, valt niet voorbij het einde.
+        ToonPagina();
+        UpdateEmptyHints();
+    }
 
     /// <summary>
     /// Zet de juiste schijf van de resultaten op het scherm en werkt de pager bij.
@@ -395,9 +437,24 @@ public partial class MainWindow
         _pagina = pagina;
         ToonPagina();
 
-        // Bovenaan beginnen: je verwacht de eerste van de nieuwe pagina te zien,
-        // niet de plek waar je op de vorige stond.
-        if (ResultsList.Items.Count > 0) ResultsList.ScrollIntoView(ResultsList.Items[0]);
+        // Bovenaan beginnen: je verwacht de eerste van de nieuwe pagina te zien, niet de plek
+        // waar je op de vorige stond - en met de pager óók onder de resultaten sta je daar
+        // vaak genoeg.
+        //
+        // ScrollIntoView alleen volstond niet, om twee redenen die elkaar versterken. Het
+        // raster is gevirtualiseerd, dus op het moment van de klik bestaan de kaarten van de
+        // nieuwe pagina nog niet. En SmoothScroll houdt tijdens een glijbeweging een eigen
+        // doelpositie bij, die het schuifvak daarna gewoon weer terugzet - precies het geval
+        // wanneer je met het wiel naar beneden kwam en meteen doorklikt.
+        //
+        // Dus: ná de opbouw (DispatcherPriority.Loaded), eerst dat doel wegnemen en het
+        // schuifvak op nul, en dan pas ScrollIntoView voor de lijstweergave.
+        Dispatcher.BeginInvoke(() =>
+        {
+            Controls.SmoothScroll.NaarBoven(ResultsList);
+
+            if (ResultsList.Items.Count > 0) ResultsList.ScrollIntoView(ResultsList.Items[0]);
+        }, DispatcherPriority.Loaded);
     }
 
     /// <summary>Het aantal per pagina wijzigen; we springen dan terug naar pagina één.</summary>
