@@ -54,19 +54,26 @@ public class NotifySettings
 
     public string MailTo { get; set; } = "";
 
-    // ---------- een veiling die bijna afloopt ----------
-
     /// <summary>
-    /// Waarschuwen wanneer een bewaarde veiling bijna sluit. Staat standaard uit: het gaat over
-    /// je favorieten en niet over een zoekopdracht, dus het hoort een eigen keuze te zijn.
+    /// Dezelfde instellingen, maar enkel met de kanalen die déze melding mag gebruiken.
+    ///
+    /// Zo blijft er één plaats waar de gegevens staan - het Telegram-token, de mailserver -
+    /// terwijl de beller kiest welke weg een bericht neemt. Een kanaal dat hier gevraagd wordt
+    /// maar centraal uit staat, gaat niet alsnog aan: het is een zeef, geen schakelaar.
+    ///
+    /// Erbij op 4 oktober 2026, toen de waarschuwing voor een aflopende veiling van één globale
+    /// instelling naar een keuze per favoriet ging.
     /// </summary>
-    public bool AuctionAlert { get; set; }
+    public NotifySettings Alleen(Vindioo.Models.AlertChannels kanalen)
+    {
+        var kopie = (NotifySettings)MemberwiseClone();
 
-    /// <summary>
-    /// Hoeveel minuten voor het einde er gewaarschuwd wordt. Zie <see cref="AuctionWatch"/> voor
-    /// waarom er maar één melding per drempel vertrekt.
-    /// </summary>
-    public List<int> AuctionAlertMinutes { get; set; } = new() { 1440, 60, 15 };
+        kopie.Tray = Tray && kanalen.HasFlag(Vindioo.Models.AlertChannels.Tray);
+        kopie.Telegram = Telegram && kanalen.HasFlag(Vindioo.Models.AlertChannels.Telegram);
+        kopie.Email = Email && kanalen.HasFlag(Vindioo.Models.AlertChannels.Mail);
+
+        return kopie;
+    }
 
     /// <summary>Is er minstens één kanaal dat echt kan versturen?</summary>
     [JsonIgnore]

@@ -115,6 +115,12 @@ public class HistoryStore
         AddColumn(connection, "favorites", "endsAt", "TEXT");
         AddColumn(connection, "favorites", "alertedLead", "INTEGER");
 
+        // Per favoriet in plaats van één keer voor alles, sinds 4 oktober 2026. Leeg betekent
+        // "niets sturen", dus een bestaande favoriet begint vanzelf stil - en dat hoort, want
+        // niemand heeft voor hém iets gekozen.
+        AddColumn(connection, "favorites", "alertLeads", "TEXT NOT NULL DEFAULT ''");
+        AddColumn(connection, "favorites", "alertChannels", "INTEGER NOT NULL DEFAULT 0");
+
         // Wanneer je de zoekopdracht laatst opende; zie SavedSearch.LastViewed.
         return AddColumn(connection, "searches", "lastViewed", "TEXT");
     }
@@ -781,7 +787,7 @@ public class HistoryStore
         using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT source, externalId, title, price, priceLabel, location, url, image, largeImage,
-                   endsAt, alertedLead
+                   endsAt, alertedLead, alertLeads, alertChannels
             FROM favorites ORDER BY addedAt DESC
             """;
 
@@ -800,6 +806,8 @@ public class HistoryStore
                 LargeImageUrl = reader.GetString(8),
                 EndsAt = reader.IsDBNull(9) ? null : DateTime.Parse(reader.GetString(9)),
                 AlertedLead = reader.IsDBNull(10) ? null : reader.GetInt32(10),
+                AlertLeads = AlertMoments.Lees(reader.IsDBNull(11) ? "" : reader.GetString(11)),
+                AlertChannels = reader.IsDBNull(12) ? AlertChannels.Geen : (AlertChannels)reader.GetInt32(12),
                 IsFavorite = true
             };
 
@@ -869,6 +877,34 @@ public class HistoryStore
 
         command.Parameters.AddWithValue("$key", key);
         command.Parameters.AddWithValue("$einde", (object?)endsAt?.ToString("o") ?? DBNull.Value);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Bewaart wat deze favoriet zelf wil: wanneer hij waarschuwt, en waarheen.
+    ///
+    /// <c>alertedLead</c> gaat mee leeg wanneer de momenten wijzigen. Zet je er een moment bij
+    /// dat fijner is dan wat er al gemeld was, dan zou dat anders nooit meer afgaan - en dat is
+    /// precies wat je net kwam instellen.
+    /// </summary>
+    public void SetFavoriteAlert(string key, IEnumerable<int> momenten, AlertChannels kanalen)
+    {
+        var tekst = AlertMoments.Schrijf(momenten);
+
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+
+        command.CommandText = """
+            UPDATE favorites
+               SET alertedLead  = CASE WHEN alertLeads IS NOT $leads THEN NULL ELSE alertedLead END,
+                   alertLeads   = $leads,
+                   alertChannels = $kanalen
+             WHERE key = $key
+            """;
+
+        command.Parameters.AddWithValue("$key", key);
+        command.Parameters.AddWithValue("$leads", tekst);
+        command.Parameters.AddWithValue("$kanalen", (int)kanalen);
         command.ExecuteNonQuery();
     }
 

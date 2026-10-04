@@ -253,8 +253,39 @@ favorieten wanneer jij op *Nakijken* duwde. Een kavel waarop je wou bieden liep 
 iets anders deed, en achteraf stond er enkel "Veiling afgelopen op 28 september" op de kaart -
 precies het moment dat je had willen weten, maar dan te laat.
 
-Aanzetten in **Meldingen en achtergrond**, met de momenten erbij (1 dag, 4 uur, 1 uur, 15 minuten).
-Het gaat via dezelfde kanalen als de rest: systeemvak, Telegram, e-mail.
+**Per favoriet, via rechtsklik.** Rechtsklik op een favoriet en kies *Meldingen voor deze
+favoriet*. Daar staan de momenten en de kanalen van dat ene kavel.
+
+Tot 4 oktober 2026 was dit één schakelaar in *Meldingen en achtergrond*, voor alle favorieten
+samen, met vier vaste keuzes. Zo kijkt niemand ernaar: bij een kavel waar je echt op wil bieden
+wil je een dag én twee uur vooraf gewaarschuwd worden, bij een kavel dat je enkel volgt volstaat
+een uur, en op een gewone advertentie slaat het hele idee niet. De globale schakelaar is
+daarmee weg; wat in *Meldingen en achtergrond* blijft staan, zijn de kanalen zelf - een
+mailserver en een Telegram-token horen bij je account, niet bij een kavel.
+
+**De momenten vul je zelf in.** Twee rijen staan klaar (1 dag en 1 uur), met een `+` om er bij te
+zetten tot tien. Elke rij is een getal met een eenheid ernaast - minuten, uur of dagen - zodat je
+"24 uur" typt en niet 1440, en een kwartier vooraf nog altijd kan. Bewaard wordt er in minuten,
+want daar rekent `AuctionWatch` mee; het veld toont de grootste eenheid die er zonder rest in
+past, zodat je terugziet wat je intypte (`AlertMoments.Toon`).
+
+**Per favoriet kies je ook waarheen**: ballon, Telegram of e-mail. Een kanaal dat centraal uit
+staat of nog niet ingevuld is, staat grijs met de reden erbij in plaats van te verdwijnen -
+anders vraag je je af waar Telegram gebleven is. `NotifySettings.Alleen` is daarbij een **zeef en
+geen schakelaar**: een kanaal dat centraal uit staat, gaat niet alsnog aan omdat een favoriet het
+vraagt.
+
+**Momenten zonder kanaal worden tegengehouden** bij het bewaren. Anders stel je iets in, ziet het
+er goed uit, en komt er nooit iets aan. Er staat ook een controle op dat zo'n combinatie niets
+stuurt, zodat die val niet via een andere weg terugkomt.
+
+**Een bestaande favoriet begint stil.** Er is niets overgezet van de oude globale schakelaar: de
+twee nieuwe kolommen staan leeg, en leeg betekent "niets sturen". Dat is met opzet - niemand
+heeft voor díé favoriet iets gekozen.
+
+**Is het een veiling?** Dat vraagt de app aan het sitebestand (`SiteDefinition.IsAuction`, aan bij
+AlleVeilingen en Catawiki), en niet "kennen we al een einddatum". Die kan nog ontbreken zolang er
+geen ronde *Nakijken* geweest is, en dan zou het vak onterecht wegvallen.
 
 **Er gaat hier geen enkel verzoek de deur uit**, en dat is de belangrijkste keuze. De waarschuwing
 hangt aan de sluitingstijd die de app al kent. Zou dit zelf gaan ophalen, dan deed het dat elke

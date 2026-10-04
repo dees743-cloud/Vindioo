@@ -19,21 +19,6 @@ namespace Vindioo.Services;
 public static class AuctionWatch
 {
     /// <summary>
-    /// De momenten waaruit je kan kiezen, in minuten voor het einde. Vier is genoeg: een dag
-    /// vooraf om te beslissen of je meedoet, vier uur om je dag te plannen, een uur om erbij te
-    /// gaan zitten, een kwartier voor het echte werk.
-    /// </summary>
-    public static readonly int[] Keuzes = { 1440, 240, 60, 15 };
-
-    /// <summary>Wat er in het instellingenscherm bij zo'n keuze staat.</summary>
-    public static string Noem(int minuten) => minuten switch
-    {
-        >= 1440 => minuten == 1440 ? "1 dag vooraf" : $"{minuten / 1440} dagen vooraf",
-        >= 60 => minuten == 60 ? "1 uur vooraf" : $"{minuten / 60} uur vooraf",
-        _ => $"{minuten} minuten vooraf"
-    };
-
-    /// <summary>
     /// Welke waarschuwing is deze veiling nu toe, of null wanneer er niets te melden valt.
     ///
     /// De regel is de <b>kleinste</b> drempel waar we binnen zitten en die nog niet gemeld is.
@@ -77,15 +62,14 @@ public static class AuctionWatch
     /// </summary>
     public static async Task TickAsync(HistoryStore history, DateTime nu)
     {
-        var instellingen = AppSettings.Current.Notify;
-        if (!instellingen.AuctionAlert) return;
-
-        var momenten = instellingen.AuctionAlertMinutes;
-        if (momenten.Count == 0) return;
-
         foreach (var favoriet in history.GetFavorites())
         {
-            var moment = Aanstaand(favoriet.EndsAt, nu, momenten, favoriet.AlertedLead);
+            // Elke favoriet draagt zijn eigen momenten en zijn eigen kanalen. Geen van beide
+            // ingevuld betekent: deze wil niets, en dan wordt er ook niets gelezen of gestuurd.
+            if (favoriet.AlertLeads.Count == 0 || favoriet.AlertChannels == AlertChannels.Geen)
+                continue;
+
+            var moment = Aanstaand(favoriet.EndsAt, nu, favoriet.AlertLeads, favoriet.AlertedLead);
             if (moment is null) continue;
 
             // Eerst opschrijven, dan pas sturen. Andersom zou een melding die halverwege
@@ -96,7 +80,7 @@ public static class AuctionWatch
             Log.Write($"veiling '{Kort(favoriet.Title)}' loopt af over {Hoelang(over)} " +
                       $"(drempel {moment} min)");
 
-            await Notifier.NotifyAuctionAsync(favoriet, over);
+            await Notifier.NotifyAuctionAsync(favoriet, over, favoriet.AlertChannels);
         }
     }
 

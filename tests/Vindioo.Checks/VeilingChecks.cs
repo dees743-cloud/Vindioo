@@ -118,9 +118,50 @@ public static class VeilingChecks
             Check.Dat(AuctionWatch.Hoelang(TimeSpan.FromHours(20)) == "20 uur", "uren");
             Check.Dat(AuctionWatch.Hoelang(TimeSpan.FromDays(2)) == "2 dagen", "dagen");
 
-            Check.Dat(AuctionWatch.Noem(1440) == "1 dag vooraf" && AuctionWatch.Noem(240) == "4 uur vooraf" &&
-                      AuctionWatch.Noem(15) == "15 minuten vooraf",
-                "en de keuzes in het instellingenscherm lezen als taal");
+            Check.Dat(AlertMoments.Noem(1440) == "1 dag vooraf" && AlertMoments.Noem(240) == "4 uur vooraf" &&
+                      AlertMoments.Noem(15) == "15 minuten vooraf",
+                "en een moment leest als taal");
+        }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Veiling loopt af: de momenten vul je zelf in");
+        {
+            // Sinds 4 oktober 2026 zijn dit geen vier vaste vinkjes meer maar invulbare rijen,
+            // per favoriet. Minuten blijft de eenheid waarin gerekend en bewaard wordt; het
+            // invulveld toont de grootste eenheid die er zonder rest in past, zodat je terugziet
+            // wat je intypte in plaats van 1440.
+            Check.Dat(AlertMoments.Toon(1440) == (1, "dagen"), "1440 minuten toont als 1 dag");
+            Check.Dat(AlertMoments.Toon(120) == (2, "uur"), "120 toont als 2 uur");
+            Check.Dat(AlertMoments.Toon(15) == (15, "minuten"), "15 blijft 15 minuten");
+            Check.Dat(AlertMoments.Toon(90) == (90, "minuten"),
+                "90 past niet rond in uren, dus blijft het minuten");
+
+            Check.Dat(AlertMoments.NaarMinuten(24, "uur") == 1440 &&
+                      AlertMoments.NaarMinuten(2, "dagen") == 2880 &&
+                      AlertMoments.NaarMinuten(15, "minuten") == 15,
+                "en terug vanuit het invulveld");
+
+            // De kolom is tekst, dus er kan rommel in staan. Eén onleesbaar stuk mag de
+            // favoriet niet meenemen in zijn val.
+            Check.Dat(AlertMoments.Lees("1440,60").SequenceEqual(new[] { 1440, 60 }), "inlezen");
+            Check.Dat(AlertMoments.Lees("60,1440").SequenceEqual(new[] { 1440, 60 }),
+                "altijd groot naar klein, hoe het er ook in staat");
+            Check.Dat(AlertMoments.Lees("60,rommel,,0,-5,60").SequenceEqual(new[] { 60 }),
+                "rommel, nul, negatief en dubbels vallen weg");
+            Check.Dat(AlertMoments.Lees(null).Count == 0 && AlertMoments.Lees("").Count == 0,
+                "leeg geeft geen momenten, en dus geen waarschuwing");
+
+            // Tien is het maximum, aan allebei de kanten van de lijn.
+            var teveel = Enumerable.Range(1, 20).Select(i => i * 60).ToList();
+
+            Check.Dat(AlertMoments.Lees(string.Join(",", teveel)).Count == AlertMoments.Hoogstens,
+                $"bij het inlezen blijven er hoogstens {AlertMoments.Hoogstens} over");
+
+            Check.Dat(AlertMoments.Schrijf(teveel).Split(',').Length == AlertMoments.Hoogstens,
+                "en bij het wegschrijven ook");
+
+            Check.Dat(AlertMoments.Schrijf(new[] { 60, 1440, 60 }) == "1440,60",
+                "wegschrijven ontdubbelt en sorteert");
         }
 
         // ---------------------------------------------------------------------------
@@ -185,13 +226,14 @@ public static class VeilingChecks
 
         try
         {
+            // Alle kanalen uit: er mag in een controle niets de deur uit. Wat hier getest
+            // wordt is of de juiste drempel wordt opgeschreven, en dat gebeurt vóór het
+            // versturen.
             AppSettings.Current.Notify = new NotifySettings
             {
                 Tray = false,
                 Telegram = false,
-                Email = false,
-                AuctionAlert = true,
-                AuctionAlertMinutes = new List<int> { 1440, 60, 15 }
+                Email = false
             };
 
             var geschiedenis = new HistoryStore();
@@ -222,6 +264,12 @@ public static class VeilingChecks
                 Url = "https://www.voorbeeld.be/zoekertje/3"
             });
 
+            // Sinds 4 oktober 2026 draagt elke favoriet zijn eigen momenten en kanalen. Een
+            // favoriet waar niets voor gekozen is, blijft stil - ook al loopt zijn veiling af.
+            foreach (var sleutel in new[] { "sluit-bijna", "nog-lang", "geen-veiling" })
+                geschiedenis.SetFavoriteAlert("proef:" + sleutel,
+                    new[] { 1440, 60, 15 }, AlertChannels.Tray);
+
             await AuctionWatch.TickAsync(geschiedenis, DateTime.Now);
 
             var na = geschiedenis.GetFavorites().ToDictionary(f => f.ExternalId);
@@ -241,14 +289,13 @@ public static class VeilingChecks
             Check.Dat(na["sluit-bijna"].AlertedLead == 60,
                 "nog twee tikken later staat het er nog steeds één keer");
 
-            // Staat de waarschuwing uit, dan gebeurt er niets - ook niet voor een nieuw kavel.
-            AppSettings.Current.Notify.AuctionAlert = false;
-
+            // Een favoriet waarvoor niets gekozen is, zwijgt. Dat is de stand van elke
+            // bestaande favoriet na deze wijziging: niemand heeft voor hém iets ingesteld.
             geschiedenis.AddFavorite(new Listing
             {
                 Source = "proef",
                 ExternalId = "uit",
-                Title = "Kavel terwijl de waarschuwing uit staat",
+                Title = "Kavel zonder gekozen momenten",
                 Url = "https://www.voorbeeld.be/kavel/4",
                 EndsAt = DateTime.Now.AddMinutes(30)
             });
@@ -256,10 +303,82 @@ public static class VeilingChecks
             await AuctionWatch.TickAsync(geschiedenis, DateTime.Now);
 
             Check.Dat(geschiedenis.GetFavorites().First(f => f.ExternalId == "uit").AlertedLead is null,
-                "met de waarschuwing uit gebeurt er niets");
+                "zonder gekozen momenten gebeurt er niets");
+
+            // Wel momenten, maar nergens heen: dan ook niet. Anders stelt iemand iets in, ziet
+            // het er goed uit, en komt er nooit iets aan.
+            geschiedenis.SetFavoriteAlert("proef:uit", new[] { 60 }, AlertChannels.Geen);
+            await AuctionWatch.TickAsync(geschiedenis, DateTime.Now);
+
+            Check.Dat(geschiedenis.GetFavorites().First(f => f.ExternalId == "uit").AlertedLead is null,
+                "momenten zonder kanaal tellen niet als waarschuwing");
+
+            // En mét een kanaal gaat hij alsnog af, zodat bovenstaande geen loos resultaat is.
+            geschiedenis.SetFavoriteAlert("proef:uit", new[] { 60 }, AlertChannels.Tray);
+            await AuctionWatch.TickAsync(geschiedenis, DateTime.Now);
+
+            Check.Dat(geschiedenis.GetFavorites().First(f => f.ExternalId == "uit").AlertedLead == 60,
+                "met een kanaal erbij wél");
+
+            // DE RONDGANG DOOR SQLITE. Twee kolommen erbij, en een waarde die stil wegvalt is
+            // een waarschuwing die nooit afgaat.
+            geschiedenis.SetFavoriteAlert("proef:nog-lang",
+                new[] { 2880, 120, 15 }, AlertChannels.Mail | AlertChannels.Telegram);
+
+            var terug = geschiedenis.GetFavorites().First(f => f.ExternalId == "nog-lang");
+
+            Check.Dat(terug.AlertLeads.SequenceEqual(new[] { 2880, 120, 15 }),
+                $"de momenten komen heel terug uit de databank ({string.Join(",", terug.AlertLeads)})");
+
+            Check.Dat(terug.AlertChannels == (AlertChannels.Mail | AlertChannels.Telegram),
+                $"en de kanalen ook ({terug.AlertChannels})");
+
+            // Andere momenten betekent opnieuw kunnen waarschuwen: zet je er een fijner moment
+            // bij dan wat al gemeld was, dan zou dat anders nooit meer afgaan.
+            geschiedenis.SetFavoriteAlert("proef:sluit-bijna", new[] { 1440, 30 }, AlertChannels.Tray);
+
+            Check.Dat(geschiedenis.GetFavorites().First(f => f.ExternalId == "sluit-bijna").AlertedLead is null,
+                "andere momenten wissen wat er al gemeld was");
 
             foreach (var sleutel in new[] { "sluit-bijna", "nog-lang", "geen-veiling", "uit" })
                 geschiedenis.RemoveFavorite("proef:" + sleutel);
+
+            // ---------------------------------------------------------------------------
+            Check.Groep("De favoriet kiest zijn kanaal, de app houdt de gegevens");
+            {
+                // Een zeef en geen schakelaar: een kanaal dat centraal uit staat, gaat niet
+                // alsnog aan omdat een favoriet erom vraagt.
+                var alles = new NotifySettings { Tray = true, Telegram = true, Email = true };
+
+                var enkelMail = alles.Alleen(AlertChannels.Mail);
+
+                Check.Dat(!enkelMail.Tray && !enkelMail.Telegram && enkelMail.Email,
+                    "enkel e-mail gevraagd: enkel e-mail blijft over");
+
+                var tweeKanalen = alles.Alleen(AlertChannels.Mail | AlertChannels.Telegram);
+
+                Check.Dat(!tweeKanalen.Tray && tweeKanalen.Telegram && tweeKanalen.Email,
+                    "twee kanalen gevraagd: die twee");
+
+                Check.Dat(alles.Alleen(AlertChannels.Geen) is { Tray: false, Telegram: false, Email: false },
+                    "geen kanaal gevraagd: niets");
+
+                var zonderMail = new NotifySettings { Tray = false, Telegram = false, Email = false };
+
+                Check.Dat(!zonderMail.Alleen(AlertChannels.Mail).Email,
+                    "een kanaal dat centraal uit staat, gaat niet aan omdat een favoriet het vraagt");
+
+                // De gegevens blijven staan: de zeef maakt een kopie en raakt de instellingen
+                // zelf niet aan.
+                var met = new NotifySettings { Email = true, SmtpHost = "smtp.voorbeeld.be", MailTo = "ik@voorbeeld.be" };
+                var gezeefd = met.Alleen(AlertChannels.Mail);
+
+                Check.Dat(gezeefd.SmtpHost == "smtp.voorbeeld.be" && gezeefd.MailTo == "ik@voorbeeld.be",
+                    "de mailserver reist mee in de kopie");
+
+                Check.Dat(met.Telegram == false && met.Email,
+                    "en het origineel is niet gewijzigd");
+            }
         }
         finally
         {

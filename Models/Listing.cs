@@ -348,6 +348,21 @@ public class Listing : ObservableObject
     /// </summary>
     public int? AlertedLead { get; set; }
 
+    /// <summary>
+    /// De momenten waarop déze favoriet wil waarschuwen dat zijn veiling afloopt, in minuten
+    /// voor het einde. Leeg betekent: niets sturen.
+    ///
+    /// Per favoriet en niet één keer voor alles: bij een kavel waar je op wil bieden kies je
+    /// andere momenten dan bij een kavel dat je enkel volgt. Zie <see cref="AlertMoments"/>.
+    /// </summary>
+    public List<int> AlertLeads { get; set; } = new();
+
+    /// <summary>
+    /// Waar de waarschuwingen van déze favoriet heen gaan. <see cref="AlertChannels.Geen"/>
+    /// betekent nergens heen - dan wordt er ook niets verstuurd, hoeveel momenten er ook staan.
+    /// </summary>
+    public AlertChannels AlertChannels { get; set; }
+
     /// <summary>Sleutel voor de "al gezien"-tabel in SQLite.</summary>
     public string Key => $"{Source}:{ExternalId}";
 

@@ -82,22 +82,10 @@
                     </StackPanel>
                 </Border>
 
-                <!-- ==================== veiling loopt af ==================== -->
-                <Border Style="{StaticResource Section}">
-                    <StackPanel>
-                        <TextBlock Text="Een bewaarde veiling loopt af" Style="{StaticResource SectionTitle}" />
-                        <TextBlock Style="{StaticResource Uitleg}" TextWrapping="Wrap"
-                                   Text="Waarschuwt via de kanalen hieronder wanneer een kavel uit je favorieten bijna sluit. Dit kost geen enkel verzoek aan de site: het werkt met de sluitingstijd die de app al kent, uit het zoekresultaat of uit een ronde Nakijken bij de favorieten." />
-
-                        <CheckBox x:Name="AuctionAlertBox" Content="Aan" Margin="0,0,0,8" />
-
-                        <TextBlock Style="{StaticResource Uitleg}" Text="Wanneer:" Margin="0,0,0,4" />
-
-                        <!-- De vinkjes worden in de code-behind gevuld uit AuctionWatch.Keuzes,
-                             zodat er maar één plaats is waar die momenten staan. -->
-                        <StackPanel x:Name="AuctionAlertMoments" Orientation="Horizontal" />
-                    </StackPanel>
-                </Border>
+                <!-- Een aflopende veiling stond hier tot 4 oktober 2026 als één schakelaar voor
+                     alle favorieten samen. Dat staat nu per favoriet: rechtsklik op een favoriet
+                     en kies "Meldingen voor deze favoriet". De kanalen hieronder blijven wel
+                     centraal - een mailserver hoort bij je account, niet bij een kavel. -->
 
                 <!-- ==================== systeemvak ==================== -->
                 <Border Style="{StaticResource Section}">

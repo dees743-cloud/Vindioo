@@ -152,9 +152,10 @@ public static class Notifier
     /// een nacht uit, dan gaat de drempel "1 uur" misschien pas af met nog twintig minuten te
     /// gaan, en dan is "nog 1 uur" gewoon onwaar.
     /// </summary>
-    public static async Task<bool> NotifyAuctionAsync(Listing veiling, TimeSpan over)
+    public static async Task<bool> NotifyAuctionAsync(Listing veiling, TimeSpan over, AlertChannels kanalen)
     {
-        var settings = AppSettings.Current.Notify;
+        // Enkel de kanalen die déze favoriet mag gebruiken; de gegevens blijven centraal.
+        var settings = AppSettings.Current.Notify.Alleen(kanalen);
 
         var hoelang = AuctionWatch.Hoelang(over);
         var titel = $"Vindioo: veiling loopt af over {hoelang}";

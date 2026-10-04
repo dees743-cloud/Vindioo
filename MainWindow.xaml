@@ -288,6 +288,9 @@
                              krijgt het zoekertje als DataContext mee van de foto waarop het opengaat. -->
                         <Grid.ContextMenu>
                             <ContextMenu>
+                                <MenuItem Header="Meldingen voor deze favoriet" Icon="{ui:SymbolIcon Alert24}"
+                                          Click="FavoriteAlertMenu_Click"
+                                          Visibility="{Binding IsFavorite, Converter={StaticResource BoolToVisibility}}" />
                                 <MenuItem Header="Prijsindicatie" Icon="{ui:SymbolIcon Money24}"
                                           Click="PriceIndicationMenu_Click" />
                                 <MenuItem Header="AI-controle op deze foto" Icon="{ui:SymbolIcon Sparkle24}"
@@ -398,6 +401,9 @@
                     <Grid Margin="12,12,12,0">
                         <Grid.ContextMenu>
                             <ContextMenu>
+                                <MenuItem Header="Meldingen voor deze favoriet" Icon="{ui:SymbolIcon Alert24}"
+                                          Click="FavoriteAlertMenu_Click"
+                                          Visibility="{Binding IsFavorite, Converter={StaticResource BoolToVisibility}}" />
                                 <MenuItem Header="Prijsindicatie" Icon="{ui:SymbolIcon Money24}"
                                           Click="PriceIndicationMenu_Click" />
                                 <MenuItem Header="AI-controle op deze foto" Icon="{ui:SymbolIcon Sparkle24}"

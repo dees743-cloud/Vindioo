@@ -224,6 +224,47 @@ public partial class MainWindow
     /// Rechtsklik op een foto: wat is dit ongeveer waard? Opent een eigen venster, zodat je
     /// verder kan kijken terwijl er gezocht wordt, en er meerdere naast elkaar kunnen staan.
     /// </summary>
+    /// <summary>
+    /// Rechtsklik op een favoriet: wat moet déze melden, en waarheen.
+    ///
+    /// Staat per favoriet en niet één keer voor alles, sinds 4 oktober 2026. Bij het ene kavel
+    /// wil je een dag en twee uur vooraf gewaarschuwd worden omdat je echt gaat bieden, bij het
+    /// andere volstaat een uur. Zie <see cref="FavoriteAlertWindow"/>.
+    /// </summary>
+    private void FavoriteAlertMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not Listing listing) return;
+
+        // Alleen een echte favoriet heeft iets in te stellen; het menu is gedeeld met de
+        // zoekresultaten, waar dit item verborgen staat.
+        if (!listing.IsFavorite) return;
+
+        // Is dit een veiling? Niet vragen of er een einddatum bekend is - die ontbreekt zolang
+        // er geen ronde Nakijken geweest is, en dan zou het vak onterecht wegvallen. De site
+        // zegt het zelf.
+        var veiling = _store.Sites
+            .FirstOrDefault(s => string.Equals(s.Name, listing.Source, StringComparison.OrdinalIgnoreCase))
+            ?.IsAuction == true;
+
+        var venster = new FavoriteAlertWindow(listing, veiling).Boven(this);
+
+        if (venster.ShowDialog() != true) return;
+
+        _history.SetFavoriteAlert(listing.Key, venster.Momenten, venster.Kanalen);
+
+        // Ook in het geheugen, want de kaart op het scherm is hetzelfde object dat AuctionWatch
+        // straks uit de databank leest - zonder dit lopen die twee een herstart lang uiteen.
+        listing.AlertLeads = venster.Momenten;
+        listing.AlertChannels = venster.Kanalen;
+
+        StatusText.Text = venster.Momenten.Count == 0
+            ? $"'{Kort(listing.Title)}' meldt niets meer over het einde van zijn veiling."
+            : $"'{Kort(listing.Title)}' waarschuwt {venster.Momenten.Count} keer: " +
+              string.Join(", ", venster.Momenten.Select(AlertMoments.Noem)) + ".";
+    }
+
+    private static string Kort(string tekst) => tekst.Length <= 40 ? tekst : tekst[..37] + "...";
+
     private void PriceIndicationMenu_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not Listing listing) return;
