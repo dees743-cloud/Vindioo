@@ -224,6 +224,28 @@ verandert en dat is precies de kapotte, **0 van de 178** zoekresultaten hadden d
 `docs/favorieten.md` bij "Een titel die dubbel gecodeerd is" - ook voor de misstap onderweg, want
 mijn eerste oplossing zat op de verkeerde plaats.
 
+**0.22.0** sinds 4 oktober 2026. Twee dingen: een favoriet kan nu ook bericht geven wanneer zijn
+**prijs verandert**, en het raster vult zich volledig.
+
+- **De prijswacht** is het tweede vinkje in hetzelfde venster als de veilingwaarschuwing. Bij een
+  veiling is dat een bod dat omhoog gaat; bij een gewone advertentie meestal een vraagprijs die
+  zakt. **Dit is het enige stuk van de app dat uit zichzelf het net op gaat** - overal elders
+  gebeurt er pas iets wanneer je op een knop duwt. Daarom zit de rem in de code: elke 6 uur, elk
+  uur zodra een veiling binnen de dag sluit, hoogstens 3 favorieten per tik, en enkel voor wie
+  je het zelf aanzette én een kanaal gaf. Zie `docs/favorieten.md` bij "De prijs van een favoriet
+  verandert".
+- **De laatste rij staat vol.** De paginagrootte lag vast op 100, maar hoeveel kaarten er naast
+  elkaar passen hangt van de breedte van het venster af. Bij 8 kolommen gaf dat twaalf volle
+  rijen en een laatste rij met vier, met rechts een gat - wat leest als "dit is alles" terwijl er
+  nog pagina's volgen. De paginagrootte volgt nu het scherm, afgerond op een heel aantal rijen:
+  100 bij 8 kolommen wordt 104, bij 7 wordt het 98.
+- **Van pagina wisselen begint weer bovenaan.** Er stond al een sprong naar boven, maar twee
+  dingen werkten hem tegen: het raster is gevirtualiseerd (de kaarten van de nieuwe pagina
+  bestaan nog niet op het moment van de klik), en `SmoothScroll` zette het schuifvak daarna terug
+  op de positie waar een lopende glijbeweging naartoe onderweg was.
+
+712 controles met Vindioo open (675 voor deze wijziging).
+
 **0.21.0** sinds 4 oktober 2026. **De waarschuwing dat een bewaarde veiling afloopt, staat nu
 per favoriet.** Rechtsklik op een favoriet en kies *Meldingen voor deze favoriet*.
 

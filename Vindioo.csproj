@@ -21,7 +21,7 @@
          het logboek bij elke start, zodat je kan zien welke exe er draait - er
          staan er twee op deze pc, een uit Visual Studio en een gepubliceerde.
          0.9 omdat er nog stukken open staan; zie "Volgende stappen" in CLAUDE.md. -->
-    <Version>0.21.0</Version>
+    <Version>0.22.0</Version>
     <Product>Vindioo</Product>
     <Description>Alles gevonden. Op één plek.</Description>
     <Company>Davy Boudrez</Company>
