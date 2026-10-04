@@ -32,10 +32,10 @@ zeven, terwijl `DatabaseNames`, `LogNames`, het sein en de noodrem er alle vier 
 `DocsChecks` meet de lijst nu na: komt er een waarde bij of valt er een weg, dan valt de
 controle om met de naam erbij.
 
-> **De rij van de brug klopt nog niet helemaal.** De server aanvaardt die drie oude kopregels
-> wel in een verzoek, maar tekent zijn antwoord enkel onder de nieuwe naam - een extensie die
-> nog niet bij is, komt er dus wél in maar herkent het antwoord niet. Zie `docs/brug.md`; dat
-> moet nog opgelost worden, of de drie namen mogen weg.
+Die laatste rij was tot 4 oktober 2026 maar half waar: de server aanvaardde de oude kopregels
+wel in een verzoek, maar tekende zijn antwoord enkel onder de nieuwe naam, zodat een extensie
+die nog niet bij was er wél in kwam maar het antwoord niet herkende. Nu wordt er onder allebei
+de namen getekend; zie `docs/brug.md`.
 
 Verder heet alles Vindioo: de namespace, het project `Vindioo.csproj`, de exe `Vindioo.exe`,
 de gegevensmap `%APPDATA%\Vindioo` met `vindioo.db` en `vindioo-log.txt`, en de extensie

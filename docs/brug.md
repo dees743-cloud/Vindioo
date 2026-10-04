@@ -255,11 +255,33 @@ dat per definitie niet. Zonder die tweede kopregel zou die rem er dus stilletjes
 gegaan; dat kwam boven doordat een bestaande controle (1,5 GB aangekondigd → 413) ineens een 200
 gaf.
 
-**Een oude extensie werkt niet meer**, en de app zegt dat ook zo: `BridgeStatus.OldExtension`
-("de Vindioo Brug in Chrome is een oudere versie. Herlaad ze: chrome://extensions...") in plaats
-van over de koppelcode te klagen, want daar is niets mis mee. Omgekeerd geldt hetzelfde: een
-nieuwe extensie met een oude app krijgt geen geldige handtekening terug en weigert dan elke
-opdracht. **App en extensie moeten dus samen mee.**
+**Een extensie van vóór 1 oktober 2026 werkt niet meer**, en de app zegt dat ook zo:
+`BridgeStatus.OldExtension` ("de Vindioo Brug in Chrome is een oudere versie. Herlaad ze:
+chrome://extensions...") in plaats van over de koppelcode te klagen, want daar is niets mis mee.
+Die versies stuurden de code nog in het adres (`?token=`), en dat kan niet meer.
+
+**De hernoeming naar Vindioo is wél overbrugd.** De kopregels heetten tot 3 oktober 2026
+`X-Zentrix-Brug`, `-Sig` en `-Voor`. De app blijft die aanvaarden in een verzoek
+(`BridgeServer.Kopregel`), en tekent haar antwoord onder **allebei** de namen met dezelfde
+waarde. Dat laatste is nodig omdat de extensie apart herladen wordt: wie de zip bijwerkt maar
+zijn broncode niet, draait een nieuwe app met een oude extensie.
+
+> Tot 4 oktober 2026 werkte die overgang maar half, en dat was erger dan ze niet te hebben. Het
+> verzoek werd aanvaard, maar het antwoord werd enkel onder `X-Vindioo-Sig` getekend. De oude
+> extensie vond haar eigen kopregel niet, besloot "dit is Vindioo niet" en nam **geen enkele**
+> opdracht aan - terwijl de app een geslaagd verzoek zag, `BridgeStatus.Ready` meldde en
+> 90 seconden per brugsite wachtte op een antwoord dat nooit kwam. De popup in Chrome zei
+> intussen "verkeerde koppelcode". Twee meldingen die allebei langs de oorzaak keken.
+> `BridgeStatus.OldExtension` sloeg niet aan, want dat pad kijkt naar `?token=`.
+
+`Teken()` bindt de handtekening aan de koppelcode en de inhoud, **niet** aan de naam van de
+kopregel. Twee namen met dezelfde waarde verzwakt dus niets: er is geen naam die een zwakkere
+controle aanroept, en wie allebei de namen meestuurt wint niets. Er staat een controle op dat
+een verzoek met enkel de oude kopregels een antwoord krijgt dat allebei de handtekeningen
+draagt, met dezelfde waarde.
+
+Omgekeerd geldt nog altijd: een nieuwe extensie met een oude app krijgt geen geldige
+handtekening terug en weigert dan elke opdracht.
 
 Nagemeten, allebei de kanten:
 

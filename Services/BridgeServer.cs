@@ -803,7 +803,7 @@ public class BridgeServer
             ? $"Access-Control-Allow-Origin: {origin}\r\n" +
               $"Access-Control-Allow-Headers: Content-Type, {ExtensionHeader}, {SignatureHeader}, " +
               $"{PreHeader}, {OudeExtensionHeader}, {OudeSignatureHeader}, {OudePreHeader}\r\n" +
-              $"Access-Control-Expose-Headers: {SignatureHeader}\r\n" +
+              $"Access-Control-Expose-Headers: {SignatureHeader}, {OudeSignatureHeader}\r\n" +
               "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" +
               "Access-Control-Max-Age: 600\r\n" +
               "Vary: Origin\r\n"
@@ -813,7 +813,20 @@ public class BridgeServer
             $"HTTP/1.1 {status}\r\n" +
             "Content-Type: application/json; charset=utf-8\r\n" +
             $"Content-Length: {payload.Length}\r\n" +
-            (handtekening is null ? "" : $"{SignatureHeader}: {handtekening}\r\n") +
+            // Onder ALLEBEI de namen, met dezelfde waarde. Teken() bindt de handtekening
+            // aan de koppelcode en de inhoud, niet aan de naam van de kopregel, dus dat is
+            // dezelfde tekst - en een extensie leest enkel de naam die zij kent.
+            //
+            // Zonder de tweede regel was de overgang maar half: het verzoek van een extensie
+            // die nog niet herladen is, werd wél aanvaard (zie Kopregel), maar zij vond haar
+            // X-Zentrix-Sig niet in het antwoord, besloot "dit is Vindioo niet" en nam geen
+            // enkele opdracht aan. De app zag intussen een geslaagd verzoek, meldde "brug
+            // klaar" en wachtte 90 seconden per brugsite op een antwoord dat nooit kwam.
+            // Twee meldingen die allebei langs de oorzaak keken.
+            (handtekening is null
+                ? ""
+                : $"{SignatureHeader}: {handtekening}\r\n" +
+                  $"{OudeSignatureHeader}: {handtekening}\r\n") +
             cors +
             "Connection: close\r\n\r\n";
 

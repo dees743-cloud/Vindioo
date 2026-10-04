@@ -389,6 +389,35 @@ public static class BrugChecks
             Check.Dat(meegestuurd != Teken("een-andere-code", lijf),
                 "en met een andere code zou die handtekening niet kloppen");
 
+            // EEN EXTENSIE DIE NOG NIET HERLADEN IS stuurt de oude kopregels (X-Zentrix-*).
+            // Die worden aanvaard - maar dan moet het antwoord ook onder HAAR naam getekend
+            // zijn, anders herkent ze het niet en neemt ze geen enkele opdracht aan. Tot
+            // 4 oktober 2026 gebeurde dat niet, en dan meldde de app "brug klaar" terwijl er
+            // 90 seconden per site voor niets gewacht werd.
+            // Dezelfde nonce als hierboven: de lokale Teken() sluit die in, dus een eigen
+            // nonce in het adres zou een handtekening geven die nergens op slaat.
+
+            var metOude = await StuurAsync("GET", $"/ping?{BridgeServer.NonceParam}={nonce}",
+                $"{BridgeServer.OudeExtensionHeader}: 1",
+                $"{BridgeServer.OudeSignatureHeader}: {Teken(brug.Token, "")}");
+
+            Check.Dat(metOude.Contains("\"ok\":true"),
+                "een extensie die nog niet herladen is, komt er met de oude kopregels in");
+
+            var kopOud = metOude.Split("\r\n\r\n")[0];
+            var lijfOud = metOude.Split("\r\n\r\n").Length > 1 ? metOude.Split("\r\n\r\n")[1] : "";
+
+            string? UitKop(string naam) => kopOud.Split("\r\n")
+                .FirstOrDefault(r => r.StartsWith(naam + ":", StringComparison.OrdinalIgnoreCase))
+                ?.Split(':', 2)[1].Trim();
+
+            Check.Dat(UitKop(BridgeServer.OudeSignatureHeader) == Teken(brug.Token, lijfOud),
+                "en het antwoord draagt haar eigen kopregel, correct getekend");
+
+            Check.Dat(UitKop(BridgeServer.SignatureHeader) is { Length: > 0 } nieuwNaam &&
+                      nieuwNaam == UitKop(BridgeServer.OudeSignatureHeader),
+                "allebei de namen, met dezelfde waarde - de handtekening hangt niet aan de naam");
+
             // Een extensie van voor deze wijziging stuurt de code nog in het adres. Die werkt
             // niet meer - en de app hoort dat te zeggen, want aan de code zelf is niets mis.
             var oud = await StuurAsync("GET", $"/job?token={brug.Token}",
