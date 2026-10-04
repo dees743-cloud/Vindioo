@@ -105,10 +105,6 @@ public partial class MainWindow
 
         _enkelNieuw = enkelNieuw && bewaard.Any(l => l.IsNew);
 
-        // De zeef op de titel hoort bij de zoekopdracht, dus die komt mee bij het openen.
-        _enkelTitel = search.TitleOnly;
-        _zoektermVanResultaten = search.Query;
-
         ToonBewaard(search, bewaard);
 
         // Nu heb je ze gezien. Het NIEUW-label blijft staan zolang deze lijst op het scherm
@@ -189,16 +185,30 @@ public partial class MainWindow
         var bestaand = _saved.FirstOrDefault(s => string.Equals(s.Query, query, StringComparison.OrdinalIgnoreCase));
         if (bestaand is not null)
         {
+            // Vanaf nu zeeft die zoekopdracht de lijst in plaats van het scherm, dus de
+            // schakelaar en de lijst moeten tonen waarmee.
             _activeSearch = bestaand;
+            NeemZeefOver(bestaand);
+
+            _resultsView.Refresh();
+            ToonPagina();
+            UpdateEmptyHints();
+
             StatusText.Text = $"'{bestaand.Name}' staat al bij Zoekopdrachten. Aanpassen doe je met het tandwiel naast de zoekbalk.";
             return;
         }
 
         // Elke tab levert zijn eigen instellingen aan: een zoekopdracht bewaart
         // dus de postcode van de ene site naast de provincies van de andere.
+        //
+        // De zeef op de titel staat niet op een tab maar boven de resultaten, en moet er dus
+        // apart in. Tot 4 oktober 2026 gebeurde dat niet: wie met de zeef aan vastzette, zag
+        // de knop branden terwijl de bewaarde zoekopdracht niet meer zeefde - en de geplande
+        // beurt 's nachts dus weer meldde wat het woord enkel in zijn beschrijving had.
         var search = new SavedSearch
         {
             Query = query,
+            TitleOnly = _enkelTitel,
             SiteSettings = _tabs.Where(t => !t.IsAll).Select(SiteSetting.FromTab).ToList()
         };
 
@@ -276,6 +286,13 @@ public partial class MainWindow
         {
             QueryBox.Text = _activeSearch.Query;
             PasToe(_activeSearch);
+
+            // Vink je in dat venster "Enkel in de titel" aan, dan zeeft Matches meteen. Zonder
+            // deze verversing bleef de oude lijst staan met de knop uit, en zette één klik op
+            // die knop de zeef stil weer af.
+            _resultsView.Refresh();
+            ToonPagina();
+            UpdateEmptyHints();
         }
 
         StatusText.Text = $"'{search.Name}' bewaard. {search.Schedule.Describe()}.";
@@ -329,11 +346,29 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// Zet de vinkjes en filters van de tabs gelijk met een bewaarde zoekopdracht,
-    /// zodat het zoekscherm toont waarmee die zoekopdracht werkt.
+    /// De zeef "Enkel in de titel" hoort bij de zoekopdracht en niet bij het scherm, dus zodra
+    /// er een andere zoekopdracht openstaat, moet de schakelaar mee. Zonder dit zeeft
+    /// <see cref="SavedSearch.Matches"/> wel en zegt de knop van niet - en een filter dat werkt
+    /// terwijl de knop zegt van niet, is erger dan geen filter.
+    ///
+    /// Dit stond eerst uitgeschreven bij elk scherm dat een zoekopdracht opent. Op 4 oktober
+    /// 2026 bleek dat drie van de vier plaatsen het vergeten waren, dus staat het hier nog
+    /// maar één keer, aangeroepen door <see cref="PasToe"/>.
+    /// </summary>
+    private void NeemZeefOver(SavedSearch search)
+    {
+        _enkelTitel = search.TitleOnly;
+        _zoektermVanResultaten = search.Query;
+    }
+
+    /// <summary>
+    /// Zet de vinkjes en filters van de tabs gelijk met een bewaarde zoekopdracht, en de zeef
+    /// op de titel erbij, zodat het zoekscherm toont waarmee die zoekopdracht werkt.
     /// </summary>
     private void PasToe(SavedSearch search)
     {
+        NeemZeefOver(search);
+
         foreach (var tab in _tabs)
         {
             if (tab.IsAll) continue;

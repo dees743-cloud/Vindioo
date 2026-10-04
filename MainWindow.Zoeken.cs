@@ -97,6 +97,7 @@ public partial class MainWindow
         var nieuw = new SavedSearch
         {
             Query = query,
+            TitleOnly = _enkelTitel,
             SiteSettings = _tabs.Where(t => !t.IsAll).Select(SiteSetting.FromTab).ToList()
         };
 

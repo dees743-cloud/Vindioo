@@ -261,7 +261,7 @@ public class HistoryStore
             if (config is null) return;
 
             search.PhotosOnly = config.PhotosOnly;
-        search.TitleOnly = config.TitleOnly;
+            search.TitleOnly = config.TitleOnly;
             search.SiteSettings = config.SiteSettings;
             search.Schedule = config.Schedule;
 

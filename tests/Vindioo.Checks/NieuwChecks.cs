@@ -1,3 +1,4 @@
+using System.Reflection;
 using Microsoft.Data.Sqlite;
 using Vindioo.Models;
 using Vindioo.Services;
@@ -307,6 +308,79 @@ public static class NieuwChecks
             Check.Dat(samen.Matches(metFoto), "titel en foto allebei in orde: blijft");
             Check.Dat(!samen.Matches(new Listing { Title = "matras 140x200" }),
                 "goede titel maar geen foto: valt alsnog af");
+        }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Enkel in de titel: de zeef overleeft de weg naar schijf");
+        {
+            // De zeef hoort bij de zoekopdracht en niet bij het scherm, dus ze moet een
+            // herstart overleven. Ze staat niet in een eigen kolom maar in het JSON-blokje
+            // `config`, en dat is net het soort plaats waar een nieuw veld stil wegvalt:
+            // er komt geen foutmelding van, de zoekopdracht start gewoon zonder zeef.
+            var bewaar = new SavedSearch { Query = "matras 140x200", TitleOnly = true };
+            bewaar.Id = history.Add(bewaar);
+
+            var terug = history.GetAll().First(s => s.Id == bewaar.Id);
+            Check.Dat(terug.TitleOnly, "aangezet en bewaard: na het inlezen staat ze nog aan");
+
+            terug.TitleOnly = false;
+            history.Update(terug);
+
+            Check.Dat(!history.GetAll().First(s => s.Id == bewaar.Id).TitleOnly,
+                "en weer uitgezet: ook dat blijft staan");
+
+            history.Delete(bewaar.Id);
+        }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Elke instelling van een zoekopdracht heeft een plaats op schijf");
+        {
+            // Waarom dit er staat: TitleOnly was de eerste instelling in maanden die erbij
+            // kwam, en op 4 oktober 2026 bleek ze op vijf plaatsen vergeten te zijn. Een
+            // instelling die nergens bewaard wordt, is bij de volgende start stil weg - en
+            // niets meldt dat. Deze controle laat de volgende die er een toevoegt, struikelen
+            // in plaats van hem het maanden later te laten ontdekken.
+            //
+            // Drie plaatsen zijn geldig: een eigen kolom in de tabel `searches`, het
+            // JSON-blokje `config`, of met opzet nergens.
+            //
+            // Dat laatste vakje staat er niet voor de sier: het dwingt om bij elke nieuwe
+            // eigenschap te kiezen in plaats van te vergeten. Wie hier iets bij zet, zegt
+            // daarmee "deze hoort een herstart NIET te overleven".
+            var vluchtig = new[]
+            {
+                // Bestaat enkel terwijl de beurt loopt; na een herstart draait er niets meer.
+                "IsRunning"
+            };
+
+            var eigenKolom = new[]
+            {
+                "Id", "Query", "Sites", "MinPrice", "MaxPrice", "LastRun", "NewCount", "LastViewed",
+
+                // Van voor de instellingen per site. MigrateLegacySites zet ze om, dus ze
+                // worden wel gelezen en niet meer geschreven.
+                "Postcode", "RadiusKm"
+            };
+
+            var config = typeof(HistoryStore)
+                .GetNestedType("SearchConfig", BindingFlags.NonPublic)?
+                .GetProperties()
+                .Select(p => p.Name)
+                .ToHashSet() ?? new HashSet<string>();
+
+            Check.Dat(config.Count > 0, "het JSON-blokje `config` is te vinden om mee te vergelijken");
+            Check.Dat(config.Contains("TitleOnly"), "en de zeef op de titel staat erin");
+
+            var zonderPlaats = typeof(SavedSearch)
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.CanWrite)
+                .Select(p => p.Name)
+                .Where(n => !eigenKolom.Contains(n) && !config.Contains(n) && !vluchtig.Contains(n))
+                .ToList();
+
+            Check.Dat(zonderPlaats.Count == 0, zonderPlaats.Count == 0
+                ? "elke bewaarbare instelling van een zoekopdracht heeft een plaats op schijf"
+                : $"zonder plaats op schijf, dus stil weg bij de volgende start: {string.Join(", ", zonderPlaats)}");
         }
     }
 }

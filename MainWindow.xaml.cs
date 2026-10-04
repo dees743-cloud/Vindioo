@@ -453,12 +453,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         QueryBox.Text = actueel.Query;
         PasToe(actueel);
 
-        // De zeef op de titel hoort bij deze zoekopdracht, dus de schakelaar boven de
-        // resultaten moet hem tonen. Zonder dit zeefde de planner wel, maar stond de knop uit
-        // - en een filter dat werkt terwijl de knop zegt van niet, is erger dan geen filter.
-        _enkelTitel = actueel.TitleOnly;
-        _zoektermVanResultaten = actueel.Query;
-
         _results.Clear();
         _zichtbaar.Clear();
         _pagina = 0;
