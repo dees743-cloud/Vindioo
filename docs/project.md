@@ -224,6 +224,33 @@ verandert en dat is precies de kapotte, **0 van de 178** zoekresultaten hadden d
 `docs/favorieten.md` bij "Een titel die dubbel gecodeerd is" - ook voor de misstap onderweg, want
 mijn eerste oplossing zat op de verkeerde plaats.
 
+**0.21.0** sinds 4 oktober 2026. **De waarschuwing dat een bewaarde veiling afloopt, staat nu
+per favoriet.** Rechtsklik op een favoriet en kies *Meldingen voor deze favoriet*.
+
+Tot nu was het één schakelaar in *Meldingen en achtergrond*, voor alle favorieten samen, met vier
+vaste keuzes (1 dag / 4 uur / 1 uur / 15 minuten). Zo kijkt niemand ernaar: bij een kavel waar je
+echt op wil bieden wil je een dag én twee uur vooraf gewaarschuwd worden, bij een kavel dat je
+enkel volgt volstaat een uur, en op een gewone advertentie slaat het hele idee niet.
+
+- **De momenten vul je zelf in.** Twee rijen staan klaar, een `+` zet er bij tot tien, een kruisje
+  haalt er een weg. Elk moment is een getal met een eenheid ernaast - minuten, uur of dagen. Die
+  eenheid staat er met opzet: met enkel uren verlies je het kwartier vooraf, en dat is net het
+  moment waarop je erbij gaat zitten.
+- **Waarheen kies je ook per favoriet**: ballon, Telegram of e-mail. Een kanaal dat centraal uit
+  staat of nog niet ingevuld is, staat grijs met de reden erbij in plaats van te verdwijnen. Het
+  is een zeef en geen schakelaar - wat centraal uit staat, gaat niet alsnog aan.
+- **Momenten zonder kanaal worden tegengehouden.** Anders stel je iets in, ziet het er goed uit,
+  en komt er nooit iets aan.
+- **De globale schakelaar is weg.** Wat in *Meldingen en achtergrond* blijft, zijn de kanalen
+  zelf: een mailserver en een Telegram-token horen bij je account, niet bij een kavel.
+
+Een bestaande favoriet begint **stil**: er is niets overgezet, want niemand heeft voor díé
+favoriet iets gekozen. Zie `docs/favorieten.md` bij "Een bewaarde veiling loopt bijna af".
+
+675 controles met Vindioo open (652 voor deze wijziging). Wat er **niet** in zit: bericht bij een
+prijswijziging. Dat kan niet zonder dat de app vanzelf gaat ophalen, en hoe vaak dat mag is nog
+een open keuze.
+
 **0.20.0** sinds 4 oktober 2026, en daar zit geen nieuwe knop in. Twee leesrondes over alles
 wat er sinds 0.17.3 veranderde - de hernoeming naar Vindioo en de titelzeef - leverden vijf
 punten op, en die zijn alle vijf opgelost. Het zijn stuk voor stuk dingen die **stil** misgingen:
