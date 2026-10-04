@@ -388,6 +388,12 @@
             <ui:Button Content="Importeren uit bestand" Icon="{ui:SymbolIcon ArrowImport24}"
                        Appearance="Secondary" Margin="0,0,8,8" Padding="14,6"
                        Click="ImportButton_Click" />
+            <!-- Een hele map in één keer. Stond enkel in het tandwielmenu, en toen dat op
+                 4 oktober 2026 opgeruimd werd, hoorde deze mee te verhuizen in plaats van te
+                 verdwijnen: dertien sitebestanden één voor één aanwijzen is geen werk. -->
+            <ui:Button Content="Importeren uit map" Icon="{ui:SymbolIcon FolderArrowLeft24}"
+                       Appearance="Secondary" Margin="0,0,8,8" Padding="14,6"
+                       Click="ImportFolderButton_Click" />
             <ui:Button Content="Logboek openen" Icon="{ui:SymbolIcon DocumentText24}"
                        Appearance="Secondary" Margin="0,0,8,8" Padding="14,6"
                        Click="OpenLogButton_Click" />

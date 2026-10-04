@@ -741,12 +741,12 @@
                             <!-- Rechtstreeks het venster, zonder submenu met elke site ernaast: daar
                                  staan de sites toch al als tabs, en een lijst die meegroeit met het
                                  aantal sites was een extra stap voor niets. -->
+                            <!-- Toevoegen en importeren stonden hier ook, en dat was er een te
+                                 veel: allebei staan ze in Sites beheren, één klik verderop. Bij
+                                 nul sites staan ze nog wél als knoppen midden in het scherm -
+                                 dán is Sites beheren niet te openen. De handlers blijven dus. -->
                             <MenuItem Header="Sites beheren" Icon="{ui:SymbolIcon Globe24}"
                                       Click="ManageSitesMenu_Click" />
-                            <MenuItem Header="Site toevoegen" Icon="{ui:SymbolIcon Add24}"
-                                      Click="AddSiteMenu_Click" />
-                            <MenuItem Header="Sites importeren uit map" Icon="{ui:SymbolIcon ArrowImport24}"
-                                      Click="ImportSitesFolder_Click" />
                             <MenuItem Header="Koppelcode" Icon="{ui:SymbolIcon Key24}"
                                       Click="BridgeCodeMenu_Click" />
                             <MenuItem Header="Meldingen en achtergrond"

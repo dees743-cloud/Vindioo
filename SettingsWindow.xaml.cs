@@ -213,6 +213,27 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
         StatusText.Text = $"Site '{imported.Name}' geïmporteerd.";
     }
 
+    /// <summary>
+    /// Een hele map met sitebestanden in één keer. Stond tot 4 oktober 2026 enkel in het
+    /// tandwielmenu van het hoofdscherm; dat is opgeruimd, maar de mogelijkheid blijft - een
+    /// map met dertien sites één bestand per keer aanwijzen is geen werk.
+    /// </summary>
+    private void ImportFolderButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Map met sitebestanden kiezen" };
+        if (dialog.ShowDialog(this) != true) return;
+
+        var (aantal, mislukt, vervangen) = _store.ImportFolder(dialog.FolderName);
+
+        BuildCards();
+
+        StatusText.Text = aantal == 0 && mislukt.Count == 0
+            ? "In die map staan geen sitebestanden."
+            : $"{aantal} site(s) geïmporteerd" +
+              (vervangen.Count > 0 ? $", waarvan {vervangen.Count} vervangen ({string.Join(", ", vervangen)})" : "") +
+              (mislukt.Count > 0 ? $"; niet geïmporteerd: {string.Join(", ", mislukt)}." : ".");
+    }
+
     /// <summary>Opent de tab van een site op naam, bv. na toevoegen of importeren.</summary>
     private void SelectCardByName(string name)
     {
