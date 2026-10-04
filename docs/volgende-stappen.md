@@ -22,6 +22,12 @@ Hieronder enkel wat aan de app zelf te doen valt.
    bijgesneden foto's en staat de grote pas op de pagina van het zoekertje. Die
    ophalen kost een volledige browsersessie (5–10 s), dus niet tijdens het
    zoeken maar pas wanneer je erom vraagt.
+
+   **Grotendeels gedaan**, via `LargeImageSelector` in het sitebestand - meestal is de grote
+   foto hetzelfde adres met een andere maat erin, en dan kost het geen enkel extra verzoek.
+   Geteld op 4 oktober 2026: **10 van de 15** sitebestanden hebben er een. Nog zonder:
+   Vinted, Discogs, Tweakers V&A, Gamemania, en **Facebook** - daar staat de echte 960x720
+   niet in de HTML van de zoekpagina, zie "Nog open" in `SITES.md`.
 3. **AI-controle op een foto**, lokaal op de grafische kaart. Gevraagd op 24 september 2026:
    de AI moet zien wat de eigenaar zelf niet ziet - een doos vol dvd's waarvan de titels te klein
    zijn, of wat voor toestel er staat en welk typenummer erop staat. Vier stappen:
@@ -55,8 +61,10 @@ Hieronder enkel wat aan de app zelf te doen valt.
 5b. **Favorieten opvolgen** (gevraagd op 17 september 2026, in drie stappen; alleen de tweede
    staat nog open):
    - ~~of een favoriet **nog te koop** is, en tegen welke prijs nu~~ (klaar op 30 september 2026,
-     zie "Favorieten opvolgen" bij Wat je te zien krijgt). Nog open daarin: het onthouden tussen
-     twee starts, en vanzelf nakijken op een schema;
+     zie "Favorieten opvolgen" bij Wat je te zien krijgt). ~~Het onthouden tussen twee starts~~ en
+     ~~vanzelf nakijken op een schema~~ zijn er sindsdien bijgekomen: de einddatum en de
+     meldingsinstellingen staan in de databank (0.21.0), en `PriceAlert` kijkt vanzelf na op een
+     ritme met de rem erop (0.22.0). Zie `docs/favorieten.md`;
    - **iets gelijkaardigs** vinden: dezelfde zoektocht als de prijsindicatie levert die al op;
    - **de prijsindicatie** (klaar, zie "Prijsindicatie"). Nog open daarin: verkochte prijzen van
      eBay als sterkere bron, en meer sites met het vinkje (Kleinanzeigen gaf een gewoon verzoek op
@@ -120,8 +128,11 @@ Hieronder enkel wat aan de app zelf te doen valt.
 
      **`vindioo-sites` blijft privé, en dat is principieel.** Die bestanden en `SITES.md`
      beschrijven per site hoe je zijn robotbeveiliging omzeilt, met de namen erbij, en bij
-     Tweakers staat er zwart op wit dat we een pad gebruiken dat hun `robots.txt` verbiedt. Dat
-     hoort niet als handleiding op straat. Daar komt bij dat `sites/facebook.json` het nummer van
+     Tweakers staat er zwart op wit dat we een pad gebruiken dat hun `robots.txt` verbiedt:
+     `sites/tweakers-va.json` zoekt op `/aanbod/zoeken`, en daar staat `Disallow: /aanbod/zoeken`
+     tegenover (nagemeten 4 oktober 2026). Dat gaat enkel over de **tweedehandsmarkt**; de
+     prijsindicatie laat hun zoekpagina juist met rust en werkt met hun eigen sitemap, zie
+     `docs/prijs.md`. Dat hoort niet als handleiding op straat. Daar komt bij dat `sites/facebook.json` het nummer van
      de Marketplace-regio houdt, en dat is bij benadering een woonplaats.
 
      Dat de app zelf wél openbaar kan, komt door een keuze van ver daarvoor: **Vindioo kent geen
