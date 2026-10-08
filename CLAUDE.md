@@ -130,8 +130,8 @@ dotnet publish Vindioo.csproj -c Release -r win-x64 --self-contained true -o C:\
 ```
 
 De controles drukken per stuk OK of FOUT af en eindigen met "ALLES OK" en het aantal. Draait
-Vindioo of Chrome-met-de-brug, dan vallen er controles weg en zeggen ze dat zelf (760 met Vindioo
-dicht en Chrome open, 712 met Vindioo erbij — gemeten 4 oktober 2026). Publiceren kan enkel met
+Vindioo of Chrome-met-de-brug, dan vallen er controles weg en zeggen ze dat zelf (768 met Vindioo
+dicht en Chrome open, 720 met Vindioo erbij — gemeten 7 oktober 2026). Publiceren kan enkel met
 Vindioo dicht.
 
 ## Regels die schade voorkomen
