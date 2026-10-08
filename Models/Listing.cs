@@ -18,8 +18,53 @@ public class Listing : ObservableObject
     public string Title { get; set; } = "";
     public string Description { get; set; } = "";
 
-    /// <summary>Prijs in euro. Null wanneer onbekend, "op aanvraag" of bieden.</summary>
+    /// <summary>
+    /// Prijs in euro. Null wanneer onbekend, "op aanvraag" of bieden.
+    ///
+    /// Bij een favoriet is dit de prijs van de dag dat je hem bewaarde; die blijft staan.
+    /// Wat er vandaag staat, zit in <see cref="CurrentPrice"/>.
+    /// </summary>
     public decimal? Price { get; set; }
+
+    private decimal? _currentPrice;
+
+    /// <summary>
+    /// De laatst bekende prijs van een favoriet - wat een ronde <i>Nakijken</i> of de
+    /// prijswacht er als laatste zag staan. Null zolang er nog niet gekeken is.
+    ///
+    /// <para>Apart van <see cref="Price"/> en niet eroverheen, want dan was de startprijs weg
+    /// en juist die vergelijking wil je zien: "nu € 33, begonnen op € 1".</para>
+    ///
+    /// <para>Staat in de databank, dus na een herstart toont de kaart meteen de laatst bekende
+    /// prijs - zonder dat er één verzoek vertrokken is.</para>
+    /// </summary>
+    public decimal? CurrentPrice
+    {
+        get => _currentPrice;
+        set
+        {
+            if (!SetProperty(ref _currentPrice, value)) return;
+
+            OnPropertyChanged(nameof(DisplayPrice));
+            OnPropertyChanged(nameof(StartPriceText));
+        }
+    }
+
+    /// <summary>
+    /// Wat er groot op de kaart staat: de laatst bekende prijs, of anders die van het bewaren.
+    /// Bij een gewoon zoekresultaat is <see cref="CurrentPrice"/> leeg, dus daar verandert er
+    /// niets.
+    /// </summary>
+    public decimal? DisplayPrice => CurrentPrice ?? Price;
+
+    /// <summary>
+    /// "begonnen op € 1", of leeg wanneer er niets te vergelijken valt. Staat klein onder de
+    /// prijs bij een favoriet waarvan het bedrag intussen veranderd is.
+    /// </summary>
+    public string StartPriceText =>
+        CurrentPrice is { } nu && Price is { } begin && begin > 0 && nu != begin
+            ? $"begonnen op € {begin:0.##}"
+            : "";
 
     /// <summary>Ruwe prijstekst, bv. "Bieden" of "Gratis af te halen".</summary>
     public string PriceLabel { get; set; } = "";

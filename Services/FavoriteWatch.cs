@@ -165,8 +165,11 @@ public static class FavoriteWatch
 
         FavoriteState.TeKoop when status.PrijsNu is null => "Staat er nog",
 
+        // De prijs die groot op de kaart staat, is sinds 7 oktober 2026 de LAATST BEKENDE
+        // (Listing.DisplayPrice). "Nu X" zou daar dus dubbelop staan; wat je er nog bij wil
+        // zien is waar het begon.
         FavoriteState.TeKoop when bewaard is > 0 && status.PrijsNu != bewaard =>
-            $"Nu {Bedrag(status.PrijsNu)} - was {Bedrag(bewaard)}",
+            $"Begonnen op {Bedrag(bewaard)}",
 
         FavoriteState.TeKoop => $"Staat er nog, {Bedrag(status.PrijsNu)}",
 

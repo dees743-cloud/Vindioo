@@ -127,6 +127,11 @@ public class HistoryStore
         AddColumn(connection, "favorites", "notifiedPrice", "REAL");
         AddColumn(connection, "favorites", "priceCheckedAt", "TEXT");
 
+        // De laatst bekende prijs, los van de prijs bij het bewaren. Erbij op 7 oktober 2026:
+        // de kaart toonde het bedrag van de dag dat je de favoriet bewaarde, en dat werd nooit
+        // bijgewerkt - ook niet nadat de prijswacht je net een bericht had gestuurd.
+        AddColumn(connection, "favorites", "currentPrice", "REAL");
+
         // Wanneer je de zoekopdracht laatst opende; zie SavedSearch.LastViewed.
         return AddColumn(connection, "searches", "lastViewed", "TEXT");
     }
@@ -794,7 +799,7 @@ public class HistoryStore
         command.CommandText = """
             SELECT source, externalId, title, price, priceLabel, location, url, image, largeImage,
                    endsAt, alertedLead, alertLeads, alertChannels,
-                   alertPrice, notifiedPrice, priceCheckedAt
+                   alertPrice, notifiedPrice, priceCheckedAt, currentPrice
             FROM favorites ORDER BY addedAt DESC
             """;
 
@@ -818,6 +823,7 @@ public class HistoryStore
                 AlertPrice = !reader.IsDBNull(13) && reader.GetInt32(13) != 0,
                 NotifiedPrice = reader.IsDBNull(14) ? null : (decimal)reader.GetDouble(14),
                 PriceCheckedAt = reader.IsDBNull(15) ? null : DateTime.Parse(reader.GetString(15)),
+                CurrentPrice = reader.IsDBNull(16) ? null : (decimal)reader.GetDouble(16),
                 IsFavorite = true
             };
 
@@ -940,6 +946,24 @@ public class HistoryStore
         command.CommandText = "UPDATE favorites SET priceCheckedAt = $wanneer WHERE key = $key";
         command.Parameters.AddWithValue("$key", key);
         command.Parameters.AddWithValue("$wanneer", wanneer.ToString("o"));
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// De laatst bekende prijs van een favoriet. Geschreven door een ronde <i>Nakijken</i> en
+    /// door de prijswacht, telkens wanneer er echt een bedrag gelezen is.
+    ///
+    /// Raakt <c>price</c> niet aan: dat blijft de prijs van bij het bewaren, en die is nodig om
+    /// te kunnen zeggen waar het begon.
+    /// </summary>
+    public void SetFavoriteCurrentPrice(string key, decimal? prijs)
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+
+        command.CommandText = "UPDATE favorites SET currentPrice = $prijs WHERE key = $key";
+        command.Parameters.AddWithValue("$key", key);
+        command.Parameters.AddWithValue("$prijs", (object?)prijs ?? DBNull.Value);
         command.ExecuteNonQuery();
     }
 

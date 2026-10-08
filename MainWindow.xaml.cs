@@ -219,6 +219,24 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         UpdateTabFrame();
         UpdateSchedulerHint();
 
+        // De favorieten vanzelf nakijken, zodat er meteen een prijs van vandaag staat in
+        // plaats van die van de dag dat je ze bewaarde. De kaart toont ondertussen al de
+        // laatst bekende prijs uit de databank, dus dit is bijwerken en geen wachten.
+        //
+        // Op ApplicationIdle en op de achtergrond: dit doet een verzoek per favoriet, en
+        // het opstarten van het venster mag daar niet op blijven staan.
+        _ = Dispatcher.InvokeAsync(async () =>
+        {
+            try
+            {
+                await NakijkFavorietenAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"favorieten nakijken bij het opstarten mislukte - {ex.Message}");
+            }
+        }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
         // Luisteren naar de browserextensie. Is de poort bezet, dan werkt de rest gewoon.
         //
         // De extensie heeft sinds 1 oktober 2026 toestemming per site nodig, en ze kan die enkel

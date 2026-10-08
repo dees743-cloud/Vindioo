@@ -119,6 +119,13 @@ public static class PriceAlert
             if (status.Einde is not null && status.Einde != favoriet.EndsAt)
                 history.SetFavoriteEnd(favoriet.Key, status.Einde);
 
+            // De laatst bekende prijs onthouden bij ELKE geslaagde meting, niet enkel wanneer
+            // er een bericht uitgaat. Anders klopt de kaart wel na een melding, maar niet na
+            // een ronde waarin de prijs toevallig gelijk bleef of waarin je zelf geen bericht
+            // wilde - en dan staat er alsnog een verouderd bedrag.
+            if (status.PrijsNu is > 0 && status.PrijsNu != favoriet.CurrentPrice)
+                history.SetFavoriteCurrentPrice(favoriet.Key, status.PrijsNu);
+
             if (!IsNieuws(favoriet.NotifiedPrice, favoriet.Price, status.PrijsNu)) continue;
 
             var oud = favoriet.NotifiedPrice ?? favoriet.Price;

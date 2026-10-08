@@ -162,7 +162,21 @@ public partial class MainWindow
             return;
         }
 
-        if (_favorites.Count == 0) return;
+        await NakijkFavorietenAsync();
+    }
+
+    /// <summary>
+    /// Kijkt elke favoriet na en onthoudt wat ze vandaag kosten. Gedeeld door de knop
+    /// <i>Nakijken</i> en door de ronde die bij het opstarten vanzelf vertrekt.
+    ///
+    /// <para>Dat automatische is er sinds 7 oktober 2026 bijgekomen. De kaart toont de laatst
+    /// bekende prijs uit de databank, dus bij het opstarten staat er al iets kloppends; deze
+    /// ronde haalt dat meteen bij, zodat je niet eerst zelf op een knop moet duwen om te zien
+    /// wat een kavel vandaag doet.</para>
+    /// </summary>
+    private async Task NakijkFavorietenAsync()
+    {
+        if (_favorites.Count == 0 || _watchStop is not null) return;
 
         using var stop = new CancellationTokenSource();
         _watchStop = stop;
@@ -181,6 +195,14 @@ public partial class MainWindow
                 var status = await FavoriteWatch.CheckAsync(favoriet, _store.Sites, stop.Token);
 
                 favoriet.WatchText = FavoriteWatch.Tekst(status, favoriet.Price);
+
+                // De laatst bekende prijs onthouden, zodat de kaart hem toont en hem na een
+                // herstart nog altijd toont. Price blijft de prijs van bij het bewaren.
+                if (status.PrijsNu is > 0 && status.PrijsNu != favoriet.CurrentPrice)
+                {
+                    favoriet.CurrentPrice = status.PrijsNu;
+                    _history.SetFavoriteCurrentPrice(favoriet.Key, status.PrijsNu);
+                }
 
                 // Apart, want de kaart toont er twee verschillende dingen mee: een kruis over
                 // wat weg is, en een stempel "AFGELOPEN" over een veiling die voorbij is.

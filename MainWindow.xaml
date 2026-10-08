@@ -327,7 +327,7 @@
                                    TextTrimming="CharacterEllipsis" />
 
                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                            <TextBlock Text="{Binding Price, Converter={StaticResource PriceText}}"
+                            <TextBlock Text="{Binding DisplayPrice, Converter={StaticResource PriceText}}"
                                        FontWeight="Bold" FontSize="17"
                                        Foreground="{StaticResource PriceBrush}" />
 
@@ -453,7 +453,7 @@
                         <controls:CountdownBadge Grid.Column="2" Margin="6,0,0,0" VerticalAlignment="Center"
                                                  EndsAt="{Binding TimerEinde}" SiteText="{Binding TimeLeft}" FontSize="11" />
 
-                        <TextBlock Grid.Column="0" Text="{Binding Price, Converter={StaticResource PriceText}}"
+                        <TextBlock Grid.Column="0" Text="{Binding DisplayPrice, Converter={StaticResource PriceText}}"
                                    FontWeight="Bold" FontSize="15"
                                    Foreground="{StaticResource PriceBrush}" />
 

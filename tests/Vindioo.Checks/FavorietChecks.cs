@@ -362,15 +362,45 @@ public static class FavorietChecks
 
             // Het verschil is juist wat je wil zien: bij een kavel van Catawiki op 2dehands
             // ging het bod tussen het bewaren en het terugkijken van EUR 5 naar EUR 24.
-            Check.Dat(FavoriteWatch.Tekst(new FavoriteStatus(FavoriteState.TeKoop, 24m), 5m) == "Nu € 24 - was € 5",
-                "een prijs die veranderde, met de oude erbij");
+            //
+            // Sinds 7 oktober 2026 staat die 24 GROOT op de kaart (Listing.DisplayPrice), dus
+            // "Nu 24" zou hier dubbelop zijn. Wat deze regel er nog bij zegt, is waar het
+            // begon - dat is het enige wat de kaart zelf niet toont.
+            Check.Dat(FavoriteWatch.Tekst(new FavoriteStatus(FavoriteState.TeKoop, 24m), 5m) == "Begonnen op € 5",
+                "een prijs die veranderde: de regel zegt waar het begon");
+
+
+            // ---------------------------------------------------------------------------
+            // Wat er GROOT op de kaart staat. Tot 7 oktober 2026 was dat Listing.Price, en dat
+            // veld wordt na het bewaren nooit meer geschreven: een kavel dat je bij EUR 1
+            // bewaarde, bleef EUR 1 tonen terwijl het bod op 33 stond - ook nadat de prijswacht
+            // je daar net een bericht over gestuurd had.
+            var vers = new Listing { Price = 1m };
+
+            Check.Dat(vers.DisplayPrice == 1m, "nog niet nagekeken: de prijs van bij het bewaren");
+            Check.Dat(vers.StartPriceText == "", "en dan valt er niets te vergelijken");
+
+            vers.CurrentPrice = 33.08m;
+
+            Check.Dat(vers.DisplayPrice == 33.08m, "nagekeken: de laatst bekende prijs wint");
+            Check.Dat(vers.Price == 1m, "en de prijs van bij het bewaren blijft bestaan");
+            Check.Dat(vers.StartPriceText == "begonnen op € 1", $"met waar het begon ('{vers.StartPriceText}')");
+
+            vers.CurrentPrice = 1m;
+            Check.Dat(vers.StartPriceText == "", "terug op de startprijs: niets te melden");
+
+            // Een gewoon zoekresultaat heeft geen laatst bekende prijs, dus daar verandert niets.
+            Check.Dat(new Listing { Price = 12.5m }.DisplayPrice == 12.5m,
+                "bij een gewoon zoekertje blijft het de prijs van de site");
+
+            Check.Dat(new Listing().DisplayPrice is null, "en zonder prijs blijft het leeg");
 
             Check.Dat(FavoriteWatch.Tekst(new FavoriteStatus(FavoriteState.TeKoop, 5m), 5m) == "Staat er nog, € 5",
                 "een prijs die gelijk bleef");
 
             Check.Dat(FavoriteWatch.Tekst(new FavoriteStatus(FavoriteState.TeKoop, 39.95m), 5m)
-                      == "Nu € 39,95 - was € 5",
-                "centen enkel wanneer ze er zijn, zoals op de kaart");
+                      == "Begonnen op € 5",
+                "en dat blijft zo bij een bedrag met centen");
 
             Check.Dat(FavoriteWatch.Tekst(new FavoriteStatus(FavoriteState.TeKoop), 5m) == "Staat er nog",
                 "zonder prijs blijft het bij 'staat er nog'");
