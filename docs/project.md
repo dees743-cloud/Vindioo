@@ -224,6 +224,30 @@ verandert en dat is precies de kapotte, **0 van de 178** zoekresultaten hadden d
 `docs/favorieten.md` bij "Een titel die dubbel gecodeerd is" - ook voor de misstap onderweg, want
 mijn eerste oplossing zat op de verkeerde plaats.
 
+**0.23.0** sinds 7 oktober 2026. **De favorieten tonen voortaan de prijs van vandaag**, en de
+lijst staat er meteen.
+
+- **De kaart toonde het bedrag van de dag dat je de favoriet bewaarde**, en dat werd nooit
+  bijgewerkt - ook niet nadat de prijswacht je er net een bericht over gestuurd had. Een kavel
+  dat je bij EUR 1 bewaarde, bleef EUR 1 tonen terwijl het bod op 68 stond. Er zijn nu twee
+  bedragen: de bewaarde prijs blijft bestaan (de regel eronder zegt *"Begonnen op EUR 1"*) en de
+  laatst bekende staat er groot. Die laatste zit in de databank, dus hij klopt meteen bij het
+  opstarten - nog voor er een verzoek vertrokken is.
+- **Nakijken vertrekt vanzelf bij het opstarten**, op de achtergrond.
+- **De favorietenlijst bleef bij het eerste bezoek leeg.** Een eigen `VirtualizingPanel` krijgt
+  zijn `ItemContainerGenerator` pas nadat `InternalChildren` één keer opgevraagd is; tot dan is
+  die gewoon null. Dat het na een tabbladwissel wél werkte, was toeval: `LoadFavorites` begint
+  met een `Clear()`, en de Reset-afhandeling leest `InternalChildren.Count`. Gold ook voor de
+  zoekresultaten.
+- **Catawiki gaf zijn huidige bod niet prijs.** Hun kavelpagina draagt een ld+json `Product`
+  **zonder** `offers`, dus de gewone weg vond niets. Het sitebestand wijst het nu aan met
+  `data-testid`, en met opzet niet met de zichtbare klassenaam - daar zit een bouwhash in die bij
+  elke nieuwe versie van hun site verandert.
+
+768 controles met Vindioo open. Wat niet na te meten viel - het raster, de kaart, de automatische
+ronde - is met de hand bevestigd, met een tijdelijke logregel ernaast. Die wees trouwens uit dat
+mijn twee verklaringen voor de lege lijst allebei fout waren.
+
 **0.22.1** sinds 4 oktober 2026, en dat is enkel het tandwielmenu. *Site toevoegen* en *Sites
 importeren uit map* stonden daar naast *Sites beheren*, terwijl ze allebei in dat scherm zelf
 staan - één klik verderop. Ze zijn eruit; bij nul sites staan ze nog wél als knoppen midden in
