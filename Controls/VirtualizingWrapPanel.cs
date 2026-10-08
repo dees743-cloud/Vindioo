@@ -63,6 +63,19 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
             return new Size(0, 0);
         }
 
+        // EERST InternalChildren AANRAKEN, en dat is geen bijgeloof. Een eigen
+        // VirtualizingPanel krijgt zijn ItemContainerGenerator pas wanneer die verzameling
+        // één keer opgevraagd is; tot dan geeft de eigenschap gewoon null terug, ook al hangt
+        // het paneel allang aan een lijst met items erin.
+        //
+        // Zonder deze regel bleef de favorietenlijst bij het eerste bezoek leeg. Gemeten op
+        // 7 oktober 2026 met een tijdelijke logregel: 3 items, ruimte 1144x617, en tóch
+        // 22 keer "geen generator" en nul keer gelukt - bij de resultatenlijst net zo, met
+        // 100 items. Dat het na het wisselen van tabblad wél werkte, kwam doordat
+        // OnItemsChanged bij een Reset InternalChildren.Count leest en de generator dus
+        // alsnog aanmaakt. Een oplossing bij toeval, en enkel op de tweede poging.
+        _ = InternalChildren;
+
         // Bij het wisselen van weergave wordt dit paneel al gemeten voor het aan
         // zijn lijst hangt; dan is er nog geen generator en valt er niets op te
         // bouwen.
@@ -121,12 +134,26 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
     /// De teller is de rem: blijft het paneel onbereikbaar, dan houdt het na tien
     /// pogingen op in plaats van de processor bezig te houden.
     /// </summary>
+    /// <summary>
+    /// Nog eens proberen te meten, wanneer het paneel nog niet klaar is.
+    ///
+    /// <para><b>Op Background en niet op Loaded.</b> Loaded komt terug zodra de lopende
+    /// opbouwronde klaar is, en dat is bijna meteen: op 7 oktober 2026 waren alle elf de
+    /// pogingen op na <b>zeven milliseconden</b>, lang voor WPF iets veranderd kon hebben.
+    /// Een herkansing die terugkomt voor er iets gebeurd is, is geen herkansing. Background
+    /// laat eerst de rest van de invoer- en opbouwronde af.</para>
+    ///
+    /// <para>Dat dit nodig was, kwam door de ontbrekende aanraking van <c>InternalChildren</c>
+    /// in <see cref="MeasureOverride"/>; die is er nu. Dit blijft staan als vangnet voor het
+    /// geval waar het voor bedoeld was - een paneel dat gemeten wordt voor het aan zijn lijst
+    /// hangt - maar het hoort niet meer af te gaan.</para>
+    /// </summary>
     private Size Herkansing()
     {
         if (_herkansingen++ < 10)
         {
             Dispatcher.BeginInvoke(new Action(InvalidateMeasure),
-                System.Windows.Threading.DispatcherPriority.Loaded);
+                System.Windows.Threading.DispatcherPriority.Background);
         }
 
         return new Size(0, 0);
