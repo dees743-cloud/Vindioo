@@ -329,6 +329,45 @@ Drie dingen die daar nog aan hangen:
   opnieuw gewaarschuwd wordt. Hetzelfde einde nog eens wegschrijven doet dat **niet**, anders
   stuurde elke ronde *Nakijken* je de waarschuwingen opnieuw.
 
+## Welke prijs er op de kaart staat
+
+Tot 7 oktober 2026 was dat het bedrag van de dag dat je de favoriet bewaarde, en dat werd
+**nooit** bijgewerkt: `Listing.Price` wordt maar op één plaats geschreven - bij het aanmaken van
+een favoriet - en noch *Nakijken* noch de prijswacht raakte het aan. Een kavel dat je bij € 1
+bewaarde, bleef € 1 tonen terwijl het bod op € 68 stond, ook meteen nadat de prijswacht je daar
+een bericht over gestuurd had.
+
+Er zijn nu **twee** bedragen, en dat is met opzet:
+
+| | |
+|---|---|
+| `Price` | wat het kostte toen je het bewaarde. Blijft staan |
+| `CurrentPrice` | de laatst bekende prijs, geschreven door *Nakijken* en door de prijswacht |
+
+De kaart toont `DisplayPrice` - `CurrentPrice ?? Price` - en de regel eronder zegt *"Begonnen op
+€ 1"*. Zou je `Price` gewoon overschrijven, dan was juist die vergelijking weg. Bij een gewoon
+zoekresultaat is `CurrentPrice` leeg, dus daar verandert er niets.
+
+**`CurrentPrice` staat in de databank**, en dat is het halve antwoord op "waarom klopt de prijs
+niet meteen bij het opstarten": nu wél, want hij komt uit de kolom en niet uit een verzoek.
+
+**En *Nakijken* vertrekt vanzelf bij het opstarten**, op `ApplicationIdle` en op de achtergrond -
+het doet een verzoek per favoriet en het venster mag daar niet op blijven staan. De lus is uit
+`WatchFavorites_Click` gehaald naar `NakijkFavorietenAsync`, zodat de knop en de automatische
+ronde dezelfde code delen.
+
+De prijswacht schrijft `CurrentPrice` bij **elke** geslaagde meting, niet enkel wanneer er een
+bericht uitgaat. Anders klopt de kaart wel na een melding, maar niet na een ronde waarin de prijs
+gelijk bleef of waarin je zelf geen bericht wilde.
+
+**Een veilingsite heeft hier vaak een `DetailPriceSelector` voor nodig.** De gewone weg leest
+`offers.price` uit een ld+json-blok, en bij een veiling staat het huidige bod daar dikwijls niet
+in. Gemeten op 7 oktober 2026: Kringwinkel zet het er wél in, maar de kavelpagina van **Catawiki**
+draagt een `Product` **zonder `offers`** - vandaar dat die favorieten op hun startbedrag bleven
+hangen. Nu wijst `sites/catawiki.json` het aan met `[data-testid='lot-bid-status-current-bid']`,
+en met opzet niet met de zichtbare klassenaam: daar zit een bouwhash in die bij elke nieuwe versie
+van hun site verandert. Zie ook AlleVeilingen, waar het bod in `additionalProperty` zit.
+
 ## De prijs van een favoriet verandert
 
 Erbij op 4 oktober 2026, in `Services/PriceAlert.cs`, als tweede vinkje in hetzelfde venster:
