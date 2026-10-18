@@ -122,7 +122,19 @@ function waaromNiet(adres) {
 
   if (u.protocol !== "https:") return `${u.protocol.replace(":", "")} in plaats van https`;
 
-  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  // De punt op het eind gaat er eerst af. "localhost." is in DNS dezelfde naam als
+  // "localhost" - de punt zegt alleen dat ze absoluut is - maar met die punt past geen enkel
+  // achtervoegsel meer. Gemeten op 18 oktober 2026 tegen de vorige versie: "localhost." kwam
+  // er zo gewoon door.
+  //
+  // Alleen bij een NAAM, want bij een adres doet Chrome het al zelf: new URL() maakt van
+  // "127.0.0.1." gewoon "127.0.0.1", en van "[::ffff:10.0.0.5]" het hexadecimale
+  // "::ffff:a00:5" - dat laatste heeft geen punt en valt dus al onder de regel hieronder.
+  // Een uitpakregel voor IPv4-in-IPv6 heeft hier daarom geen zin; aan de app-kant wél, zie
+  // SiteUrlCheck.IsPriveHost.
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.+$/, "");
+
+  if (!host) return "geen host";
 
   // Een naam zonder punt ("router") staat per definitie op je eigen netwerk.
   if (!host.includes(".")) return `'${host}' is een naam op je eigen netwerk`;
@@ -214,12 +226,35 @@ function geenToegangTekst(host) {
 /// Dit is er voor de doorverwijzing: we kregen toestemming voor het adres uit de opdracht, maar
 /// de site stuurt ons naar een andere naam. Zonder deze controle mislukt elk executeScript en
 /// liepen de 45 seconden van waitForDom gewoon vol - met een foutmelding die niets zegt.
-async function waaromGeenToegang(tabId) {
+async function waaromGeenToegang(tabId, opdrachtUrl) {
   try {
     const tab = await chrome.tabs.get(tabId);
 
     // about:blank of een pagina die nog aan het laden is: niets aan de hand.
     if (!tab || !tab.url || !tab.url.startsWith("http")) return null;
+
+    // EERST DEZELFDE VEILIGHEIDSTOETS ALS BIJ HET BEGIN. Tot 18 oktober 2026 keek deze
+    // functie alleen of je toestemming had (mag), en niet of het adres door de beugel kan.
+    // Een site die ons naar http doorstuurt, of naar een adres op je eigen netwerk, kwam
+    // daar dus gewoon langs zolang de host toevallig toegestaan was.
+    const bezwaar = waaromNiet(tab.url);
+    if (bezwaar) return `de brug weigerde het adres na doorverwijzing: ${bezwaar}`;
+
+    // En het moet nog altijd dezelfde host zijn als die van de opdracht. Een doorverwijzing
+    // naar een andere naam is op zich normaal, maar dan hoort de app te beslissen of ze daar
+    // heen wil - niet de pagina.
+    if (opdrachtUrl) {
+      try {
+        const vanaf = new URL(opdrachtUrl).hostname.replace(/\.+$/, "");
+        const naartoe = new URL(tab.url).hostname.replace(/\.+$/, "");
+
+        if (vanaf.toLowerCase() !== naartoe.toLowerCase())
+          return `doorverwezen van ${vanaf} naar ${naartoe}; niet gevolgd`;
+      } catch (e) {
+        // Onleesbaar adres: dan valt er niets te vergelijken.
+      }
+    }
+
     if (await mag(tab.url)) return null;
 
     const host = new URL(tab.url).hostname;
@@ -231,7 +266,7 @@ async function waaromGeenToegang(tabId) {
   }
 }
 
-console.log("[brug] versie 11 geladen — nieuwe naam: Vindioo, en nieuwe kopregels X-Vindioo-*");
+console.log("[brug] versie 12 geladen — hostcontrole sluitend, ook na een doorverwijzing");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -357,7 +392,7 @@ async function handleRawJob(job, token) {
     const tab = await chrome.tabs.create({ url: oorsprong, active: false });
     tabId = tab.id;
 
-    await waitForDom(tabId);
+    await waitForDom(tabId, oorsprong);
     console.log(`[brug] ${since()} pagina van ${oorsprong} klaar`);
 
     const [result] = await chrome.scripting.executeScript({
@@ -465,7 +500,7 @@ async function handleJob(job, token) {
       }
     })();
 
-    await waitForDom(tabId);
+    await waitForDom(tabId, job.url);
     console.log(`[brug] ${since()} DOM klaar`);
 
     // Wachten tot het eerste zoekertje er staat in plaats van een vaste pauze.
@@ -519,7 +554,7 @@ async function handleJob(job, token) {
 // dat wacht óók op advertenties, trackers en afbeeldingen. Op leboncoin duurde
 // dat 23 seconden, terwijl de zoekresultaten er na 1 seconde al stonden. We
 // kijken daarom naar document.readyState.
-async function waitForDom(tabId) {
+async function waitForDom(tabId, opdrachtUrl) {
   const deadline = Date.now() + LOAD_TIMEOUT_MS;
 
   while (Date.now() < deadline) {
@@ -536,7 +571,7 @@ async function waitForDom(tabId) {
       // mogen in deze pagina niet kijken. Dat laatste gebeurt bij een doorverwijzing naar een
       // andere naam, en dan heeft blijven proberen geen zin: zonder dit onderscheid liepen de
       // 45 seconden vol en kreeg je een melding waar niets in stond.
-      const bezwaar = await waaromGeenToegang(tabId);
+      const bezwaar = await waaromGeenToegang(tabId, opdrachtUrl);
       if (bezwaar) throw new Error(bezwaar);
     }
 

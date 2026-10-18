@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Vindioo Brug",
-  "version": "2.2",
+  "version": "2.3",
   "description": "Haalt zoekpagina's op in je eigen browser en geeft ze door aan de Vindioo-app op deze computer.",
   "permissions": ["tabs", "scripting", "storage", "alarms", "contextMenus", "notifications"],
   "host_permissions": ["http://127.0.0.1/*"],

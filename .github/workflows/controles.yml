@@ -68,3 +68,4 @@ jobs:
           node --check extension/popup.js
           node tools/meet-brug-handtekening.mjs
           node tools/meet-extensie-toegang.mjs
+          node tools/meet-hostcontrole.mjs

@@ -215,6 +215,14 @@ public static class SiteUrlCheck
 
     private static bool IsPriveHost(string host)
     {
+        // EEN PUNT OP HET EIND IS DEZELFDE NAAM. "localhost." en "127.0.0.1." zijn in DNS
+        // volwaardige adressen - de punt zegt alleen dat de naam absoluut is - maar hier
+        // haalden ze de hele controle onderuit: met die punt vindt Contains('.') een punt,
+        // past geen enkel achtervoegsel meer, en lukt IPAddress.TryParse niet. Gemeten op
+        // 18 oktober 2026: "127.0.0.1.", "localhost." en "10.0.0.5." kwamen er alle drie
+        // gewoon door. Daarom eerst afknippen, en pas daarna kijken.
+        host = host.TrimEnd('.');
+
         if (host.Length == 0) return true;
 
         // Namen zonder punt (bv. "router") en de gebruikelijke lokale achtervoegsels.
@@ -224,6 +232,12 @@ public static class SiteUrlCheck
             if (host.EndsWith(staart, StringComparison.OrdinalIgnoreCase)) return true;
 
         if (!IPAddress.TryParse(host.Trim('[', ']'), out var ip)) return false;
+
+        // EEN IPv4-ADRES IN IPv6-JASJE. "::ffff:10.0.0.5" is gewoon 10.0.0.5, maar de IPv6-tak
+        // hieronder kent enkel link-local, site-local en unique-local en ziet daar niets in.
+        // Loopback werd wél al gevangen - IPAddress.IsLoopback kent ::ffff:127.0.0.1 - dus het
+        // gat zat enkel bij de prive-reeksen. Uitpakken en als IPv4 behandelen.
+        if (ip.IsIPv4MappedToIPv6) ip = ip.MapToIPv4();
 
         if (IPAddress.IsLoopback(ip)) return true;
 

@@ -357,5 +357,30 @@ public static class ImportChecks
 
             Directory.Delete(map, recursive: true);
         }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Twee omwegen langs de controle op een adres bij jou thuis");
+        {
+            // Gemeten op 18 oktober 2026, allebei toen werkend.
+            //
+            // DE PUNT OP HET EIND. "localhost." en "127.0.0.1." zijn in DNS dezelfde adressen -
+            // de punt zegt alleen dat de naam absoluut is - maar met die punt vindt Contains('.')
+            // een punt, past geen enkel achtervoegsel meer, en lukt IPAddress.TryParse niet.
+            Check.Dat(SiteUrlCheck.IsPriveAdres("127.0.0.1."), "127.0.0.1. is nog altijd je eigen pc");
+            Check.Dat(SiteUrlCheck.IsPriveAdres("localhost."), "localhost. ook");
+            Check.Dat(SiteUrlCheck.IsPriveAdres("10.0.0.5."), "en 10.0.0.5. je eigen netwerk");
+            Check.Dat(SiteUrlCheck.IsPriveAdres("nas.local."), "net als nas.local.");
+
+            // EEN IPv4-ADRES IN EEN IPv6-JASJE. ::ffff:10.0.0.5 is gewoon 10.0.0.5, maar de
+            // IPv6-tak kende enkel link-local, site-local en unique-local. Loopback werd wél al
+            // gevangen; het gat zat enkel bij de prive-reeksen.
+            Check.Dat(SiteUrlCheck.IsPriveAdres("[::ffff:10.0.0.5]"), "::ffff:10.0.0.5 is 10.0.0.5");
+            Check.Dat(SiteUrlCheck.IsPriveAdres("[::ffff:192.168.1.1]"), "en ::ffff:192.168.1.1 ook");
+            Check.Dat(SiteUrlCheck.IsPriveAdres("[::ffff:127.0.0.1]"), "loopback werd al gevangen");
+
+            // En een echte site blijft een echte site, punt of geen punt.
+            Check.Dat(!SiteUrlCheck.IsPriveAdres("www.2dehands.be"), "een gewone host blijft toegelaten");
+            Check.Dat(!SiteUrlCheck.IsPriveAdres("www.2dehands.be."), "ook met een punt op het eind");
+        }
     }
 }
