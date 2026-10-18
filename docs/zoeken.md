@@ -154,6 +154,13 @@ stuk van punt 9: de runner kende zijn `CancellationToken` al, het scherm gaf er 
   wachten - dezelfde sites nog eens af, zonder dat je erom vroeg. Nu is dat ook nodig: er is één
   stopknop en één `CancellationTokenSource`.
 
+**Playwright kent geen `CancellationToken`**, dus elke trage stap in `BrowserFetcher` krijgt er
+een via `.WaitAsync(ct)`. In `GetJsonAsync` — de omweg voor Discogs, waar een API als pagina
+geopend wordt — stond dat er niet: de token kwam binnen en werd nergens gebruikt. Gemeten op
+18 oktober 2026 tegen een proefserver die dertig seconden zweeg, met een token die na 3 s
+afbrak: het antwoord kwam na **32,2 s**, en al die tijd leek de app te hangen. Nu 3,0 s met een
+`OperationCanceledException`. Het tabblad gaat hoe dan ook dicht — dat staat in een `finally`.
+
 **De valkuil zit in het slot**, en het is dezelfde als bij `slotGenomen` zelf: geeft de runner het
 bij het afbreken tóch vrij, dan geeft het scherm het daarna een tweede keer vrij en gooit een
 semafoor van één `SemaphoreFullException` - de hele zoekopdracht valt om. `PlannerChecks` kijkt dat

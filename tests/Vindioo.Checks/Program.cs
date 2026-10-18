@@ -54,6 +54,7 @@ await PrijslezerChecks.RunAsync();
 DocsChecks.Run();
 ImportChecks.Run();
 BrowserChecks.Run();
+await BrowserChecks.RunAsync();
 await BrugChecks.RunAsync();
 
 return Check.Einde();

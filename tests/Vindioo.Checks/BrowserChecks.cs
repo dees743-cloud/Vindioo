@@ -52,4 +52,55 @@ public static class BrowserChecks
             Check.Dat(Versie.Volledig == "Vindioo " + nummer, $"met de naam ervoor ({Versie.Volledig})");
         }
     }
+
+    /// <summary>
+    /// Eén profielmap, één Chrome. Deze controles starten er géén: ze nemen de map vooraf in
+    /// en kijken of de fetcher dat merkt voor hij Playwright aanspreekt.
+    /// </summary>
+    public static async Task RunAsync()
+    {
+        Check.Groep("Browser: twee Chrome's op één profielmap kan niet, en dat is nu te lezen");
+
+        var profiel = BrowserFetcher.ProfilePath;
+
+        Check.Dat(BrowserFetcher.NeemProfiel(profiel), "de eerste neemt de profielmap");
+        Check.Dat(!BrowserFetcher.NeemProfiel(profiel), "een tweede krijgt ze niet");
+        Check.Dat(!BrowserFetcher.NeemProfiel(profiel.ToUpperInvariant()),
+            "ook niet geschreven met andere hoofdletters - Windows ziet dezelfde map");
+
+        // En dan de weg die de gebruiker echt loopt: de aanmeldknop in Sites beheren maakt een
+        // eigen BrowserFetcher, want hij heeft een zichtbaar venster nodig. Klik je die terwijl
+        // er gezocht wordt, dan kwam daar tot 18 oktober 2026 "Target page, context or browser
+        // has been closed" uit, met een half scherm browserlogboek erachter: die vensters tonen
+        // ex.Message rechtstreeks. Gemeten na 0,5 s, want Chrome ging eerst nog op pad.
+        await using (var tweede = new BrowserFetcher())
+        {
+            var klok = System.Diagnostics.Stopwatch.StartNew();
+            Exception? fout = null;
+
+            try { await tweede.GetHtmlAsync("http://127.0.0.1:1/"); }
+            catch (Exception ex) { fout = ex; }
+
+            klok.Stop();
+
+            Check.Dat(fout is InvalidOperationException,
+                $"een tweede fetcher krijgt een gewone fout, geen Playwright-fout ({fout?.GetType().Name})");
+
+            Check.Dat(fout?.Message == BrowserFetcher.ProfielBezet,
+                $"met een zin die zegt wat je eraan doet ('{fout?.Message}')");
+
+            Check.Dat(klok.ElapsedMilliseconds < 2000,
+                $"en meteen, zonder eerst een Chrome te starten ({klok.ElapsedMilliseconds} ms)");
+        }
+
+        // De map hoort door dat tweede exemplaar niet vrijgegeven te zijn: hij heeft ze nooit
+        // gehad. Anders laat een mislukte aanmeldpoging de lopende zoekopdracht in de kou staan.
+        Check.Dat(!BrowserFetcher.NeemProfiel(profiel),
+            "een fetcher die de map nooit kreeg, geeft ze bij het opruimen ook niet vrij");
+
+        BrowserFetcher.GeefProfielTerug(profiel);
+
+        Check.Dat(BrowserFetcher.NeemProfiel(profiel), "teruggegeven: de volgende mag weer");
+        BrowserFetcher.GeefProfielTerug(profiel);
+    }
 }

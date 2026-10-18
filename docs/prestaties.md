@@ -157,6 +157,19 @@ voor niets.
 In het logboek is het te zien als `chrome 0ms` bij elke pagina behalve de
 allereerste.
 
+**Eén profielmap, één Chrome — en de app zegt dat nu zelf.** Niet elke aanroeper leent van
+`BrowserPool`: de aanmeldknop in Sites beheren en in Site toevoegen maakt een eigen
+`BrowserFetcher`, want die heeft een **zichtbaar** venster nodig en een draaiende context laat
+zich niet alsnog zichtbaar maken. Meld je je dus aan terwijl er gezocht wordt, dan botsen er twee
+op dezelfde profielmap. Het slot rond het starten (`StartSlot`) hielp daar niet: dat serialiseert
+alleen het *starten*, niet het naast elkaar openstaan. Gemeten op 18 oktober 2026 met twee
+fetchers op één profielmap: de tweede kreeg na 0,5 s een `TargetClosedException` met "Target page,
+context or browser has been closed" en een half scherm browserlogboek erachter — en net die tekst
+belandde in het venster, want die knoppen tonen `ex.Message` rechtstreeks. `BrowserFetcher` houdt
+nu bij welke profielmappen in gebruik zijn (`NeemProfiel` / `GeefProfielTerug`, statisch) en
+weigert de tweede meteen met *"Chrome staat al open met dit profiel, meestal omdat er een
+zoekopdracht loopt."* Na de wijziging: 5 ms, zonder dat er een Chrome gestart wordt.
+
 **Een achtergebleven Chrome** van een vorige sessie (bijvoorbeeld wanneer de app in Visual
 Studio gestopt werd terwijl ze zocht) houdt het profiel vast. `BrowserFetcher` sluit die
 af voor hij Chrome start (`SluitAchtergeblevenChrome`), maar enkel een Chrome-proces dat

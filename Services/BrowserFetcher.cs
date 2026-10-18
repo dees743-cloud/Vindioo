@@ -311,7 +311,11 @@ public class BrowserFetcher : IAsyncDisposable
     public async Task<string> GetJsonAsync(string url, IDictionary<string, string>? headers,
                                            CancellationToken ct = default)
     {
-        var context = await GetContextAsync().WaitAsync(TimeSpan.FromSeconds(30));
+        // De token gaat mee, net als in GetHtmlAsync hierboven. Zonder dit deed de stopknop
+        // hier niets: gemeten op 18 oktober 2026 tegen een proefserver die dertig seconden
+        // zweeg, met een token die na 3 s afbrak - het antwoord kwam na 32,2 s, en al die tijd
+        // leek de app te hangen. Playwright kent zelf geen CancellationToken.
+        var context = await GetContextAsync().WaitAsync(TimeSpan.FromSeconds(30), ct);
         var page = await context.NewPageAsync();
 
         try
@@ -335,7 +339,7 @@ public class BrowserFetcher : IAsyncDisposable
             {
                 WaitUntil = WaitUntilState.DOMContentLoaded,
                 Timeout = 45000
-            });
+            }).WaitAsync(ct);
 
             // De ruwe body, niet de HTML eromheen: een browser toont JSON in een
             // <pre>, en die opmaak willen we hier juist niet.
@@ -424,6 +428,45 @@ public class BrowserFetcher : IAsyncDisposable
     /// </remarks>
     private static readonly SemaphoreSlim StartSlot = new(1, 1);
 
+    /// <summary>
+    /// De profielmappen waar op dit ogenblik een Chrome van ons op draait.
+    ///
+    /// Het slot hierboven serialiseert alleen het <i>starten</i>; het belet niet dat er een
+    /// tweede Chrome op dezelfde map komt zodra de eerste draait. En dat kan niet: een profiel
+    /// hoort bij één Chrome. Gemeten op 18 oktober 2026 met twee fetchers op één profielmap:
+    /// de tweede kreeg na 0,5 s een <c>TargetClosedException</c> met "Target page, context or
+    /// browser has been closed" en een half scherm browserlogboek erachter - en net die tekst
+    /// kwam in het venster terecht, want de aanmeldknoppen tonen <c>ex.Message</c>.
+    ///
+    /// Het gebeurt echt: de aanmeldknop in Sites beheren en in Site toevoegen maakt een eigen
+    /// <c>BrowserFetcher</c> (hij heeft een zichtbaar venster nodig en kan de gedeelde van
+    /// <see cref="BrowserPool"/> niet gebruiken), dus meld je je aan terwijl er gezocht wordt,
+    /// dan botsen ze.
+    /// </summary>
+    private static readonly HashSet<string> ProfielenInGebruik = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>De zin die de gebruiker leest wanneer het profiel al bezet is.</summary>
+    internal const string ProfielBezet =
+        "Chrome staat al open met dit profiel, meestal omdat er een zoekopdracht loopt. " +
+        "Wacht tot die klaar is en probeer opnieuw.";
+
+    /// <summary>
+    /// Neemt de profielmap, of geeft false als een andere fetcher ze al heeft. Apart, zodat de
+    /// controles de regel kunnen nameten zonder een Chrome te starten.
+    /// </summary>
+    internal static bool NeemProfiel(string profiel)
+    {
+        lock (ProfielenInGebruik) return ProfielenInGebruik.Add(profiel);
+    }
+
+    internal static void GeefProfielTerug(string profiel)
+    {
+        lock (ProfielenInGebruik) ProfielenInGebruik.Remove(profiel);
+    }
+
+    /// <summary>Heeft dít exemplaar de profielmap genomen? Bepaalt wie ze teruggeeft.</summary>
+    private bool _heeftProfiel;
+
     private async Task<IBrowserContext> GetContextAsync()
     {
         if (_context is not null) return _context;
@@ -432,7 +475,24 @@ public class BrowserFetcher : IAsyncDisposable
 
         try
         {
-            return _context ??= await StartContextAsync();
+            if (_context is not null) return _context;
+
+            if (!NeemProfiel(ProfilePath)) throw new InvalidOperationException(ProfielBezet);
+
+            _heeftProfiel = true;
+
+            try
+            {
+                return _context = await StartContextAsync();
+            }
+            catch
+            {
+                // Niet gelukt: de map hoort weer vrij te komen, anders blijft ze bezet tot de
+                // app afsluit en is de aanmeldknop voorgoed stuk.
+                _heeftProfiel = false;
+                GeefProfielTerug(ProfilePath);
+                throw;
+            }
         }
         finally
         {
@@ -592,6 +652,15 @@ public class BrowserFetcher : IAsyncDisposable
             _playwright?.Dispose();
             _playwright = null;
             _context = null;
+
+            // En de profielmap vrijgeven, maar enkel als dit exemplaar ze genomen heeft: een
+            // fetcher die nooit aan starten toekwam, mag de map van een ander niet loslaten.
+            if (_heeftProfiel)
+            {
+                _heeftProfiel = false;
+                GeefProfielTerug(ProfilePath);
+            }
+
             GC.SuppressFinalize(this);
         }
     }
