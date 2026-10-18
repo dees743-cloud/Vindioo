@@ -130,9 +130,10 @@ dotnet publish Vindioo.csproj -c Release -r win-x64 --self-contained true -o C:\
 ```
 
 De controles drukken per stuk OK of FOUT af en eindigen met "ALLES OK" en het aantal. Draait
-Vindioo of Chrome-met-de-brug, dan vallen er controles weg en zeggen ze dat zelf (820 in CI, waar
-geen van beide draait; 772 met Vindioo open — gemeten 18 oktober 2026). Publiceren kan enkel met
-Vindioo dicht.
+Vindioo of Chrome-met-de-brug, dan vallen er controles weg en zeggen ze dat zelf (825 met Vindioo
+dicht, 772 met Vindioo open — gemeten 18 oktober 2026). **CI telt er 820**, en dat is geen fout:
+die runner staat op UTC en kent de overgang naar de wintertijd niet, dus vijf tijdzonecontroles
+slaan daar over. Publiceren kan enkel met Vindioo dicht.
 
 ## Regels die schade voorkomen
 

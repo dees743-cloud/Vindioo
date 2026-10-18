@@ -1,6 +1,8 @@
 # De controles draaien bij elke push, in plaats van enkel wanneer iemand eraan denkt.
 #
-# Dat laatste was het punt: er zijn er intussen 820, ze draaien in ongeveer een minuut, en ze
+# Dat laatste was het punt: er zijn er hier intussen 820 (lokaal 825 - deze runner staat op UTC
+# en kent de overgang naar de wintertijd niet, dus vijf tijdzonecontroles slaan over), ze
+# draaien in ongeveer een minuut, en ze
 # vinden precies het soort fout dat je zelf niet ziet - een site die stil niets meer teruggeeft,
 # een prijs die null wordt, een slot dat blijft hangen. Een controle die niet draait, is geen
 # controle.

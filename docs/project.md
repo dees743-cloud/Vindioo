@@ -251,11 +251,12 @@ iets bij dat je ziet - al is het iets waar je liever niet bij stilstaat.
   (`localhost.`) telt weer als een lokaal adres, en na een **doorverwijzing** moet het eindadres
   dezelfde host houden.
 
-820 controles in CI, 772 met Vindioo open. Bij het begin van deze ronde (069f0eb) waren het er
-765 in CI, dus 55 erbij. Elke aanpassing heeft een tegenproef: de fix eruit, kijken of de
-controle omvalt. Waar dat niet kon, staat het er in de commit bij. Zie
-`docs/volgende-stappen.md` bij "Tweede leesronde" voor de stand per punt, en voor de drie keer
-dat het rapport zelf niet klopte.
+825 controles met Vindioo dicht, 772 met Vindioo open. CI telt er 820: die runner staat op UTC
+en kent de overgang naar de wintertijd niet, dus vijf tijdzonecontroles slaan daar over. Bij het
+begin van deze ronde (069f0eb) waren het er 765 in CI, dus 55 erbij. Elke aanpassing heeft een
+tegenproef: de fix eruit, kijken of de controle omvalt. Waar dat niet kon, staat het er in de
+commit bij. Zie `docs/volgende-stappen.md` bij "Tweede leesronde" voor de stand per punt, en
+voor de drie keer dat het rapport zelf niet klopte.
 
 Deze publicatie draait bovendien op de .NET-runtime van vandaag:
 `System.Security.Cryptography.Pkcs` gaat van 10.0.12 naar **10.0.13**. Dat vroeg geen wijziging
