@@ -187,5 +187,80 @@ public static class ImportChecks
                     "https://alleveilingen.be/nl/zoeken?fi={\"s\":\"{query}\",\"pg\":{page}}", out _),
                 "een zoek-URL met plaatshouders en een JSON-blok blijft gewoon geldig");
         }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Niet het sjabloon telt, maar de URL die er echt gebouwd wordt");
+        {
+            // Een adres mag een gebruikersnaam dragen: in "https://naam@host/" is alles voor
+            // de @ de naam en is host de echte bestemming. Een sitebestand waarvan het
+            // SJABLOON niets meer is dan "https://www.2dehands.be" komt door elke controle,
+            // maar met een vast fragment dat met @ begint wijst de gebouwde URL ergens anders
+            // heen. Nagemeten op 18 oktober 2026: de echte host werd 127.0.0.1, en dat is de
+            // poort van de brug zelf.
+            SiteDefinition Site(string? fragment = null, string? pageTemplate = null) => new()
+            {
+                Name = "Proef",
+                SearchUrlTemplate = "https://www.2dehands.be",
+                BaseUrl = "https://www.2dehands.be",
+                PageTemplate = pageTemplate ?? "",
+                ItemSelector = "div",
+                TitleSelector = "a",
+                UrlSelector = "a@href",
+                CustomFilters = fragment is null
+                    ? new List<CustomFilter>()
+                    : new List<CustomFilter>
+                      {
+                          new() { Key = "x", Label = "Proef", Kind = CustomFilterKind.Toggle, Fragment = fragment }
+                      }
+            };
+
+            Check.Dat(SiteUrlCheck.IsVeilig(Site(), out _),
+                "een gewoon sitebestand komt er gewoon door");
+
+            Check.Dat(!SiteUrlCheck.IsVeilig(Site(fragment: "@127.0.0.1:8731/geheim"), out var reden),
+                $"een fragment met @ wordt geweigerd ('{reden}')");
+
+            Check.Dat(reden.Contains("127.0.0.1"),
+                "en de reden noemt de ECHTE bestemming, niet die uit het sjabloon");
+
+            // Dezelfde truc past ook in PageTemplate, en dat stond in geen enkel rapport.
+            Check.Dat(!SiteUrlCheck.IsVeilig(Site(pageTemplate: "@10.0.0.5/x"), out var reden2),
+                $"en via PageTemplate net zo goed ('{reden2}')");
+
+            // Wat NIET mag gebeuren: een werkend bestand weigeren. Bij AlleVeilingen zitten de
+            // fragmenten in een JSON-blok en beginnen ze met een aanhalingsteken, dus de regel
+            // "een fragment moet met ? of & beginnen" zou dat bestand kapotmaken.
+            var jsonStijl = new SiteDefinition
+            {
+                Name = "JsonStijl",
+                SearchUrlTemplate = "https://alleveilingen.be/nl/kavels?fi={\"s\":\"{query}\",\"pg\":{page}{filters}}",
+                BaseUrl = "https://alleveilingen.be",
+                ItemSelector = "article",
+                TitleSelector = "h2",
+                UrlSelector = "a@href",
+                CustomFilters =
+                {
+                    new() { Key = "r", Label = "Provincie", Kind = CustomFilterKind.Choice,
+                            Fragment = ",\"r\":[\"{value}\"]",
+                            Options = { new FilterChoice { Value = "BEWV", Label = "West-Vlaanderen" } } }
+                }
+            };
+
+            Check.Dat(SiteUrlCheck.IsVeilig(jsonStijl, out var reden3),
+                $"een fragment in een JSON-blok blijft gewoon geldig ('{reden3}')");
+
+            // En het basisadres moet bij de zoekhost horen. Dat adres maakt van een relatieve
+            // link een volledig adres, en zo'n adres wordt daarna opgehaald - bij een brugsite
+            // in jouw eigen Chrome, met jouw cookies. Allebei de adressen zijn apart https en
+            // geen prive-adres, dus de gewone controle ziet daar niets van.
+            var elders = Site();
+            elders.BaseUrl = "https://www.marktplaats.nl";
+
+            Check.Dat(!SiteUrlCheck.IsVeilig(elders, out var reden4),
+                $"een basisadres op een andere host wordt geweigerd ('{reden4}')");
+
+            Check.Dat(reden4.Contains("marktplaats") && reden4.Contains("2dehands"),
+                "en de reden noemt allebei de hosts, zodat je ziet wat er wringt");
+        }
     }
 }

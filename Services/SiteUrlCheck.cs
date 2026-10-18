@@ -44,7 +44,48 @@ public static class SiteUrlCheck
         Voeg(def.BaseUrl);
         Voeg(def.EndTimeApi?.UrlTemplate);
 
+        // En de GEBOUWDE url, niet alleen het sjabloon. Een vast fragment of een PageTemplate
+        // dat met een @ begint, maakt alles ervoor tot gebruikersnaam en de host erna de echte
+        // bestemming. Nagemeten op 18 oktober 2026: sjabloon "https://www.2dehands.be" komt
+        // gewoon door de controle, maar met het fragment "@127.0.0.1:8731/geheim" wordt de
+        // gebouwde url "https://www.2dehands.be@127.0.0.1:8731/geheim" - echte host 127.0.0.1,
+        // en dat is de poort van de brug zelf.
+        Voeg(Gebouwd(def));
+
         return uit;
+    }
+
+    /// <summary>
+    /// De zoek-URL zoals hij er bij een echte zoekopdracht uitziet: met elk eigen filter
+    /// ingevuld en op pagina 2, zodat ook <c>PageTemplate</c> meegenomen wordt.
+    ///
+    /// <para>Null wanneer hij niet te bouwen valt; dan blijft het sjabloon over, en dat wordt
+    /// hierboven al nagekeken.</para>
+    ///
+    /// <para>Waarom niet gewoon "een fragment moet met ? of &amp; beginnen", zoals een
+    /// leesronde voorstelde: dat klopt niet voor elke site. Bij AlleVeilingen zitten de
+    /// fragmenten in een JSON-blok (<c>"r":["BEWV"]</c>) en beginnen ze met een
+    /// aanhalingsteken. Die regel zou een werkend sitebestand weigeren; deze niet.</para>
+    /// </summary>
+    private static string? Gebouwd(SiteDefinition def)
+    {
+        if (string.IsNullOrWhiteSpace(def.SearchUrlTemplate)) return null;
+
+        try
+        {
+            var filters = new SearchFilters();
+
+            foreach (var filter in def.CustomFilters)
+                filters.Custom[filter.Key] = filter.Options.Count > 0 ? filter.Options[0].Value : "1";
+
+            return Sources.SearchUrlBuilder.Build(def, "x", filters, 2);
+        }
+        catch
+        {
+            // Een sjabloon dat niet te bouwen valt, is geen reden om de import te laten vallen:
+            // het sjabloon zelf is al nagekeken, en de motor klaagt er later zelf over.
+            return null;
+        }
     }
 
     /// <summary>De hosts waar een sitebestand naartoe gaat, ontdubbeld en op volgorde.</summary>
@@ -67,8 +108,39 @@ public static class SiteUrlCheck
             if (!IsVeiligAdres(adres, out reden)) return false;
         }
 
+        if (!BasisHoortBijZoekhost(def, out reden)) return false;
+
         reden = "";
         return true;
+    }
+
+    /// <summary>
+    /// <c>BaseUrl</c> moet naar dezelfde host wijzen als de zoek-URL.
+    ///
+    /// <para>Waarom: dat basisadres maakt van een relatieve link een volledig adres, en zo'n
+    /// adres wordt daarna opgehaald - bij een brugsite in jouw eigen Chrome, met jouw cookies.
+    /// Een gedeeld bestand dat zoekt op een gewone site maar zijn basisadres elders legt, laat
+    /// de app dus pagina's van die andere plek ophalen en terugsturen. Allebei de adressen
+    /// apart zijn https en geen privé-adres, dus de controle hierboven ziet daar niets van.</para>
+    ///
+    /// <para>Nagemeten op 18 oktober 2026: bij alle vijftien sitebestanden was de host al
+    /// dezelfde, dus deze regel weigert niets wat vandaag werkt.</para>
+    /// </summary>
+    private static bool BasisHoortBijZoekhost(SiteDefinition def, out string reden)
+    {
+        reden = "";
+
+        if (string.IsNullOrWhiteSpace(def.BaseUrl) || string.IsNullOrWhiteSpace(def.SearchUrlTemplate))
+            return true;
+
+        if (!Uri.TryCreate(VervangPlaatshouders(def.BaseUrl), UriKind.Absolute, out var basis) ||
+            !Uri.TryCreate(VervangPlaatshouders(def.SearchUrlTemplate), UriKind.Absolute, out var zoek))
+            return true;   // onbruikbaar adres: daar klaagt IsVeiligAdres al over
+
+        if (string.Equals(basis.Host, zoek.Host, StringComparison.OrdinalIgnoreCase)) return true;
+
+        reden = $"het basisadres wijst naar '{basis.Host}' en de zoek-URL naar '{zoek.Host}'";
+        return false;
     }
 
     /// <summary>Hetzelfde voor één adres.</summary>
