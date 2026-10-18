@@ -445,10 +445,16 @@ public class BrowserFetcher : IAsyncDisposable
     /// </summary>
     private static readonly HashSet<string> ProfielenInGebruik = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>De zin die de gebruiker leest wanneer het profiel al bezet is.</summary>
+    /// <summary>
+    /// De zin die de gebruiker leest wanneer het profiel al bezet is. Hij noemt allebei de
+    /// kanten, want het botst in allebei de richtingen: een aanmeldvenster dat tijdens een
+    /// zoekopdracht opengaat, en een geplande beurt die begint terwijl jij aan het aanmelden
+    /// bent. "Er loopt een zoekopdracht" zou in dat tweede geval gewoon niet kloppen.
+    /// </summary>
     internal const string ProfielBezet =
-        "Chrome staat al open met dit profiel, meestal omdat er een zoekopdracht loopt. " +
-        "Wacht tot die klaar is en probeer opnieuw.";
+        "Chrome staat al open met dit profiel: door een zoekopdracht die loopt, of door een " +
+        "aanmeldvenster dat nog openstaat. Sluit dat venster of wacht tot de zoekopdracht " +
+        "klaar is, en probeer opnieuw.";
 
     /// <summary>
     /// Neemt de profielmap, of geeft false als een andere fetcher ze al heeft. Apart, zodat de

@@ -167,8 +167,10 @@ fetchers op één profielmap: de tweede kreeg na 0,5 s een `TargetClosedExceptio
 context or browser has been closed" en een half scherm browserlogboek erachter — en net die tekst
 belandde in het venster, want die knoppen tonen `ex.Message` rechtstreeks. `BrowserFetcher` houdt
 nu bij welke profielmappen in gebruik zijn (`NeemProfiel` / `GeefProfielTerug`, statisch) en
-weigert de tweede meteen met *"Chrome staat al open met dit profiel, meestal omdat er een
-zoekopdracht loopt."* Na de wijziging: 5 ms, zonder dat er een Chrome gestart wordt.
+weigert de tweede meteen met *"Chrome staat al open met dit profiel: door een zoekopdracht die
+loopt, of door een aanmeldvenster dat nog openstaat."* Allebei de kanten, want het botst in
+allebei de richtingen — een geplande beurt kan net zo goed beginnen terwijl jij aan het aanmelden
+bent. Na de wijziging: 5 ms, zonder dat er een Chrome gestart wordt.
 
 **Een achtergebleven Chrome** van een vorige sessie (bijvoorbeeld wanneer de app in Visual
 Studio gestopt werd terwijl ze zocht) houdt het profiel vast. `BrowserFetcher` sluit die
