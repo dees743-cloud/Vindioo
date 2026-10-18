@@ -143,6 +143,35 @@ public static class SiteUrlCheck
         return false;
     }
 
+    /// <summary>
+    /// Mag de app dit adres ophalen voor deze site?
+    ///
+    /// <para>De adressen die de app najaagt - de link van een zoekertje, een kandidaat die uit
+    /// een zoekpagina gevist is - komen uit de <b>inhoud van een pagina</b>. Die inhoud staat
+    /// niet onder onze controle, en bij een brugsite wordt zo'n adres in jouw eigen Chrome
+    /// geopend, met jouw cookies. Tot 18 oktober 2026 werd er enkel gekeken of het http of
+    /// https was.</para>
+    ///
+    /// <para>De regel is daarom niet "https en geen privé-adres" maar <b>dezelfde host als de
+    /// site zelf</b>. Dat is scherper - een zoekertje van 2dehands hoort op 2dehands te staan -
+    /// en het blijft werken met een proefsite op 127.0.0.1, die de controles gebruiken.</para>
+    /// </summary>
+    public static bool HoortBijSite(string? adres, SiteDefinition def)
+    {
+        if (string.IsNullOrWhiteSpace(adres)) return false;
+
+        if (!Uri.TryCreate(adres, UriKind.Absolute, out var uri)) return false;
+
+        if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) return false;
+
+        var eigen = def.BaseUrl is { Length: > 0 } b ? b : def.SearchUrlTemplate;
+
+        // Zonder eigen host valt er niets te vergelijken; dan blijft het bij het schema.
+        if (!Uri.TryCreate(VervangPlaatshouders(eigen), UriKind.Absolute, out var thuis)) return true;
+
+        return string.Equals(uri.Host, thuis.Host, StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>Hetzelfde voor één adres.</summary>
     public static bool IsVeiligAdres(string adres, out string reden)
     {
@@ -178,6 +207,12 @@ public static class SiteUrlCheck
     /// Een host die binnen je eigen netwerk of op deze pc ligt. Dat is het gevaarlijke geval:
     /// jouw browser kan daar wél bij, en wat erachter zit vraagt vaak geen aanmelding.
     /// </summary>
+    /// <summary>
+    /// Wijst deze host naar je eigen pc of je eigen netwerk? Openbaar omdat ook de
+    /// fotoophaler het moet weten: een foto mag op een CDN staan, maar niet bij jou thuis.
+    /// </summary>
+    public static bool IsPriveAdres(string host) => IsPriveHost(host);
+
     private static bool IsPriveHost(string host)
     {
         if (host.Length == 0) return true;

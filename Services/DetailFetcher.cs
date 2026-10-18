@@ -84,7 +84,7 @@ public static class DetailFetcher
                 string.Equals(s.Name, listing.Source, StringComparison.OrdinalIgnoreCase));
 
             if (def is null || string.IsNullOrWhiteSpace(def.DetailEndDateSelector)) continue;
-            if (!IsWebadres(listing.Url)) continue;
+            if (!IsWebadres(listing.Url) || !SiteUrlCheck.HoortBijSite(listing.Url, def)) continue;
 
             // Al eens opgehaald: meteen invullen, zonder verzoek. Bladeren naar een vorige
             // pagina en terug kost zo niets.
@@ -351,6 +351,11 @@ public static class DetailFetcher
         if (!IsWebadres(listing.Url))
             return new ListingDetails(fotos, "", "", "", "Dit zoekertje heeft geen webadres.");
 
+        // De link komt uit de inhoud van een zoekpagina; hij hoort op de site zelf te staan.
+        if (!SiteUrlCheck.HoortBijSite(listing.Url, def))
+            return new ListingDetails(fotos, "", "", "",
+                $"Dit zoekertje wijst buiten {def.Name}; niet opgehaald.");
+
         if (def.UseBridge && !BridgeServer.Instance.ExtensionAlive)
             return new ListingDetails(fotos, "", "", "",
                 $"{def.Name} loopt via de brug, en die meldde zich niet. Staat Chrome open?");
@@ -473,7 +478,7 @@ public static class DetailFetcher
     {
         var url = listing.LargeImage;
 
-        var beeld = await HaalFotoAsync(url, ct);
+        var beeld = await HaalFotoAsync(url, Site(listing, sites), ct);
         if (beeld is null) return new FotoVoorAI(url, null, "");
 
         var klein = Afmeting(beeld);
@@ -488,7 +493,7 @@ public static class DetailFetcher
         if (pagina is null || string.Equals(pagina, url, StringComparison.OrdinalIgnoreCase))
             return new FotoVoorAI(url, beeld, Maat(klein));
 
-        var groter = await HaalFotoAsync(pagina, ct);
+        var groter = await HaalFotoAsync(pagina, Site(listing, sites), ct);
         if (groter is null) return new FotoVoorAI(url, beeld, Maat(klein));
 
         var groot = Afmeting(groter);
@@ -529,9 +534,22 @@ public static class DetailFetcher
     /// Een foto ophalen. Dezelfde client als de pagina's, dus met een herkenbare afzender:
     /// sommige CDN's geven anders een foutcode in plaats van een foto.
     /// </summary>
-    private static async Task<byte[]?> HaalFotoAsync(string url, CancellationToken ct)
+    private static async Task<byte[]?> HaalFotoAsync(string url, SiteDefinition? def,
+                                                      CancellationToken ct)
     {
         if (!IsWebadres(url)) return null;
+
+        // Een foto mag wél op een vreemde host staan - vrijwel elke site zet ze op een CDN,
+        // van s3.kringwinkel.be tot assets.catawiki.nl. En ze mag op de site zelf staan, ook
+        // wanneer dat een proefsite op 127.0.0.1 is. Wat niet mag is een ANDER adres op je
+        // eigen netwerk: dat komt uit een sitebestand of uit de inhoud van een pagina, en een
+        // "foto" op 10.0.0.5 is geen foto maar een verzoek aan iets bij jou thuis.
+        if (Uri.TryCreate(url, UriKind.Absolute, out var uri) && SiteUrlCheck.IsPriveAdres(uri.Host) &&
+            (def is null || !SiteUrlCheck.HoortBijSite(url, def)))
+        {
+            Log.Write($"foto op een adres van je eigen netwerk overgeslagen: {Log.Url(url)}");
+            return null;
+        }
 
         try
         {
@@ -779,6 +797,10 @@ public static class DetailFetcher
 
         return DateTime.TryParse(tekst, out var lokaal) ? lokaal : null;
     }
+
+    /// <summary>Het sitebestand van dit zoekertje, of null wanneer de site weg is.</summary>
+    private static SiteDefinition? Site(Listing listing, IReadOnlyList<SiteDefinition> sites) =>
+        sites.FirstOrDefault(s => string.Equals(s.Name, listing.Source, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Enkel http en https: een sitebestand kan van een vreemde komen.</summary>
     private static bool IsWebadres(string url) =>

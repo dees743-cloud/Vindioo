@@ -8,6 +8,42 @@ namespace Vindioo;
 public static class Vensters
 {
     /// <summary>
+    /// Vraagt of deze sitebestanden erin mogen, met de hosts erbij die ze zullen aanspreken.
+    ///
+    /// <para>Een sitebestand is bedoeld om door te geven, en het bepaalt waar de app naartoe
+    /// gaat - bij een brugsite in jouw eigen Chrome, met jouw cookies. Tot 18 oktober 2026
+    /// stonden die hosts alleen in het logboek, en daar kijkt niemand vóór hij op Importeren
+    /// duwt. De vraag hoort te staan waar de keuze gemaakt wordt.</para>
+    /// </summary>
+    public static bool MagImporteren(Window eigenaar, string map) =>
+        MagImporteren(eigenaar, Services.SiteStore.Bestanden(map));
+
+    /// <inheritdoc cref="MagImporteren(Window, string)"/>
+    public static bool MagImporteren(Window eigenaar, IReadOnlyList<string> bestanden)
+    {
+        if (bestanden.Count == 0) return true;
+
+        var hosts = Services.SiteStore.HostsVan(bestanden);
+
+        var wat = bestanden.Count == 1
+            ? $"'{System.IO.Path.GetFileName(bestanden[0])}' importeren?"
+            : $"{bestanden.Count} sitebestanden importeren?";
+
+        var waarheen = hosts.Count == 0
+            ? "Er staat geen bruikbaar webadres in."
+            : "Vindioo gaat daarmee naar:" + Environment.NewLine +
+              string.Join(Environment.NewLine, hosts.Select(h => "    " + h));
+
+        var vraag = wat + Environment.NewLine + Environment.NewLine + waarheen +
+                    Environment.NewLine + Environment.NewLine +
+                    "Bij een site die via de brug loopt, worden die adressen in jouw eigen " +
+                    "Chrome geopend, met jouw cookies.";
+
+        return MessageBox.Show(eigenaar, vraag, "Sitebestanden importeren",
+                               MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+    }
+
+    /// <summary>
     /// Zet <paramref name="eigenaar"/> als eigenaar, en haalt die naar voren wanneer dit venster
     /// sluit.
     ///

@@ -262,5 +262,100 @@ public static class ImportChecks
             Check.Dat(reden4.Contains("marktplaats") && reden4.Contains("2dehands"),
                 "en de reden noemt allebei de hosts, zodat je ziet wat er wringt");
         }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Wat de app najaagt, hoort op de site zelf te staan");
+        {
+            // De link van een zoekertje en de kandidaten die uit een zoekpagina gevist worden,
+            // komen uit de INHOUD van een pagina. Die staat niet onder onze controle, en bij
+            // een brugsite wordt zo'n adres in jouw eigen Chrome geopend, met jouw cookies.
+            // Tot 18 oktober 2026 werd er enkel gekeken of het http of https was.
+            var site = new SiteDefinition
+            {
+                Name = "Proef",
+                SearchUrlTemplate = "https://www.2dehands.be/q/{query}/",
+                BaseUrl = "https://www.2dehands.be",
+                ItemSelector = "div", TitleSelector = "a", UrlSelector = "a@href"
+            };
+
+            Check.Dat(SiteUrlCheck.HoortBijSite("https://www.2dehands.be/v/123", site),
+                "een link op de site zelf mag");
+
+            Check.Dat(!SiteUrlCheck.HoortBijSite("https://kwaadaardig.be/v/123", site),
+                "een link naar een andere host niet");
+
+            Check.Dat(!SiteUrlCheck.HoortBijSite("https://127.0.0.1:8731/geheim", site),
+                "en al helemaal niet naar iets op je eigen pc");
+
+            Check.Dat(!SiteUrlCheck.HoortBijSite("file:///C:/Windows/win.ini", site),
+                "en enkel http of https");
+
+            Check.Dat(!SiteUrlCheck.HoortBijSite("", site) && !SiteUrlCheck.HoortBijSite("geen adres", site),
+                "leeg of onzin telt niet als adres");
+
+            // Een proefsite draait op 127.0.0.1, en die moet gewoon blijven werken: de regel is
+            // DEZELFDE HOST, niet "geen prive-adres".
+            var lokaal = new SiteDefinition
+            {
+                Name = "Proefsite",
+                SearchUrlTemplate = "http://127.0.0.1:8080/s?q={query}",
+                BaseUrl = "http://127.0.0.1:8080",
+                ItemSelector = "div", TitleSelector = "a", UrlSelector = "a@href"
+            };
+
+            Check.Dat(SiteUrlCheck.HoortBijSite("http://127.0.0.1:8080/v/1", lokaal),
+                "een lokale proefsite blijft zichzelf najagen");
+
+            Check.Dat(!SiteUrlCheck.HoortBijSite("http://10.0.0.5/v/1", lokaal),
+                "maar ook die mag niet naar de buren");
+        }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Voor het importeren is te zien waar een bestand de app naartoe stuurt");
+        {
+            // De hosts stonden tot 18 oktober 2026 alleen in het LOGBOEK, en daar kijkt niemand
+            // voor hij op Importeren duwt. Nu haalt het scherm ze op zonder iets te importeren,
+            // en zet ze in de vraag zelf.
+            var map = Path.Combine(Path.GetTempPath(), "vindioo-hostproef", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(Path.Combine(map, "sites"));
+
+            File.WriteAllText(Path.Combine(map, "sites", "een.json"), """
+                {
+                  "Name": "Een",
+                  "SearchUrlTemplate": "https://www.voorbeeld.be/zoek?q={query}",
+                  "BaseUrl": "https://www.voorbeeld.be",
+                  "ItemSelector": "div", "TitleSelector": "a", "UrlSelector": "a@href"
+                }
+                """);
+
+            File.WriteAllText(Path.Combine(map, "sites", "twee.json"), """
+                {
+                  "Name": "Twee",
+                  "SearchUrlTemplate": "https://api.anders.com/s?q={query}",
+                  "BaseUrl": "https://api.anders.com",
+                  "ItemSelector": "div", "TitleSelector": "a", "UrlSelector": "a@href"
+                }
+                """);
+
+            File.WriteAllText(Path.Combine(map, "sites", "stuk.json"), "{ dit is geen json");
+
+            var bestanden = SiteStore.Bestanden(map);
+
+            Check.Dat(bestanden.Count == 3,
+                $"de sites-map wordt gevonden vanuit de map erboven ({bestanden.Count} bestanden)");
+
+            var hosts = SiteStore.HostsVan(bestanden);
+
+            Check.Dat(hosts.Contains("www.voorbeeld.be") && hosts.Contains("api.anders.com"),
+                $"en allebei de hosts komen eruit ({string.Join(", ", hosts)})");
+
+            Check.Dat(hosts.Count == 2,
+                "een onleesbaar bestand wordt stil overgeslagen - de import klaagt er zelf over");
+
+            Check.Dat(SiteStore.HostsVan(Array.Empty<string>()).Count == 0,
+                "en zonder bestanden valt er niets te tonen");
+
+            Directory.Delete(map, recursive: true);
+        }
     }
 }

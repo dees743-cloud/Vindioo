@@ -201,6 +201,9 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
 
         if (dialog.ShowDialog(this) != true) return;
 
+        // Eerst tonen waar dit bestand de app naartoe stuurt; zie Vensters.MagImporteren.
+        if (!Vensters.MagImporteren(this, new[] { dialog.FileName })) return;
+
         var imported = _store.Import(dialog.FileName);
         if (imported is null)
         {
@@ -222,6 +225,8 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
     {
         var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Map met sitebestanden kiezen" };
         if (dialog.ShowDialog(this) != true) return;
+
+        if (!Vensters.MagImporteren(this, dialog.FolderName)) return;
 
         var (aantal, mislukt, vervangen) = _store.ImportFolder(dialog.FolderName);
 

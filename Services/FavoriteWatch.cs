@@ -94,6 +94,12 @@ public static class FavoriteWatch
         if (!IsWebadres(favoriet.Url))
             return new FavoriteStatus(FavoriteState.Onbekend, Uitleg: "Dit zoekertje heeft geen webadres.");
 
+        // De bewaarde link komt uit de inhoud van een zoekpagina; hij hoort op de site zelf te
+        // staan. Zie SiteUrlCheck.HoortBijSite.
+        if (!SiteUrlCheck.HoortBijSite(favoriet.Url, def))
+            return new FavoriteStatus(FavoriteState.Onbekend,
+                Uitleg: $"Dit zoekertje wijst buiten {def.Name}; niet nagekeken.");
+
         // Bij een brugsite heeft het geen zin Chrome te laten starten voor een controle die
         // je zelf vroeg; het detailvenster doet hetzelfde.
         if (def.UseBridge && !BridgeServer.Instance.ExtensionAlive)

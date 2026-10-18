@@ -276,6 +276,15 @@ public static class FavoriteFromUrl
                 ? adres
                 : site.BaseUrl.TrimEnd('/') + adres;
 
+            // Deze adressen komen uit de INHOUD van een zoekpagina, dus niet van ons. Een
+            // absoluut adres dat daar staat, mag niet zomaar ergens anders heen wijzen; zie
+            // SiteUrlCheck.HoortBijSite.
+            if (!SiteUrlCheck.HoortBijSite(volledig, site))
+            {
+                Log.Write($"favoriet uit Chrome: {Log.Url(volledig)} hoort niet bij {site.Name}, overgeslagen");
+                continue;
+            }
+
             if (!kandidaten.Contains(volledig)) kandidaten.Add(volledig);
             if (kandidaten.Count >= max) break;
         }

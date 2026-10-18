@@ -130,6 +130,9 @@ public partial class MainWindow
         var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Map met sitebestanden kiezen" };
         if (dialog.ShowDialog(this) != true) return;
 
+        // Eerst tonen waar die bestanden de app naartoe sturen; zie Vensters.MagImporteren.
+        if (!Vensters.MagImporteren(this, dialog.FolderName)) return;
+
         var (aantal, mislukt, vervangen) = _store.ImportFolder(dialog.FolderName);
 
         // Opnieuw inlezen en de tabs herbouwen, net als na "Site toevoegen". Dat werkt

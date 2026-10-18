@@ -181,10 +181,60 @@ public class SiteStore
     /// altijd al, maar de melding zei enkel "10 site(s) geïmporteerd": wie een site zelf had
     /// bijgestuurd, zag niet dat die aanpassing weg was.
     /// </remarks>
-    public (int Imported, List<string> Failed, List<string> Replaced) ImportFolder(string folder)
+    /// <summary>
+    /// Welke map er echt gelezen wordt: wie de bovenliggende map aanwijst, bedoelt de
+    /// <c>sites</c>-map erin.
+    /// </summary>
+    public static string Bronmap(string folder)
     {
         var sitesMap = Path.Combine(folder, "sites");
-        var bron = Directory.Exists(sitesMap) ? sitesMap : folder;
+        return Directory.Exists(sitesMap) ? sitesMap : folder;
+    }
+
+    /// <summary>De sitebestanden in een map, in dezelfde volgorde als bij het importeren.</summary>
+    public static List<string> Bestanden(string folder) =>
+        Directory.Exists(Bronmap(folder))
+            ? Directory.EnumerateFiles(Bronmap(folder), "*.json")
+                       .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+                       .ToList()
+            : new List<string>();
+
+    /// <summary>
+    /// Welke hosts deze bestanden zouden aanspreken, <b>zonder</b> iets te importeren.
+    ///
+    /// <para>Waarvoor: een sitebestand is bedoeld om door te geven, en het bepaalt waar de app
+    /// naartoe gaat - bij een brugsite in jouw eigen Chrome, met jouw cookies. Tot 18 oktober
+    /// 2026 stonden die hosts alleen in het logboek, en daar kijkt niemand vóór hij op
+    /// Importeren duwt. Nu staan ze in de vraag zelf.</para>
+    ///
+    /// <para>Een bestand dat niet te lezen is, wordt stil overgeslagen: de import zelf klaagt er
+    /// zo meteen over, met de reden erbij.</para>
+    /// </summary>
+    public static List<string> HostsVan(IEnumerable<string> bestanden)
+    {
+        var uit = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var pad in bestanden)
+        {
+            try
+            {
+                var def = JsonSerializer.Deserialize<SiteDefinition>(File.ReadAllText(pad), Options);
+                if (def is null) continue;
+
+                foreach (var host in SiteUrlCheck.Hosts(def)) uit.Add(host);
+            }
+            catch
+            {
+                // Onleesbaar bestand: de import meldt het zelf.
+            }
+        }
+
+        return uit.ToList();
+    }
+
+    public (int Imported, List<string> Failed, List<string> Replaced) ImportFolder(string folder)
+    {
+        var bron = Bronmap(folder);
 
         var imported = 0;
         var failed = new List<string>();
