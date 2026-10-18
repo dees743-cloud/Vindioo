@@ -258,6 +258,9 @@ tegenproef: de fix eruit, kijken of de controle omvalt. Waar dat niet kon, staat
 commit bij. Zie `docs/volgende-stappen.md` bij "Tweede leesronde" voor de stand per punt, en
 voor de drie keer dat het rapport zelf niet klopte.
 
+Uitgebracht op dezelfde dag als `v0.24.0`, met de zip erbij (117 MB, 601 bestanden), en anoniem
+nagegaan dat die te downloaden is: HTTP 206 en de eerste twee bytes zijn `PK`.
+
 Deze publicatie draait bovendien op de .NET-runtime van vandaag:
 `System.Security.Cryptography.Pkcs` gaat van 10.0.12 naar **10.0.13**. Dat vroeg geen wijziging
 aan het project - het pakket komt uit de meegeleverde runtime, niet uit NuGet - enkel een nieuwe
