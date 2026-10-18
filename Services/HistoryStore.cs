@@ -335,17 +335,36 @@ public class HistoryStore
     /// en blijft staan. Twee sleutels die hetzelfde id worden (de kavel van pagina 2 en die van
     /// pagina 3), worden er één. Geeft terug hoeveel rijen er veranderden.
     /// </summary>
+    /// <summary>
+    /// Hoe lang deze omzetting in totaal mag duren. Ze draait op de UI-draad bij élke start,
+    /// dus hier hoort een harde bovengrens op te staan en niet alleen een limiet per match.
+    ///
+    /// Waarom per match niet volstaat: er wordt gematcht per RIJ in de databank. Met duizend
+    /// rijen "al gezien" en een patroon dat telkens de limiet van 250 ms haalt, is dat vier
+    /// minuten bevroren venster - en dat bij elke start opnieuw, tot je het sitebestand
+    /// weghaalt. Met dit budget is het hoogstens twee seconden, één keer.
+    /// </summary>
+    private static readonly TimeSpan Omzetbudget = TimeSpan.FromSeconds(2);
+
     public int ApplyIdPatterns(IEnumerable<SiteDefinition> sites)
     {
         var totaal = 0;
+        var klok = System.Diagnostics.Stopwatch.StartNew();
 
         foreach (var site in sites)
         {
             if (site.Engine != SiteEngine.Generic || string.IsNullOrWhiteSpace(site.IdPattern)) continue;
 
-            System.Text.RegularExpressions.Regex patroon;
-            try { patroon = new System.Text.RegularExpressions.Regex(site.IdPattern); }
-            catch (ArgumentException) { continue; }
+            if (klok.Elapsed > Omzetbudget)
+            {
+                Log.Write($"sleutels omzetten duurde langer dan {Omzetbudget.TotalSeconds:0} s; " +
+                          $"de rest is overgeslagen, te beginnen bij {site.Name}");
+                break;
+            }
+
+            // Met een tijdslimiet, want dit patroon komt uit een sitebestand. Zie SitePattern.
+            var patroon = Sources.SitePattern.Bouw(site.IdPattern, $"{site.Name} IdPattern");
+            if (patroon is null) continue;
 
             var voorvoegsel = site.Name + ":";
 

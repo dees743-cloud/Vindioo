@@ -54,7 +54,8 @@ public static class FavoriteFromUrl
 
         try
         {
-            return new System.Text.RegularExpressions.Regex(def.IdPattern);
+            // Met een tijdslimiet: dit patroon komt uit een sitebestand. Zie SitePattern.
+            return Sources.SitePattern.Bouw(def.IdPattern, $"{def.Name} IdPattern");
         }
         catch (ArgumentException)
         {
@@ -262,16 +263,9 @@ public static class FavoriteFromUrl
 
         if (string.IsNullOrWhiteSpace(site.IdPattern)) return kandidaten;
 
-        Regex patroon;
-
-        try
-        {
-            patroon = new Regex(site.IdPattern);
-        }
-        catch (ArgumentException)
-        {
-            return kandidaten;
-        }
+        // Met een tijdslimiet: dit patroon komt uit een sitebestand. Zie SitePattern.
+        var patroon = Sources.SitePattern.Bouw(site.IdPattern, $"{site.Name} IdPattern");
+        if (patroon is null) return kandidaten;
 
         foreach (Match raak in Regex.Matches(zoekpagina, "[\"'](/[^\"' <>]+|https?://[^\"' <>]+)[\"']"))
         {

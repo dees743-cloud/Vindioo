@@ -666,5 +666,58 @@ public static class SitesChecks
                 $"wat al opgehaald is, blijft onthouden ({gevraagd.Count} verzoek(en) in totaal)");
         }
 
+        // ---------------------------------------------------------------------------
+        Check.Groep("Een patroon uit een sitebestand kan het venster niet laten vastlopen");
+        {
+            // Een sitebestand is bedoeld om te DELEN, en het mag een reguliere expressie
+            // meebrengen. Een patroon met geneste herhaling zoekt op een ongelukkige invoer
+            // exponentieel lang door - "catastrophic backtracking" - en loopt dan niet vast met
+            // een fout maar draait gewoon door. HistoryStore.ApplyIdPatterns deed dat op de
+            // UI-draad bij élke start: één bestand legde het venster plat, telkens opnieuw.
+            const string gemeen = @"^(a+)+$";
+            var invoer = new string('a', 30) + "!";
+
+            var patroon = SitePattern.Bouw(gemeen, "proef");
+            Check.Dat(patroon is not null, "het patroon wordt gewoon gebouwd - het is geldig");
+
+            var klok = System.Diagnostics.Stopwatch.StartNew();
+            var afgebroken = false;
+
+            try
+            {
+                patroon!.Match(invoer);
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                afgebroken = true;
+            }
+
+            klok.Stop();
+
+            Check.Dat(afgebroken, "en breekt af in plaats van door te zoeken");
+
+            // Ruim boven de limiet is óók fout: dan werkt de limiet niet zoals bedoeld.
+            Check.Dat(klok.Elapsed < SitePattern.Grens * 4,
+                $"binnen de perken: {klok.ElapsedMilliseconds} ms bij een limiet van " +
+                $"{SitePattern.Grens.TotalMilliseconds:0} ms");
+
+            // En de weg die de app echt loopt: IdUitLink vangt het en valt terug op de link.
+            klok.Restart();
+            var id = GenericSource.IdUitLink(patroon, invoer);
+            klok.Stop();
+
+            Check.Dat(id.Length > 0 && klok.Elapsed < SitePattern.Grens * 4,
+                $"IdUitLink valt terug op de link in plaats van te blijven hangen ({klok.ElapsedMilliseconds} ms)");
+
+            // Een patroon dat niet eens een patroon is, geeft null in plaats van een
+            // uitzondering die de hele zoekopdracht meeneemt.
+            Check.Dat(SitePattern.Bouw("((((", "proef") is null, "een ongeldig patroon geeft niets terug");
+            Check.Dat(SitePattern.Bouw("", "proef") is null, "en een leeg patroon ook niet");
+
+            // Een gewoon patroon blijft gewoon werken; de limiet mag niets kosten.
+            var normaal = SitePattern.Bouw(@"/kavel/(\d+)", "proef");
+            Check.Dat(GenericSource.IdUitLink(normaal, "https://x.be/nl/kavel/12528542/iets") == "12528542",
+                "en een echt id-patroon doet gewoon zijn werk");
+        }
     }
 }

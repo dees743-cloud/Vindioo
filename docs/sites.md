@@ -421,6 +421,27 @@ Een sitebestand is bedoeld om door te geven. Dat is de kracht ervan - en de rede
   Let op: dit geldt enkel bij **importeren**. Een site die je zelf toevoegt gaat via `Add` en mag
   gerust naar een lokale testsite wijzen - het gaat erom wat er van buiten binnenkomt.
 
+- **Hoe lang het bestand de app mag bezighouden.** Erbij op 18 oktober 2026, uit een tweede
+  leesronde. Een sitebestand mag reguliere expressies meebrengen: `IdPattern`,
+  `LinkText.IdPattern`, `LinkText.LocationPattern` en elk `::match(...)` in een selector. Een
+  patroon met **geneste herhaling** zoekt op een ongelukkige invoer exponentieel lang door
+  ("catastrophic backtracking"), en zonder limiet loopt zo'n match niet vast met een fout maar
+  draait hij gewoon door.
+
+  Elk patroon uit een sitebestand gaat nu door `Sources/SitePattern.cs`, met een limiet van
+  **250 ms per match**. Nagemeten met `^(a+)+$` op dertig a's en een uitroepteken: afgebroken na
+  242 ms. Verlaag je de limiet naar 50 ms, dan stopt hij na 49 ms - het is dus echt de limiet die
+  het doet. Een patroon dat de app **zelf** opbouwt hoort daar niet bij; dat is geen invoer van
+  buiten, en `PriceIndicator`, `SiteAnalyzer` en de cookieknoppen in `BrowserFetcher` houden hun
+  eigen `Regex`.
+
+  **Per match volstond niet.** `HistoryStore.ApplyIdPatterns` zet bij élke start de bewaarde
+  sleutels om, en matcht daarvoor per **rij** in de databank. Met duizend rijen "al gezien" en
+  een patroon dat telkens de 250 ms haalt, is dat vier minuten bevroren venster - op de UI-draad,
+  en bij elke start opnieuw tot je het bestand weghaalt. Daarom staat er ook een **totaalbudget
+  van twee seconden** op die omzetting; daarna slaat ze de rest over en zegt het logboek waar ze
+  gebleven is.
+
 - **De `Id` bepaalde waar er geschreven werd.** Die ging ongefilterd in `Path.Combine`, en dus
   schreef `"Id": "..\\..\\..\\..\\Temp\\ontsnapt"` buiten de sitesmap. Nagemeten met
   `Path.GetFullPath`: `%APPDATA%\Vindioo\sites` werd

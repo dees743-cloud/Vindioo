@@ -25,7 +25,9 @@ public class GenericSource : ISearchSource
         {
             try
             {
-                _idPattern = new Regex(definition.IdPattern, RegexOptions.Compiled);
+                // Met een tijdslimiet: dit patroon komt uit een sitebestand. Zie SitePattern.
+                _idPattern = SitePattern.Bouw(definition.IdPattern, $"{definition.Name} IdPattern",
+                                              RegexOptions.Compiled);
             }
             catch (ArgumentException ex)
             {
@@ -46,15 +48,28 @@ public class GenericSource : ISearchSource
         return IdUitLink(_idPattern, listing.Url);
     }
 
-    /// <summary>Het id uit een link, of de link zelf als het patroon niet past.</summary>
+    /// <summary>
+    /// Het id uit een link, of de link zelf als het patroon niet past.
+    ///
+    /// Duurt het matchen te lang, dan telt dat als "past niet": één zoekertje valt dan terug op
+    /// zijn volledige link, en de zoekopdracht loopt door. Zie <see cref="SitePattern"/> voor
+    /// waarom een patroon uit een sitebestand een tijdslimiet hoort te hebben.
+    /// </summary>
     internal static string IdUitLink(Regex? patroon, string link)
     {
         if (patroon is not null)
         {
-            var match = patroon.Match(link);
+            try
+            {
+                var match = patroon.Match(link);
 
-            if (match.Success && match.Groups.Count > 1 && match.Groups[1].Value.Length > 0)
-                return match.Groups[1].Value;
+                if (match.Success && match.Groups.Count > 1 && match.Groups[1].Value.Length > 0)
+                    return match.Groups[1].Value;
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                SitePattern.Meld($"id-patroon '{patroon}' duurt te lang; de volledige link wordt de identiteit");
+            }
         }
 
         return SchoonAdres(link);
@@ -680,10 +695,15 @@ public class GenericSource : ISearchSource
             // Past het patroon niet, dan hoort dit veld hier niet: bij eBay staat er
             // op een advertentiekaart geen land, en dan is leeg beter dan de
             // verzendkosten die toevallig op dezelfde plaats staan.
-            var treffer = Regex.Match(value, regels.Patroon);
+            var treffer = Regex.Match(value, regels.Patroon, RegexOptions.None, SitePattern.Grens);
             if (!treffer.Success) return "";
 
             return (treffer.Groups.Count > 1 ? treffer.Groups[1].Value : treffer.Value).Trim();
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            SitePattern.Meld($"::match({regels.Patroon}) duurt te lang; de waarde blijft zoals ze was");
+            return value;
         }
         catch (ArgumentException ex)
         {
@@ -718,10 +738,15 @@ public class GenericSource : ISearchSource
 
         try
         {
-            return Regex.Matches(value, regels.Patroon)
+            return Regex.Matches(value, regels.Patroon, RegexOptions.None, SitePattern.Grens)
                         .Select(t => (t.Groups.Count > 1 ? t.Groups[1].Value : t.Value).Trim())
                         .Where(t => t.Length > 0)
                         .ToList();
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            SitePattern.Meld($"::match({regels.Patroon}) duurt te lang; de waarde blijft zoals ze was");
+            return new List<string> { value };
         }
         catch (ArgumentException ex)
         {

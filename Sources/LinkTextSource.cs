@@ -30,13 +30,13 @@ public class LinkTextSource : ISearchSource
         _def = definition;
         _options = definition.LinkText ?? new LinkTextOptions();
 
-        _idPattern = string.IsNullOrWhiteSpace(_options.IdPattern)
-            ? null
-            : new Regex(_options.IdPattern, RegexOptions.Compiled);
+        // Allebei met een tijdslimiet: ze komen uit een sitebestand. Zie SitePattern.
+        _idPattern = SitePattern.Bouw(_options.IdPattern, $"{definition.Name} LinkText.IdPattern",
+                                      RegexOptions.Compiled);
 
-        _locationPattern = string.IsNullOrWhiteSpace(_options.LocationPattern)
-            ? null
-            : new Regex(_options.LocationPattern, RegexOptions.Compiled);
+        _locationPattern = SitePattern.Bouw(_options.LocationPattern,
+                                            $"{definition.Name} LinkText.LocationPattern",
+                                            RegexOptions.Compiled);
     }
 
     public string Name => _def.Name;
