@@ -1,4 +1,4 @@
-# Het project: naam, versie, gegevensmap, publiceren en GitHub
+﻿# Het project: naam, versie, gegevensmap, publiceren en GitHub
 
 Onderdeel van de documentatie van Vindioo; de korte versie staat in
 [CLAUDE.md](../CLAUDE.md).
@@ -223,6 +223,44 @@ er één slag bovenop, op de titel en nergens anders. Gemeten: **1 van de 38** a
 verandert en dat is precies de kapotte, **0 van de 178** zoekresultaten hadden dit probleem. Zie
 `docs/favorieten.md` bij "Een titel die dubbel gecodeerd is" - ook voor de misstap onderweg, want
 mijn eerste oplossing zat op de verkeerde plaats.
+
+**0.24.0** sinds 18 oktober 2026, en dat is een tweede leesronde van dezelfde collega: acht
+punten over beveiliging en twee die eerder al "klaar" heetten. Het tweede cijfer, want er komt
+iets bij dat je ziet - al is het iets waar je liever niet bij stilstaat.
+
+- **Voor je een sitebestand importeert, toont Vindioo eerst welke adressen het zal aanspreken.**
+  Zo'n bestand beschrijft waar de app heen gaat, en bij een brugsite gebeurt dat in jouw eigen
+  Chrome, met jouw cookies. De hosts stonden wel in het logboek, maar daar kijkt niemand voor hij
+  op Importeren duwt. Alle drie de importknoppen vragen het nu.
+- **Een zoekertje of een foto moet op de site zelf staan.** Links komen uit de inhoud van een
+  pagina, en die staat niet onder onze controle. Een foto mag wel op een vreemde host (elke site
+  gebruikt een CDN); wat niet mag is een ander adres op je eigen netwerk.
+- **De brug sleurt de app niet meer mee.** Startte de luisteraar op poort 8731 met een andere
+  fout dan "poort bezet" - een beleidsregel, een virusscanner - dan opende er helemaal geen
+  venster, want dat starten gebeurt in de constructor van het hoofdscherm. Nu werkt de rest van
+  de app gewoon, en zegt de melding wat Windows antwoordde.
+- **Aanmelden tijdens een zoekopdracht geeft nu een zin in plaats van een stapeldump.** Twee
+  Chrome's kunnen niet op dezelfde profielmap, en dat leverde "Target page, context or browser
+  has been closed" op met een half scherm browserlogboek erachter.
+- **De stopknop bereikt nu ook de JSON-omweg** die Discogs nodig heeft. Daar duurde een
+  afgebroken verzoek nog 32,2 seconden; nu 3,0.
+- **Het logboek draagt geen volledige adressen meer.** Zes regels schreven er een weg zonder het
+  masker dat je postcode eruit haalt - de plaats waar de app je bij een fout naartoe stuurt, in
+  een openbare repo die issues uitnodigt.
+- En een **patroon uit een sitebestand** krijgt een tijdslimiet, een **punt achter een hostnaam**
+  (`localhost.`) telt weer als een lokaal adres, en na een **doorverwijzing** moet het eindadres
+  dezelfde host houden.
+
+820 controles in CI, 772 met Vindioo open. Bij het begin van deze ronde (069f0eb) waren het er
+765 in CI, dus 55 erbij. Elke aanpassing heeft een tegenproef: de fix eruit, kijken of de
+controle omvalt. Waar dat niet kon, staat het er in de commit bij. Zie
+`docs/volgende-stappen.md` bij "Tweede leesronde" voor de stand per punt, en voor de drie keer
+dat het rapport zelf niet klopte.
+
+Deze publicatie draait bovendien op de .NET-runtime van vandaag:
+`System.Security.Cryptography.Pkcs` gaat van 10.0.12 naar **10.0.13**. Dat vroeg geen wijziging
+aan het project - het pakket komt uit de meegeleverde runtime, niet uit NuGet - enkel een nieuwe
+publicatie.
 
 **0.23.0** sinds 7 oktober 2026. **De favorieten tonen voortaan de prijs van vandaag**, en de
 lijst staat er meteen.
