@@ -130,8 +130,8 @@ dotnet publish Vindioo.csproj -c Release -r win-x64 --self-contained true -o C:\
 ```
 
 De controles drukken per stuk OK of FOUT af en eindigen met "ALLES OK" en het aantal. Draait
-Vindioo of Chrome-met-de-brug, dan vallen er controles weg en zeggen ze dat zelf (768 met Vindioo
-dicht en Chrome open, 720 met Vindioo erbij — gemeten 7 oktober 2026). Publiceren kan enkel met
+Vindioo of Chrome-met-de-brug, dan vallen er controles weg en zeggen ze dat zelf (820 in CI, waar
+geen van beide draait; 772 met Vindioo open — gemeten 18 oktober 2026). Publiceren kan enkel met
 Vindioo dicht.
 
 ## Regels die schade voorkomen
@@ -179,8 +179,8 @@ De uitleg per onderwerp staat in `docs/`. Lees enkel wat je nodig hebt — deze 
 
 **Hoe dit bestand klein blijft.** Op 30 september 2026 was CLAUDE.md 281 kB: 45 500 woorden, zo'n
 70 000 tot 90 000 tokens die bij **elke** sessie meegaan voor er iets gevraagd is. Het was een
-werkdagboek geworden - "nagemeten op 24 september" stond er meer dan honderd keer in - en dat is
-waardevolle kennis, maar zelden nodig bij een gewone taak. Daarom:
+werkdagboek geworden - een vorm van "gemeten" stond er 119 keer in, "nagemeten" 70 keer - en dat
+is waardevolle kennis, maar zelden nodig bij een gewone taak. Daarom:
 
 - **Hier staat enkel wat bij élke taak nodig is**: de werkafspraken, de stack, de mappenstructuur,
   de commando's en de regels die schade voorkomen. De grens is **15 kB**, en `DocsChecks` laat de

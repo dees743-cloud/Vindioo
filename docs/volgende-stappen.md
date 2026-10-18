@@ -1,4 +1,4 @@
-# Volgende stappen
+﻿# Volgende stappen
 
 Onderdeel van de documentatie van Vindioo; de korte versie staat in
 [CLAUDE.md](../CLAUDE.md).
@@ -180,11 +180,11 @@ Wat er verder uit kwam, en wat ermee gebeurd is:
 | Bug 1 | het zoekslot werd pas na het bewaren vrijgegeven, zonder eigen `finally` | **klaar** - anders wacht élke zoekopdracht daarna voor altijd |
 | Bug 2 | een harde spatie in een prijs gaf `null`; de linkmotor maakte van "12.50" 1250 | **klaar** - één `PriceParser` voor beide motoren |
 | Bug 3 | stoppen tijdens een brugsite telde als een fout van die site | **klaar** - een annulering is geen time-out meer |
-| Bug 4 | twee Chrome's konden tegelijk op hetzelfde profiel starten | **klaar** - het startslot was een veld per instantie en is nu statisch; de site-analyse leent nu uit `BrowserPool` |
+| Bug 4 | twee Chrome's konden tegelijk op hetzelfde profiel starten | **klaar op 18 oktober 2026**, in twee keer. Het startslot werd statisch en de site-analyse leent uit `BrowserPool` - maar dat slot serialiseert enkel het *starten*, niet het naast elkaar openstaan, en de aanmeldknop maakt nog altijd een eigen fetcher. Pas met een bezette-profielmap is het dicht; zie `docs/prestaties.md` |
 | Bug 5 | een Playwright-proces bleef achter bij een mislukte start | **klaar** - `try`/`finally` bij het starten én bij het afsluiten |
 | Bug 6 | de brug zag de Chrome van Playwright voor die van de gebruiker aan | **klaar** - processen met ons eigen profiel tellen niet mee |
 | Bug 7 | de afteltimer zat een uur fout rond de overgang naar de wintertijd | **klaar** - gerekend op de echte tijdlijn, zie hieronder |
-| Bug 8 | de stopknop wachtte een trage pagina tot 45 s af | **klaar** - de token gaat mee met `WaitAsync` |
+| Bug 8 | de stopknop wachtte een trage pagina tot 45 s af | **klaar op 18 oktober 2026**, in twee keer. `GetHtmlAsync` kreeg de token mee, `GetJsonAsync` werd overgeslagen: daar duurde een afgebroken verzoek nog 32,2 s. Zie `docs/zoeken.md` |
 | Middel | een ander programma kan poort 8731 eerst bezetten en zich als de app voordoen | **klaar** - app en extensie tekenen met HMAC, zie `docs/brug.md` |
 | Middel | de koppelcode staat in de URL; elke `chrome-extension://`-herkomst wordt aanvaard | **klaar** - de code gaat helemaal niet meer mee, de Host-kopregel wordt nagekeken, en de CORS-kopregels komen enkel bij een verzoek dat zich bewees. Géén vast extensie-ID: zie `docs/brug.md` voor waarom dat hier niet werkt |
 | Middel | een pagina die geanalyseerd wordt kan via verborgen tekst `baseUrl` elders laten wijzen | **klaar** - dezelfde host én hetzelfde schema, zie `docs/sites-toevoegen.md` punt 10. Blijft open: een `::replace` in een fotoselector kan nog een andere host inschuiven (kleinere schade: geen cookies) |
@@ -237,3 +237,41 @@ Nagemeten met het hoofdscherm buiten beeld, want de controles raken `MainWindow`
 bouwt nog op, de knop *Nakijken* bij de favorieten werkt nog, en allebei de uitgangen van het
 uitgenomen voorbereiden komen er goed uit - "Kies eerst welke sites meezoeken..." zonder
 aangevinkte site, en "2dehands heeft een zoekterm nodig." bij een lege zoekterm.
+
+## Tweede leesronde, 17-18 oktober 2026
+
+Dezelfde collega liet de code opnieuw nalezen, nu op commit `069f0eb` (versie 0.23.0). Acht
+punten over beveiliging (SEC-1 tot SEC-8) en een handvol kleinere. Wat ermee gebeurd is staat per
+onderwerp in de documentatie; hier enkel de stand en wat er bij het nameten anders bleek.
+
+| Punt | Stand |
+|---|---|
+| SEC-1 | **klaar** - de importcontrole kijkt naar de gebouwde URL, en de hosts staan nu in de vraag voor je op Importeren duwt; zie `docs/sites.md` |
+| SEC-2 | **klaar** - na een doorverwijzing loopt het eindadres opnieuw door de hostcontrole, en het moet dezelfde host houden; zie `docs/brug.md` |
+| SEC-3 | **klaar** - elk patroon uit een sitebestand krijgt een tijdslimiet (`SitePattern`); zie `docs/sites.md` |
+| SEC-4 | **klaar** - samen met SEC-1 |
+| SEC-5 | **klaar** - wat de app najaagt moet op de site zelf staan. Een **foto** mag wél op een vreemde host (elke site gebruikt een CDN); wat niet mag is een ander adres op je eigen netwerk |
+| SEC-6 | **klaar** - elke socketfout bij het starten van de brug betekent "de brug werkt niet", niet "de app kan niet starten"; zie `docs/brug.md` |
+| SEC-7 | **klaar** - zes logregels schreven een volledig adres weg zonder `Log.Url`, niet drie. Een controle leest nu de broncode zelf; zie `docs/fouten-opsporen.md` |
+| SEC-8 | **klaar** - een punt op het eind van een hostnaam en een IPv4-adres in een IPv6-jasje kwamen langs de prive-controle |
+| B8, B4 | **klaar** - zie bug 8 en bug 4 hierboven: allebei waren ze in de vorige ronde al "klaar" verklaard |
+
+**Drie keer bleek het rapport niet te kloppen**, en dat is het vermelden waard omdat het de
+werkwijze bevestigt: eerst meten, dan aanpassen.
+
+- "Een fragment moet met `?` of `&` beginnen" zou AlleVeilingen slopen: zijn fragmenten zitten in
+  een JSON-blok en beginnen met een aanhalingsteken. De controle kijkt nu naar de **gebouwde**
+  URL in plaats van naar de vorm van het fragment.
+- "Hetzelfde veilige-adressenfilter" voor SEC-5 (https en geen prive-adres) liet vier controles
+  omvallen: de proefsite draait op `http://127.0.0.1`. De regel werd "dezelfde host als de site",
+  wat bovendien scherper is.
+- "Nagemeten op 24 september stond er meer dan honderd keer in CLAUDE.md": één keer. Een vorm van
+  "gemeten" stond er 119 keer in. De strekking klopte, het getal hoorde bij iets anders.
+
+**En twee keer bleek het rapport te voorzichtig.** SEC-7 noemde drie logregels; het waren er zes.
+SEC-8 noemde "de app en de extensie"; in de extensie was alleen de punt-op-een-naam open, want
+Chrome's eigen URL-ontleder knipt de punt bij een IP al weg.
+
+**Wat "klaar" hier betekent.** Bug 4 en bug 8 stonden vorige ronde al op klaar en waren het niet:
+allebei was de helft gedaan die zichtbaar was. Een rij in deze tabel zegt dus "dit is aangepakt en
+nagemeten", niet "hier valt nooit meer iets te halen".

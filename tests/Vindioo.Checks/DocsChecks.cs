@@ -8,8 +8,11 @@ namespace Vindioo.Checks;
 ///
 /// Claude Code leest dat bestand bij het begin van elke sessie volledig in, en die tekst
 /// reist bij elke beurt opnieuw mee. Op 30 september 2026 was het <b>281 kB</b> geworden:
-/// 45 500 woorden, zo'n 70 000 tot 90 000 tokens nog voor er iets gevraagd was. Het was een
-/// werkdagboek geworden - "nagemeten op 24 september" stond er meer dan honderd keer in.
+/// 45 489 woorden, zo'n 70 000 tot 90 000 tokens nog voor er iets gevraagd was. Het was een
+/// werkdagboek geworden - een vorm van "gemeten" stond er 119 keer in, "nagemeten" 70 keer.
+/// (Hier stond eerst dat "nagemeten op 24 september" er meer dan honderd keer in stond. Dat
+/// was mis: nageteld in het bestand zoals het vlak voor de splitsing in git staat, kwam die
+/// zin er één keer in voor. De strekking klopt, het getal hoorde bij iets anders.)
 ///
 /// De inhoud is niet weggegooid maar verhuisd naar <c>docs/</c>, per onderwerp, en die
 /// bestanden worden enkel gelezen wanneer ze nodig zijn. Deze controle bewaakt dat het niet

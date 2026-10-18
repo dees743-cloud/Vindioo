@@ -69,8 +69,11 @@ dotnet publish Vindioo.csproj -c Release -r win-x64 --self-contained true -o C:\
 Optioneel:
 
 - **Ollama** met een vision-model (`qwen3.5:9b`) op `127.0.0.1:11434`, als je de AI-controle wil.
-- Een **`ANTHROPIC_API_KEY`** in je omgevingsvariabelen, als je een onbekende site automatisch wil
-  laten analyseren. De app vraagt er zelf naar en zet hem voor je klaar.
+- Een **sleutel voor de Claude API**, als je een onbekende site automatisch wil laten analyseren.
+  De app vraagt er zelf naar en bewaart hem **beschermd door Windows** (DPAPI, in
+  `instellingen.json`) - niet in de code en niet in je omgevingsvariabelen. Een bestaande
+  `ANTHROPIC_API_KEY` blijft als terugval werken en verhuist bij de eerste start naar dat
+  bestand; zie `docs/sites-toevoegen.md`.
 
 ## De app komt zonder sites
 
