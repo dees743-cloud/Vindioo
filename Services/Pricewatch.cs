@@ -270,7 +270,7 @@ public static class Pricewatch
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            Log.Write($"pricewatch: {product.Url} ophalen lukte niet: {ex.Message}");
+            Log.Write($"pricewatch: {Log.Url(product.Url)} ophalen lukte niet: {ex.Message}");
             return new Prijsbeeld(product.Naam, product.Url, Fout: FriendlyError.Describe(ex));
         }
     }

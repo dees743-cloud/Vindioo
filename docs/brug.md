@@ -70,7 +70,14 @@ Verder in dezelfde ronde:
   keer de deur uit, ook als pagina 1 er twee gaf: bij leboncoin twaalf seconden aan lege
   pagina's, en negen verzoeken vanuit je eigen browser op een paar seconden.
 - **Een bezette poort** laat de app niet meer vallen: `BridgeServer.PortBusy`, en de brug zegt
-  `BridgeStatus.PortInUse`. De rest van de app werkt dan gewoon.
+  `BridgeStatus.PortInUse`. De rest van de app werkt dan gewoon. Sinds 18 oktober 2026 geldt dat
+  voor **elke** socketfout, niet enkel voor `AddressAlreadyInUse`: `Start()` wordt aangeroepen in
+  de constructor van `MainWindow`, dus een `AccessDenied` van een beleidsregel of virusscanner
+  vloog er vroeger uit en dan opende er helemaal geen venster. De reden staat nu in
+  `BridgeServer.StartFout` en komt via `Beletsel` in de zin die de gebruiker leest - één tekst
+  op één plaats, waar `ChromeLauncher.Describe(PortInUse)` ook naar verwijst. Een andere poort
+  proberen kan **niet**: de extensie draagt `http://127.0.0.1:8731` in haar eigen code, dus daar
+  zou ze de app niet meer vinden.
 - **Een vervolgpagina wacht korter.** `itemTimeoutMs` in de opdracht (3 s in plaats van
   8 s), en zonder zoekertje valt de pauze van 2,5 s weg: die pagina is gewoon leeg.
 - **Na het scrollen wachten tot er niets meer bijkomt** (`waitUntilStable` in de extensie,

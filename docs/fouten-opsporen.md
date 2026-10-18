@@ -31,6 +31,16 @@ weg; de naam van de parameter blijft staan, want dát de URL een postcode droeg,
 weten. De lijst namen staat in `Log.PlaatsFilter` en dekt ook een paar die nog geen enkel
 sitebestand gebruikt - een maskeerder die pas werkt nadat er iets gelekt is, komt te laat.
 
+**Een maskeerder helpt alleen waar hij staat.** Op 18 oktober 2026 nageteld over alle
+`Log.Write`-opdrachten in de broncode: 89 droegen een interpolatie die een adres kón zijn, en
+zes schreven er werkelijk een weg zonder masker - drie bij de rechtsklik-favoriet
+(`FavoriteFromUrl`), één bij de site-analyse, één bij Pricewatch en één in het detailvenster.
+Niet te zien aan de code die draait, dus leest een controle in `StilFalenChecks` de broncode
+zelf: elke `{uitdrukking}` in een `Log.Write` die `url`, `adres`, `kandidaat`, `link`, `href`
+of `volledig` heet - of op `Url` of `Adres` eindigt - moet door `Log.Url`. `{beland}` en
+`{gevraagd}` staan er met opzet niet bij: dat zijn **hosts**, en een hostnaam verraadt niets.
+Faalt de controle, dan noemt ze bestand en regelnummer.
+
 **Lange getallen blijven wél staan, op één uitzondering na.** Een algemene cijferregel zou
 juist het bruikbare slopen: van de 22 URL's met een lang getal in hun pad waren het er 22 een
 zoekertje-id (`/itm/128096739486`), en zonder dat nummer is zo'n regel niet meer na te spelen.

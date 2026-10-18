@@ -189,9 +189,10 @@ public static class ChromeLauncher
             "Chrome draait, maar de Vindioo Brug meldt zich niet. Staat de extensie aan in chrome://extensions?",
         BridgeStatus.ChromeNotFound =>
             "Google Chrome is niet gevonden. Sites via de brug hebben Chrome nodig.",
-        BridgeStatus.PortInUse =>
-            $"de brug kan niet starten: poort {BridgeServer.Port} is in gebruik door een ander programma " +
-            "(of door Vindioo van een andere Windows-gebruiker).",
+        // De server weet zelf waaróm hij niet luistert: meestal de bezette poort, maar sinds
+        // 18 oktober 2026 kan het ook een andere socketfout zijn. Eén tekst, op één plaats, en
+        // dan klopt hij overal waar deze status getoond wordt.
+        BridgeStatus.PortInUse => BridgeServer.Instance.Beletsel,
         _ => ""
     };
 }

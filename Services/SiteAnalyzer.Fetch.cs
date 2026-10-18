@@ -133,7 +133,7 @@ public partial class SiteAnalyzer
                 // Een 403 of 503 is hier doorgaans bot-detectie; dan is de browser aan zet.
                 if (!response.IsSuccessStatusCode)
                 {
-                    Log.Write($"analyse: rechtstreeks {(int)response.StatusCode} voor {url}");
+                    Log.Write($"analyse: rechtstreeks {(int)response.StatusCode} voor {Log.Url(url)}");
                     return null;
                 }
 

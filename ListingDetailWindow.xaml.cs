@@ -448,7 +448,7 @@ public partial class ListingDetailWindow : Wpf.Ui.Controls.FluentWindow
         if (adres is null)
         {
             StatusText.Text = "Deze link is geen webadres en wordt daarom niet geopend.";
-            Log.Write($"zoekertje niet geopend, geen webadres: {_listing.Url}");
+            Log.Write($"zoekertje niet geopend, geen webadres: {Log.Url(_listing.Url)}");
             return;
         }
 

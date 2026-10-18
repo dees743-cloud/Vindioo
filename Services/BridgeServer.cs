@@ -243,35 +243,85 @@ public class BridgeServer
     }
 
     /// <summary>
-    /// Kon de server niet starten omdat de poort bezet is? Dan werkt de brug niet, maar de
-    /// rest van de app wel. Een volgende <see cref="Start"/> probeert het opnieuw.
+    /// Kon de server niet starten? Dan werkt de brug niet, maar de rest van de app wel. Een
+    /// volgende <see cref="Start()"/> probeert het opnieuw. De naam zegt "poort bezet" omdat dat
+    /// de gewone reden is; sinds 18 oktober 2026 staat hij bij élke socketfout aan.
     /// </summary>
     public bool PortBusy { get; private set; }
 
-    public void Start()
+    /// <summary>
+    /// Wat Windows zei toen de luisteraar niet startte, als dat iets anders was dan "poort al in
+    /// gebruik". Null bij een gewone bezette poort, en null zolang de brug luistert.
+    /// </summary>
+    public string? StartFout { get; private set; }
+
+    /// <summary>De zin die de gebruiker te zien krijgt zolang de brug niet luistert.</summary>
+    public string Beletsel => StartFout is { Length: > 0 } reden
+        ? $"de brug kan niet starten: poort {Port} geeft '{reden}'."
+        : $"de brug kan niet starten: poort {Port} is in gebruik door een ander programma " +
+          "(of door Vindioo van een andere Windows-gebruiker).";
+
+    public void Start() => Start(IPAddress.Loopback, Port);
+
+    /// <summary>
+    /// Waar de brug luistert. Alleen <see cref="Start()"/> hoort dit aan te roepen; de controles
+    /// gebruiken het om een ándere socketfout dan "poort bezet" af te dwingen - bind op een adres
+    /// dat deze pc niet heeft, en Windows antwoordt AddressNotAvailable.
+    /// </summary>
+    internal void Start(IPAddress adres, int poort)
     {
         if (_listener is not null) return;
 
-        var listener = new TcpListener(IPAddress.Loopback, Port);
+        var listener = new TcpListener(adres, poort);
 
         try
         {
             listener.Start();
         }
-        catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
+        catch (SocketException ex)
         {
+            // ELKE SOCKETFOUT IS HIER "de brug werkt niet", nooit "de app kan niet starten".
             // Een ander programma, of een Vindioo van een andere Windows-gebruiker, houdt de
-            // poort vast. Vroeger viel de app daardoor al om bij het opbouwen van het
-            // hoofdscherm: de snelkoppeling leek dan niets te doen.
-            if (!PortBusy) Log.Write($"brug: poort {Port} is bezet; de brug werkt niet tot die vrijkomt");
-            PortBusy = true;
+            // poort vast: dat was de bekende reden, en daar ving deze catch tot 18 oktober 2026
+            // als enige op. Elke ándere socketfout - AccessDenied door een beleidsregel of een
+            // virusscanner, AddressNotAvailable als de loopback bij een koude start nog niet
+            // klaar is - vloog er gewoon langs. En Start() wordt aangeroepen in de constructor
+            // van MainWindow: dan opent er geen venster en lijkt de snelkoppeling niets te doen.
+            // Precies de storing die deze catch moest voorkomen, maar dan voor een zeldzamere
+            // oorzaak. Daarom nu de hele SocketException, met de reden erbij in het logboek.
+            NietGestart(RedenVan(ex));
+            listener.Dispose();
             return;
         }
 
         PortBusy = false;
+        StartFout = null;
         _listener = listener;
 
         _ = Task.Run(AcceptLoopAsync);
+    }
+
+    /// <summary>
+    /// Wat een mislukte bind betekent: null voor de gewone bezette poort, anders de reden in de
+    /// woorden van Windows. Apart zodat de controles er elke socketfout tegenaan kunnen gooien
+    /// zonder een poort te hoeven bezetten.
+    /// </summary>
+    internal static string? RedenVan(SocketException ex) =>
+        ex.SocketErrorCode == SocketError.AddressAlreadyInUse
+            ? null
+            : $"{ex.SocketErrorCode} - {ex.Message}";
+
+    private void NietGestart(string? reden)
+    {
+        // Eén regel per toestand: Start() wordt bij elke opdracht opnieuw geprobeerd, en een
+        // logboek dat elke seconde dezelfde zin herhaalt is geen logboek meer.
+        if (!PortBusy || StartFout != reden)
+            Log.Write(reden is null
+                ? $"brug: poort {Port} is bezet; de brug werkt niet tot die vrijkomt"
+                : $"brug: de luisteraar op poort {Port} startte niet - {reden}; de brug werkt niet");
+
+        PortBusy = true;
+        StartFout = reden;
     }
 
     private async Task AcceptLoopAsync()
@@ -318,7 +368,7 @@ public class BridgeServer
         Start();
 
         if (PortBusy)
-            throw new InvalidOperationException(ChromeLauncher.Describe(BridgeStatus.PortInUse));
+            throw new InvalidOperationException(Beletsel);
 
         var job = new Job(Guid.NewGuid().ToString("N"), url,
             new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously),

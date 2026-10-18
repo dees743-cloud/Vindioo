@@ -57,6 +57,47 @@ public static class BrugChecks
         ManifestControles();
 
         // ---------------------------------------------------------------------------
+        // Ook deze staat bewust vóór de poortcontrole hieronder, en om dezelfde reden: ze dwingt
+        // een socketfout af op een ADRES dat deze pc niet heeft, dus of poort 8731 vrij is doet
+        // er niet toe. Stond ze erachter, dan verdween juist deze meting zodra Vindioo openstond.
+        Check.Groep("Brug: een ÁNDERE socketfout dan een bezette poort laat de app niet omvallen");
+        {
+            // Tot 18 oktober 2026 ving BridgeServer.Start() alleen AddressAlreadyInUse. Elke
+            // andere socketfout vloog eruit - en Start() wordt aangeroepen in de constructor van
+            // MainWindow, dus dan opende er geen venster en leek de snelkoppeling niets te doen.
+            //
+            // 192.0.2.1 is TEST-NET-1 (RFC 5737): een adres dat per afspraak nergens toegewezen
+            // is, dus Windows antwoordt AddressNotAvailable. Gemeten op 18 oktober 2026, ook voor
+            // 10.255.255.1 en 203.0.113.7. Er gaat niets de deur uit: een bind praat met niemand.
+            var server = BridgeServer.Instance;
+
+            Exception? eruit = null;
+            try { server.Start(IPAddress.Parse("192.0.2.1"), BridgeServer.Port); }
+            catch (Exception ex) { eruit = ex; }
+
+            Check.Dat(eruit is null, $"geen uitzondering uit Start() ({eruit?.GetType().Name ?? "geen"})");
+            Check.Dat(server.PortBusy, "de brug staat op 'werkt niet', zoals bij een bezette poort");
+            Check.Dat(server.StartFout?.Contains("AddressNotAvailable") == true,
+                $"met de reden van Windows erbij ({server.StartFout})");
+            Check.Dat(server.Beletsel.Contains("AddressNotAvailable") &&
+                      !server.Beletsel.Contains("in gebruik door een ander programma"),
+                "en de gebruiker krijgt díe reden te zien, niet 'de poort is bezet'");
+
+            // Wat een mislukte bind betekent, los van een echte socket: enkel 'poort bezet'
+            // krijgt de vertrouwde zin, al de rest draagt zijn eigen reden mee.
+            Check.Dat(BridgeServer.RedenVan(new SocketException((int)SocketError.AddressAlreadyInUse)) is null,
+                "RedenVan: een bezette poort blijft de gewone bezette poort");
+
+            foreach (var soort in new[] { SocketError.AccessDenied, SocketError.AddressNotAvailable,
+                                          SocketError.NetworkDown })
+            {
+                var reden = BridgeServer.RedenVan(new SocketException((int)soort));
+                Check.Dat(reden?.Contains(soort.ToString()) == true,
+                    $"RedenVan: {soort} draagt zijn naam mee ({reden})");
+            }
+        }
+
+        // ---------------------------------------------------------------------------
         Check.Groep("Brug: enkel de extensie kan een verkeerde koppelcode melden");
 
         if (!PoortVrij())
@@ -76,14 +117,21 @@ public static class BrugChecks
             try { brug.Start(); } catch (Exception ex) { startFout = ex; }
             Check.Dat(startFout is null && brug.PortBusy, "poort bezet: geen uitzondering, wel PortBusy");
 
+            Check.Dat(brug.StartFout is null && brug.Beletsel.Contains("in gebruik door een ander programma"),
+                "en de gewone zin: de poort is bezet");
+
             var status = await ChromeLauncher.EnsureBridgeAsync(TimeSpan.FromSeconds(5));
             Check.Dat(status == BridgeStatus.PortInUse, $"EnsureBridgeAsync zegt het meteen ({status})");
+
+            Check.Dat(ChromeLauncher.Describe(BridgeStatus.PortInUse) == brug.Beletsel,
+                "de getoonde tekst komt van de server zelf, niet uit een vaste zin");
 
             bezetter.Stop();
         }
 
         brug.Start();
         Check.Dat(!brug.PortBusy, "poort weer vrij: de brug start alsnog");
+        Check.Dat(brug.StartFout is null, "en dan staat er geen reden meer bij");
 
         // Draait Chrome met de brug-extensie van de gebruiker, dan klopt die elke 250 ms aan met
         // de échte koppelcode. Dit controleproject heeft een eigen gegevensmap en dus een andere

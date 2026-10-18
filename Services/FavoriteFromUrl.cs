@@ -101,7 +101,7 @@ public static class FavoriteFromUrl
         }
         catch (Exception fout)
         {
-            Log.Write($"favoriet uit Chrome mislukte voor {url} - {fout.Message}");
+            Log.Write($"favoriet uit Chrome mislukte voor {Log.Url(url)} - {fout.Message}");
             return new Uitkomst(false, $"De pagina kwam niet binnen: {FriendlyError.Describe(fout)}");
         }
 
@@ -174,7 +174,7 @@ public static class FavoriteFromUrl
         }
         catch (Exception fout)
         {
-            Log.Write($"favoriet uit Chrome: {url} kwam niet binnen - {fout.Message}");
+            Log.Write($"favoriet uit Chrome: {Log.Url(url)} kwam niet binnen - {fout.Message}");
             return new Uitkomst(false, $"Vindioo kent deze site niet en kon de pagina niet ophalen: {FriendlyError.Describe(fout)}");
         }
 
@@ -243,7 +243,7 @@ public static class FavoriteFromUrl
             }
             catch (Exception fout)
             {
-                Log.Write($"favoriet uit Chrome: kandidaat {kandidaat} niet na te kijken - {fout.Message}");
+                Log.Write($"favoriet uit Chrome: kandidaat {Log.Url(kandidaat)} niet na te kijken - {fout.Message}");
             }
         }
 

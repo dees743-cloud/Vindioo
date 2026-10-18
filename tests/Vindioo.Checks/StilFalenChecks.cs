@@ -693,6 +693,71 @@ public static class StilFalenChecks
             Check.Dat(Log.Url("") == "" && Log.Url("geen url") == "geen url",
                 "en een lege of rare waarde geeft gewoon zichzelf terug");
         }
+
+        // ---------------------------------------------------------------------------
+        Check.Groep("Stil falen: geen enkele logregel zet een volledig adres onvermomd weg");
+        {
+            // Log.Url hierboven werkt, maar een maskeerder helpt alleen op de plaatsen waar hij
+            // ook echt staat. Op 18 oktober 2026 nageteld: van de 89 Log.Write-opdrachten met een
+            // interpolatie die een adres kón zijn, waren er zes die er werkelijk een wegschreven
+            // zonder masker - drie bij de rechtsklik-favoriet, één bij de site-analyse, één bij
+            // Pricewatch en één bij het detailvenster. Een vergeten plaats is niet te zien aan de
+            // code die draait, dus leest deze controle de broncode zelf.
+            var wortel = Check.Projectmap();
+
+            if (wortel is null)
+            {
+                Check.Overgeslagen("de projectmap is niet gevonden: de logregels zijn niet nagekeken");
+            }
+            else
+            {
+                var opdracht = new System.Text.RegularExpressions.Regex(
+                    @"Log\.Write\(.*?\);", System.Text.RegularExpressions.RegexOptions.Singleline);
+
+                var interpolatie = new System.Text.RegularExpressions.Regex(@"\{([^{}]+)\}");
+
+                // Namen die een VOLLEDIG webadres dragen. Met opzet geen algemene regel op alles
+                // wat naar een adres ruikt: {beland} en {gevraagd} in GenericSource en in de
+                // analyse zijn een Host, en een hostnaam verraadt niets over wie je bent of waar
+                // je woont. Wat Log.Url maskeert - een postcode, een straal, een regionummer -
+                // zit in de rest van het adres.
+                var adresnaam = new System.Text.RegularExpressions.Regex(
+                    @"^(url|adres|kandidaat|link|href|volledig|" +
+                    @"[A-Za-z_][A-Za-z0-9_]*\.(Url|Adres)|" +
+                    @"[A-Za-z_][A-Za-z0-9_]*(Url|Adres))$");
+
+                var bestanden = Directory
+                    .EnumerateFiles(wortel, "*.cs", SearchOption.AllDirectories)
+                    .Where(p => !p.Contains(@"\bin\") && !p.Contains(@"\obj\") && !p.Contains(@"\tests\"))
+                    .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var kaal = new List<string>();
+
+                foreach (var pad in bestanden)
+                {
+                    var tekst = File.ReadAllText(pad);
+
+                    foreach (System.Text.RegularExpressions.Match m in opdracht.Matches(tekst))
+                        foreach (System.Text.RegularExpressions.Match u in interpolatie.Matches(m.Value))
+                        {
+                            // Wat al door Log.Url gaat, staat er als "Log.Url(url)" en valt dus
+                            // vanzelf buiten deze namen: die hebben haakjes.
+                            var uitdrukking = u.Groups[1].Value.Trim();
+                            if (!adresnaam.IsMatch(uitdrukking)) continue;
+
+                            var regel = tekst[..m.Index].Count(c => c == '\n') + 1;
+                            kaal.Add($"{Path.GetFileName(pad)}:{regel} {{{uitdrukking}}}");
+                        }
+                }
+
+                Check.Dat(bestanden.Count > 30, $"{bestanden.Count} bronbestanden nagekeken");
+
+                Check.Dat(kaal.Count == 0, kaal.Count == 0
+                    ? "elke Log.Write met een adres erin gaat door Log.Url"
+                    : $"ONVERMOMD: {string.Join("; ", kaal)}");
+            }
+        }
     }
 }
 
